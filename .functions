@@ -1,0 +1,9 @@
+#! /usr/bin/env bash
+
+function rpmbuild-here() {
+    rpmbuild --define "_topdir $(cd .. ; pwd)" $@
+}
+
+function rpmbuild-bootstrap() {
+    mkdir -p BUILD BUILDROOT SOURCE SPECS SRPMS
+}
