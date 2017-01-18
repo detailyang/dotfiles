@@ -1,0 +1,4 @@
+OPENRESTY_DEVEL_PATH=/shared/art/opensource/github/openresty/openresty-devel-utils
+if [[ -d "$OPENRESTY_DEVEL_PATH" ]]; then
+        export PATH="$OPENRESTY_DEVEL_PATH:$PATH"
+fi
