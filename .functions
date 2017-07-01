@@ -7,3 +7,14 @@ function rpmbuild-here() {
 function rpmbuild-bootstrap() {
     mkdir -p BUILD BUILDROOT SOURCE SPECS SRPMS
 }
+
+function i() {
+    HOSTS=`cat $HOME/.hosts | sort`
+    SSH="ssh -A -o ConnectTimeout=3 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+    select line in "$HOSTS" ; do
+        IFS='|' read -r host user ip port <<< "$line"
+        echo "$SSH -p $port $user@$ip"
+        $SSH -p $port "$user@$ip"
+    done
+}
