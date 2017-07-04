@@ -18,3 +18,20 @@ function i() {
         $SSH -p $port "$user@$ip"
     done
 }
+
+function tunoff() {
+    sudo kextunload -b net.sf.tuntaposx.tun
+}
+
+function chrome() {
+    open "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+}
+
+function chrome-canary() {
+    open "/Applications/Google Chrome Canary.app/Contents/MacOS/Google Chrome Canary"
+}
+
+function chromium() {
+    open "/Applications/Chromium.app/Contents/MacOS/Chromium"
+}
+
