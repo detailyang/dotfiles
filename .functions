@@ -23,6 +23,14 @@ function tunoff() {
     sudo kextunload -b net.sf.tuntaposx.tun
 }
 
+function cscope-build {
+    cscope -bqR
+}
+
+function cscope-go {
+    cscope -dq
+}
+
 function chrome() {
     open "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
 }
