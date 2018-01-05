@@ -1,4 +1,5 @@
 .exclude
+install.sh
 .git
 .README.md
 LICENSE
