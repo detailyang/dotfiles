@@ -2,3 +2,6 @@ OPENRESTY_DEVEL_PATH=/shared/art/opensource/github/openresty/openresty-devel-uti
 if [[ -d "$OPENRESTY_DEVEL_PATH" ]]; then
         export PATH="$OPENRESTY_DEVEL_PATH:$PATH"
 fi
+export PATH="$HOME/bin:$PATH";
+export PATH="$HOME/.cargo/bin:$PATH"
+export PATH="$HOME/.go/bin:$PATH"
