@@ -5,3 +5,7 @@ end
 for file in ~/.fish/*.fish
 	source $file
 end
+
+for file in ~/fish/*.fish
+	source $file
+end
