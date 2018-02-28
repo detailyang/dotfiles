@@ -43,3 +43,7 @@ function chromium() {
     open "/Applications/Chromium.app/Contents/MacOS/Chromium"
 }
 
+function mac-key-repeat() {
+    defaults write -g ApplePressAndHoldEnabled -bool false
+}
+
