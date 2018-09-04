@@ -9,3 +9,4 @@ rsync --exclude-from=./.exclude \
 
 source ~/.bash_profile
 
+mkdir -p ~/art/{opensource,personal}
