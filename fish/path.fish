@@ -4,4 +4,4 @@ set -x PATH ~/go/bin $PATH
 set -x PATH ~/python/bin $PATH
 set -x PATH ~/bash/bin $PATH
 set -x PATH ~/node/bin $PATH
-set -x PATH /usr/local/go/bin/go $PATH
+set -x PATH /usr/local/go/bin $PATH
