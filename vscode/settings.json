@@ -11,22 +11,20 @@
     "go.useCodeSnippetsOnFunctionSuggest": false,
     "go.formatOnSave": true,
     "go.formatTool": "goreturns",
-    "go.goroot": "//usr/local/go",
+    "go.goroot": "/usr/local/go",
     "go.gopath": "/Users/blackbox/go",
     "files.autoSave": "onFocusChange",
     "explorer.confirmDragAndDrop": false,
-    "python.formatting.provider": "which ",
+    "python.formatting.provider": "yapf",
     "editor.formatOnSave": true,
-    "python.pythonPath": "/usr/local/bin/python3.6",
+    "python.pythonPath": "/usr/bin/python",
     "window.zoomLevel": 0,
     "rust.mode": "rls",
     "workbench.activityBar.visible": true,
-    "editor.fontSize": 14,
+    "editor.fontSize": 13.5,
     "breadcrumbs.enabled": true,
     "editor.rulers": [
         80,
         120
-    ],
-    "sync.gist": "2d1655fba99a0a51623d270736d6eb1ec650973d",
-    "sync.autoUpload": true
+    ]
 }
