@@ -1,0 +1,32 @@
+{
+    "workbench.colorTheme": "Sublime Material Theme - Light",
+    "http.proxy": "127.0.0.1:1087",
+    "workbench.iconTheme": "Monokai Pro Icons",
+    "go.buildOnSave": true,
+    "go.lintOnSave": true,
+    "go.vetOnSave": true,
+    "go.buildFlags": [],
+    "go.lintFlags": [],
+    "go.vetFlags": [],
+    "go.useCodeSnippetsOnFunctionSuggest": false,
+    "go.formatOnSave": true,
+    "go.formatTool": "goreturns",
+    "go.goroot": "//usr/local/go",
+    "go.gopath": "/Users/blackbox/go",
+    "files.autoSave": "onFocusChange",
+    "explorer.confirmDragAndDrop": false,
+    "python.formatting.provider": "which ",
+    "editor.formatOnSave": true,
+    "python.pythonPath": "/usr/local/bin/python3.6",
+    "window.zoomLevel": 0,
+    "rust.mode": "rls",
+    "workbench.activityBar.visible": true,
+    "editor.fontSize": 14,
+    "breadcrumbs.enabled": true,
+    "editor.rulers": [
+        80,
+        120
+    ],
+    "sync.gist": "2d1655fba99a0a51623d270736d6eb1ec650973d",
+    "sync.autoUpload": true
+}

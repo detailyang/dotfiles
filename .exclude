@@ -1,5 +1,6 @@
 .exclude
 install.sh
+vscode
 .git
 .README.md
 LICENSE
