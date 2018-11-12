@@ -1,1 +1,1 @@
-set -xg GOPATH $HOME/go
+set -xg GOPATH /shared/go:$HOME/go
