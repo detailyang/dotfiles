@@ -1,0 +1,8 @@
+{
+    "#ifndef HEADER … #define … #endif": {
+        "prefix": "defheader",
+        "scope": "c,cpp",
+        "body": "#ifndef ${1:__${TM_FILENAME/(.*)\\.C$/${1:/upcase}_H__/i}} \n#define $1 \n#endif\t// $1",
+        "description": "Generate ifndef header"
+    }
+}
