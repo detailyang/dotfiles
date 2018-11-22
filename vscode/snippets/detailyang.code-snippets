@@ -4,5 +4,28 @@
         "scope": "c,cpp",
         "body": "#ifndef ${1:__${TM_FILENAME/(.*)\\.C$/${1:/upcase}_H__/i}} \n#define $1 \n#endif\t// $1",
         "description": "Generate ifndef header"
+    },
+    "k8s-cronjob": {
+        "prefix": "k8scronjob",
+        "description": "k8s",
+        "scope": "yml,yaml",
+        "body": [
+            "apiVersion: batch/v1beta1",
+            "kind: CronJob",
+            "metadata:",
+            "  name: cronjob",
+            "  namespace: example",
+            "spec:",
+            "  schedule: \"* * * * *\"",
+            "  jobTemplate:",
+            "    spec:",
+            "      template:",
+            "        spec:",
+            "          containers:",
+            "            - name: cronjob",
+            "              image: bash",
+            "              command: [\"echo\",  \"Hello world\"]",
+            "          restartPolicy: OnFailure",
+        ],
     }
 }
