@@ -1,5 +1,5 @@
 {
-    "workbench.colorTheme": "Sublime Material Theme - Light",
+    "workbench.colorTheme": "GitHub Plus",
     "http.proxy": "127.0.0.1:1087",
     "workbench.iconTheme": "Monokai Pro Icons",
     "go.buildOnSave": true,
@@ -26,5 +26,10 @@
     "editor.rulers": [
         80,
         120
-    ]
+    ],
+    "vs-kubernetes": {
+        "vs-kubernetes.helm-path": "/Users/blackbox/.vs-kubernetes/tools/helm/darwin-amd64/helm",
+        "vs-kubernetes.draft-path": "/Users/blackbox/.vs-kubernetes/tools/draft/darwin-amd64/draft",
+        "vs-kubernetes.minikube-path": "/Users/blackbox/.vs-kubernetes/tools/minikube/darwin-amd64/minikube"
+    }
 }
