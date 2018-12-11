@@ -12,7 +12,7 @@
     "go.formatOnSave": true,
     "go.formatTool": "goreturns",
     "go.goroot": "/usr/local/go",
-    "go.gopath": "/Users/blackbox/go",
+    "go.gopath": "/Users/detailyang/go",
     "files.autoSave": "onFocusChange",
     "explorer.confirmDragAndDrop": false,
     "python.formatting.provider": "yapf",
@@ -28,8 +28,8 @@
         120
     ],
     "vs-kubernetes": {
-        "vs-kubernetes.helm-path": "/Users/blackbox/.vs-kubernetes/tools/helm/darwin-amd64/helm",
-        "vs-kubernetes.draft-path": "/Users/blackbox/.vs-kubernetes/tools/draft/darwin-amd64/draft",
-        "vs-kubernetes.minikube-path": "/Users/blackbox/.vs-kubernetes/tools/minikube/darwin-amd64/minikube"
+        "vs-kubernetes.helm-path": "/Users/detailyang/.vs-kubernetes/tools/helm/darwin-amd64/helm",
+        "vs-kubernetes.draft-path": "/Users/detailyang/.vs-kubernetes/tools/draft/darwin-amd64/draft",
+        "vs-kubernetes.minikube-path": "/Users/detailyang/.vs-kubernetes/tools/minikube/darwin-amd64/minikube"
     }
 }
