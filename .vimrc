@@ -24,3 +24,6 @@ set hlsearch
 set ruler
 
 set laststatus=2
+
+" do not expand tab in Makefile
+autocmd FileType make setlocal noexpandtab
