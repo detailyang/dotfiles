@@ -6,3 +6,4 @@ set -x PATH ~/bash/bin $PATH
 set -x PATH ~/node/bin $PATH
 set -x PATH /usr/local/go/bin $PATH
 set -x PATH /usr/local/openresty/bin $PATH
+set -x PATH ~/.jenv/bin $PATH
