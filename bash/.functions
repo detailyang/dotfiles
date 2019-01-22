@@ -19,6 +19,19 @@ function i() {
     done
 }
 
+function k() {
+    CLUSTERS=$(cat $HOME/.k8s | sort)
+    select cluster in $CLUSTERS; do
+       IFS='|' read -r name config <<< "$cluster"
+       echo "export KUBECONFIG=$config"
+       export KUBECONFIG=$config
+       if which pbcopy &> /dev/null; then
+           echo "export KUBECONFIG=$config" | pbcopy
+       fi
+       exit
+    done
+}
+
 function tunoff() {
     sudo kextunload -b net.sf.tuntaposx.tun
 }
