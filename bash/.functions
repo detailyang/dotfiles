@@ -23,7 +23,7 @@ function k() {
     CLUSTERS=$(cat $HOME/.k8s | sort)
     select cluster in $CLUSTERS; do
        IFS='|' read -r name config <<< "$cluster"
-       export KUBENAME=$NAME
+       export KUBENAME=$name
        export KUBECONFIG=$config
 
        if which fish &> /dev/null; then
