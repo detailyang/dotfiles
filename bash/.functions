@@ -30,6 +30,14 @@ function k() {
            exec fish
        fi
 
+       if which zsh &> /dev/null; then
+           exec zsh
+       fi
+
+       if which bash &> /dev/null; then
+           exec bash
+       fi
+
        if which pbcopy &> /dev/null; then
            echo "export KUBECONFIG=$config" | pbcopy
        fi
