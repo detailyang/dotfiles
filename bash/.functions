@@ -25,6 +25,11 @@ function k() {
        IFS='|' read -r name config <<< "$cluster"
        echo "export KUBECONFIG=$config"
        export KUBECONFIG=$config
+
+       if which fish &> /dev/null; then
+           exec fish
+       fi
+
        if which pbcopy &> /dev/null; then
            echo "export KUBECONFIG=$config" | pbcopy
        fi
