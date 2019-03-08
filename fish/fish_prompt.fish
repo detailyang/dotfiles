@@ -2,7 +2,7 @@ function fish_prompt
   # Cache exit status
   set -l last_status $status
 
-  set -g __fish_prompt_kubeconfig $KUBECONFIG
+  set -g __fish_prompt_kubeconfig $KUBENAME
 
   # Just calculate these once, to save a few cycles when displaying the prompt
   if not set -q __fish_prompt_hostname
@@ -54,12 +54,12 @@ function fish_prompt
   set -g __fish_git_prompt_show_informative_status true 
  
   # Line 1
-  echo -n $white'╭─'$hotpink$USER $god\[$__fish_prompt_kubeconfig\] $white' at '$orange$__fish_prompt_hostname$white' in '$limegreen(pwd)$turquoise
+  echo -n $white'╭─'$hotpink$USER $white' at '$orange$__fish_prompt_hostname$white' in '$limegreen(pwd)$turquoise
   __fish_git_prompt " (%s)"
   echo
 
   # Line 2
-  echo -n $white'╰'
+  echo -n $white'╰' $god\[$__fish_prompt_kubeconfig\] 
   # support for virtual env name
   if set -q VIRTUAL_ENV
       echo -n "($turquoise"(basename "$VIRTUAL_ENV")"$white)"
