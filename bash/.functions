@@ -8,6 +8,20 @@ function rpmbuild-bootstrap() {
     mkdir -p BUILD BUILDROOT SOURCE SPECS SRPMS
 }
 
+function ii() {
+    PASS=($(cat $HOME/.ihosts | sort| awk -F '|' '{print $5}'))
+    IHOSTS=`cat $HOME/.ihosts | sort | awk -F '|' '{print $1"|"$2"|"$3"|"$4"|******"}'`
+    SSHPASS="sshpass"
+    SSH="ssh -A -o ConnectTimeout=3 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+    select line in $IHOSTS ; do
+        i=$(( $REPLY - 1))
+        pass=${PASS[$i]}
+        IFS='|' read -r host user ip port _pass <<< "$line"
+        $SSHPASS -p "$pass" $SSH -p $port "$user@$ip"
+    done
+}
+
 function i() {
     HOSTS=`cat $HOME/.hosts | sort`
     SSH="ssh -A -o ConnectTimeout=3 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
@@ -72,4 +86,5 @@ function chromium() {
 function mac-key-repeat() {
     defaults write -g ApplePressAndHoldEnabled -bool false
 }
+
 
