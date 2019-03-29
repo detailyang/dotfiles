@@ -1,0 +1,2 @@
+alias ls="lsd -l"
+
