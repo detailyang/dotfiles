@@ -1,15 +1,15 @@
 function proxy -d "set proxy to socks5 1087"
-	switch (uname)
-	case Linux
-		export HTTPS_PROXY=http://192.168.33.1:1087
-		export HTTP_PROXY=http://192.168.33.1:1087
-	case Darwin
-		export HTTPS_PROXY=http://127.0.0.1:1087
-		export HTTP_PROXY=http://127.0.0.1:1087
-	case '*'
-		export HTTPS_PROXY=http://127.0.0.1:1087
-		export HTTP_PROXY=http://127.0.0.1:1087
-	end
+	set -x interface $argv[1]
+    if test "$interface" = "" 
+		# My virtualbox host ip
+    	set ip "192.168.33.1" 
+    else
+        set ip (ifconfig $interface |grep "inet " |awk '{print $2}')
+    end
+
+    echo "socks5: $ip:1087 interface:$interface"
+	export HTTPS_PROXY=http://$ip:1087
+	export HTTP_PROXY=http://$ip:1087
 	export GOPROXY=https://goproxy.io
 end
 
