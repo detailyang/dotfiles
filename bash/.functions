@@ -8,6 +8,21 @@ function rpmbuild-bootstrap() {
     mkdir -p BUILD BUILDROOT SOURCE SPECS SRPMS
 }
 
+function gitworkname() {
+    if [[ -f "$HOME/.gitworkname" ]]; then
+        topdir=$(git rev-parse --show-toplevel 2>/dev/null)
+        if [[ "$topdir" == "" ]]; then
+            echo "error: not git repo"
+            exit 1
+        fi
+
+        echo -e "append \n$(cat $HOME/.gitworkname)\nto ${topdir}/.git/config"
+        cat "$HOME/.gitworkname" >> "${topdir}/.git/config"
+    else
+        echo "no ~/.gitworkname found"
+    fi
+}
+
 function ii() {
     PASS=($(cat $HOME/.ihosts | sort| awk -F '|' '{print $5}'))
     IHOSTS=`cat $HOME/.ihosts | sort | awk -F '|' '{print $1"|"$2"|"$3"|"$4"|******"}'`
