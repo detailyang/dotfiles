@@ -1,3 +1,5 @@
+[include]
+    path = ~/.gitworkconfig
 [user]
 	email = detailyang@gmail.com
 	name = detailyang
