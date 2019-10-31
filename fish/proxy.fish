@@ -11,7 +11,8 @@ function proxy -d "set proxy to socks5 1087"
 	export HTTPS_PROXY=http://$ip:1087
 	export HTTP_PROXY=http://$ip:1087
 	export GOPROXY=https://goproxy.cn
-    export NOPROXY="127.0.0.1,192.168.64.11"
+    set -x no_proxy_192 (seq -f"192.168.44.%g" -s"," 0 40)
+    export NO_PROXY="127.0.0.1,localhost,$no_proxy_192"
 end
 
 function unproxy -d "disable proxy to socks5 1087"
