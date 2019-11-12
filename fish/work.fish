@@ -1,5 +1,7 @@
 #!/usr/bin/env fish
 
-for file in (command ls ~/.work/*.fish)
-    source $file
+if test -d ~/.work
+    for file in (command ls ~/.work/*.fish)
+        source $file
+    end
 end
