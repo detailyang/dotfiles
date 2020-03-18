@@ -1,5 +1,3 @@
-abbrevCommit = true
-
 [include]
     path = ~/.gitworkconfig
 [user]

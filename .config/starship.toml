@@ -1,0 +1,75 @@
+# Don't print a new line at the start of the prompt
+add_newline = false
+
+# Replace the "❯" symbol in the prompt with "➜"
+[character]      # The name of the module we are configuring is "character"
+symbol = "➜"     # The "symbol" segment is being set to "➜"
+
+# Disable the package module, hiding it from the prompt completely
+[package]
+disabled = true
+
+[battery]
+full_symbol = "🔋"
+charging_symbol = "🔌"
+discharging_symbol = "⚡"
+
+[[battery.display]]
+threshold = 30
+style = "bold red"
+
+[character]
+use_symbol_for_status = true  # Show "✖" when the command faild
+
+[directory]
+truncation_length = 5
+prefix = ""
+
+[git_branch]
+symbol = "🍣 "
+style = "bold yellow"
+
+[git_state]
+progress_divider = " of "
+
+[git_status]
+conflicted = "⚔️ "
+ahead = "🏎️ 💨 "
+behind = "🐢 "
+diverged = "🔱 "
+untracked = "🛤️ "
+stashed = "📦 "
+modified = "📝 "
+staged = "🗃️ "
+renamed = "📛 "
+deleted = "🗑️ "
+prefix = ""
+suffix = ""
+style = "bright-white"
+
+[hostname]
+ssh_only = false
+prefix = "<"
+suffix = ">"
+trim_at = "-"
+style = "bold dimmed white"
+disabled = true
+
+[memory_usage]
+show_percentage = true
+show_swap = true
+threshold = 50
+style = "bold dimmed white"
+disabled = false
+
+[package]
+disabled = true
+
+[time]
+format = "🕙 %T"
+style = "bright-white"
+disabled = false
+
+[username]
+style_user = "bold dimmed blue"
+show_always = false
