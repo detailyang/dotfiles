@@ -1,6 +1,20 @@
 # Don't print a new line at the start of the prompt
 add_newline = false
 
+prompt_order = ["username",
+                "hostname",
+                "directory",
+                "git_branch",
+                "python",
+                "kubernetes",
+                "line_break",
+                "cmd_duration",
+                "jobs",
+                "time",
+                "character",
+]
+
+
 # Replace the "❯" symbol in the prompt with "➜"
 [character]      # The name of the module we are configuring is "character"
 symbol = "➜"     # The "symbol" segment is being set to "➜"
@@ -73,3 +87,4 @@ disabled = false
 [username]
 style_user = "bold dimmed blue"
 show_always = false
+
