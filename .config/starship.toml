@@ -5,6 +5,7 @@ prompt_order = ["username",
                 "hostname",
                 "directory",
                 "git_branch",
+                "golang",
                 "python",
                 "kubernetes",
                 "line_break",
@@ -22,6 +23,9 @@ symbol = "➜"     # The "symbol" segment is being set to "➜"
 # Disable the package module, hiding it from the prompt completely
 [package]
 disabled = true
+
+[golang]
+symbol = "🏎💨"
 
 [battery]
 full_symbol = "🔋"
