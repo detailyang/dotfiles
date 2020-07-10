@@ -4,7 +4,12 @@ set -x PATH ~/go/bin $PATH
 set -x PATH ~/python/bin $PATH
 set -x PATH ~/bash/bin $PATH
 set -x PATH ~/node/bin $PATH
+set -x PATH ~/java/bin $PATH
 set -x PATH /usr/local/go/bin $PATH
+
+if test -d ~/maven/bin
+    set -x PATH ~/maven/bin $PATH
+end
 
 if test -d /usr/local/openresty/bin 
     set -x PATH /usr/local/openresty/bin $PATH
