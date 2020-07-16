@@ -13,8 +13,8 @@ Vagrant.configure("2") do |config|
   ENV['LC_ALL']="en_US.UTF-8"
 
   config.vm.provider "virtualbox" do |v|
-      v.memory = 4096
-      v.cpus = 8
+      v.memory = 2048
+      v.cpus = 2
   end
 
   # Every Vagrant development environment requires a box. You can search for
