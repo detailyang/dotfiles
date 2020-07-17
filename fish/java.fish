@@ -1,1 +1,2 @@
-export JAVA_HOME=/Library/Java/JavaVirtualMachines/jdk1.8.0_261.jdk/Contents/Home
+set jdk (command ls /Library/Java/JavaVirtualMachines | head -n 1)
+export JAVA_HOME=/Library/Java/JavaVirtualMachines/$jdk/Contents/Home
