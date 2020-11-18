@@ -1,94 +1,73 @@
-# Don't print a new line at the start of the prompt
-add_newline = false
+format = """\
+    $time\
+    $custom\
+    $directory\
+    $docker_context\
+    $package\
+    $dotnet\
+    $java\
+    $julia\
+    $nodejs\
+    $python\
+    $ruby\
+    $rust\
+    $nix_shell\
+    $memory_usage\
+    $aws\
+    $env_var\
+    $git_branch\
+    $git_commit\
+    $git_state\
+    $git_status\
+    $cmd_duration\
+    $line_break\
+    $character\
+"""
 
-prompt_order = ["username",
-                "hostname",
-                "directory",
-                "git_branch",
-                "golang",
-                "python",
-                "kubernetes",
-                "line_break",
-                "cmd_duration",
-                "jobs",
-                "time",
-                "character",
-]
+[aws]
+style = "bold blue"
+symbol = "🅰 "
+displayed_items = "region"
 
+[aws.region_aliases]
+ap-southeast-2 = "au"
+us-east-1 = "va"
 
-# Replace the "❯" symbol in the prompt with "➜"
-[character]      # The name of the module we are configuring is "character"
-symbol = "➜"     # The "symbol" segment is being set to "➜"
+[cmd_duration]
+# $duration – The command duration (e.g. "15s")
+# $style    – The default style of the module (e.g. "bold yellow")
+min_time = 500
+format = "⌛ [$duration]($style) "
+show_milliseconds = true
 
-# Disable the package module, hiding it from the prompt completely
-[package]
+[custom.nu]
+command = "printf 🐚"
+format = "[$symbol$output]($style) "
+when = """ test "$SHELL" == "/usr/local/bin/nu" """
+
+[dotnet]
 disabled = true
-
-[golang]
-symbol = "🏎💨"
-
-[battery]
-full_symbol = "🔋"
-charging_symbol = "🔌"
-discharging_symbol = "⚡"
-
-[[battery.display]]
-threshold = 30
-style = "bold red"
-
-[character]
-use_symbol_for_status = true  # Show "✖" when the command faild
 
 [directory]
-truncation_length = 5
-prefix = ""
+format = "[$path]($style)[$read_only]($read_only_style) "
+style = "bold bright-blue"
+truncation_length = 7
+truncate_to_repo = false
 
 [git_branch]
-symbol = "🍣 "
-style = "bold yellow"
-
-[git_state]
-progress_divider = " of "
+symbol = "🌱 "
+# style = "white"
+style = "bright-green"
 
 [git_status]
-conflicted = "⚔️ "
-ahead = "🏎️ 💨 "
-behind = "🐢 "
-diverged = "🔱 "
-untracked = "🛤️ "
-stashed = "📦 "
-modified = "📝 "
-staged = "🗃️ "
-renamed = "📛 "
-deleted = "🗑️ "
-prefix = ""
-suffix = ""
-style = "bright-white"
-
-[hostname]
-ssh_only = false
-prefix = "<"
-suffix = ">"
-trim_at = "-"
-style = "bold dimmed white"
-disabled = true
-
-[memory_usage]
-show_percentage = true
-show_swap = true
-threshold = 50
-style = "bold dimmed white"
-disabled = false
-
-[package]
-disabled = true
+format = '([$all_status$ahead_behind]($style) )'
+stashed = "" # ignore stashes
+staged.value = "!"
+staged.style = "bold bright-green"
 
 [time]
-format = "🕙 %T"
-style = "bright-white"
 disabled = false
-
-[username]
-style_user = "bold dimmed blue"
-show_always = false
-
+format = "[$time]($style) "
+time_format = "%T"
+style = "bold yellow"
+utc_time_offset = "+8"
