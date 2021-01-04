@@ -1,4 +1,4 @@
-function proxy -d "set proxy to socks5 1087"
+function proxy -d "set proxy to socks5 7890"
 	set -x interface $argv[1]
     if test "$interface" = "" 
 		# My virtualbox host ip
@@ -7,10 +7,10 @@ function proxy -d "set proxy to socks5 1087"
         set ip (ifconfig $interface |grep "inet " |awk '{print $2}')
     end
 
-    echo "socks5: $ip:1087 interface:$interface"
-	export HTTPS_PROXY=http://$ip:1087
-	export HTTP_PROXY=http://$ip:1087
-	export SOCKS_PROXY=http://$ip:1087
+    echo "socks5: $ip:7890 interface:$interface"
+	export HTTPS_PROXY=http://$ip:7890
+	export HTTP_PROXY=http://$ip:7890
+	export SOCKS_PROXY=http://$ip:7890
     set -x no_proxy_192 (seq -f"192.168.44.%g" -s"," 0 40)
     set -x no_proxy_192_168 (seq -f"192.168.0.%g" -s"," 0 254)
     export NO_PROXY="127.0.0.1,localhost,$no_proxy_192,$no_proxy_192_168"
@@ -20,7 +20,7 @@ function proxy -d "set proxy to socks5 1087"
 	echo "NO_PROXY:$NO_PROXY"
 end
 
-function unproxy -d "disable proxy to socks5 1087"
+function unproxy -d "disable proxy to socks5 7890"
 	export HTTPS_PROXY=
 	export HTTP_PROXY=
 	export GOPROXY=
