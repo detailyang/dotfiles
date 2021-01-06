@@ -2,6 +2,10 @@
 
 cd "$(dirname "${BASH_SOURCE}")"
 
+function install_binutils() {
+    brew install coreutils gnu-sed
+}
+
 function install_rust_app() {
     readonly apps=(fd bat hyperfine hexyl pastel exa)
     for app in "${apps[@]}"; do
@@ -9,6 +13,14 @@ function install_rust_app() {
             brew install $app
         fi
     done
+}
+
+function preparse_oh_my_fish() {
+    if ! command -v omf; then
+        curl -L https://get.oh-my.fish | fish
+        omf install z
+        omf install peco
+    fi
 }
 
 function prepare_dirs() {
@@ -37,6 +49,12 @@ function main() {
 
     echo "Preparing directory"
     prepare_dirs
+
+    echo "Preparing oh my fish"
+    preparse_oh_my_fish
+
+    echo "Installing binutils"
+    install_binutils
 
     echo "Installing rust app"
     install_rust_app
