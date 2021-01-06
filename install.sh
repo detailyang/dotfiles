@@ -6,8 +6,8 @@ function install_binutils() {
     brew install coreutils gnu-sed
 }
 
-function install_rust_app() {
-    readonly apps=(fd bat hyperfine hexyl pastel exa)
+function install_app() {
+    readonly apps=(fd bat hyperfine hexyl pastel exa peco)
     for app in "${apps[@]}"; do
         if ! command -v $app &> /dev/null; then
             brew install $app
@@ -56,8 +56,8 @@ function main() {
     echo "Installing binutils"
     install_binutils
 
-    echo "Installing rust app"
-    install_rust_app
+    echo "Installing app"
+    install_app
 }
 
 main
