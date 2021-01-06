@@ -16,7 +16,7 @@ function install_rust_app() {
 }
 
 function preparse_oh_my_fish() {
-    if ! command -v omf; then
+    if [ -x "$(command -v omf)" ]; then
         curl -L https://get.oh-my.fish | fish
         omf install z
         omf install peco
