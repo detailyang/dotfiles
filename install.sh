@@ -20,6 +20,7 @@ function preparse_oh_my_fish() {
         curl -L https://get.oh-my.fish | fish
         omf install z
         omf install peco
+        omf install foreign-env
     fi
 }
 

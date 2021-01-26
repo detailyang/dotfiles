@@ -58,6 +58,10 @@ func run() {
 		return
 	}
 
+	if n&0x00 == 0 {
+		workflow.NewItem("___GFP_NORMAL")
+	}
+
 	for _, r := range flags {
 		if n&r.mask > 0 {
 			workflow.NewItem(r.name)
