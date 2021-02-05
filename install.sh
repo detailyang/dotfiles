@@ -3,7 +3,7 @@
 cd "$(dirname "${BASH_SOURCE}")"
 
 function install_binutils() {
-    brew install coreutils gnu-sed
+#    brew install coreutils gnu-sed
 }
 
 function install_app() {
@@ -18,6 +18,7 @@ function install_app() {
 function preparse_oh_my_fish() {
     if [ -x "$(command -v omf)" ]; then
         curl -L https://get.oh-my.fish | fish
+        omf install fzf
         omf install z
         omf install peco
         omf install foreign-env
