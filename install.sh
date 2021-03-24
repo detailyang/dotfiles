@@ -3,7 +3,8 @@
 cd "$(dirname "${BASH_SOURCE}")"
 
 function install_binutils() {
-#    brew install coreutils gnu-sed
+    echo "skiping install coreutils"
+    #brew install coreutils gnu-sed
 }
 
 function install_app() {
