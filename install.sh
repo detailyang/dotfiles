@@ -8,7 +8,7 @@ function install_binutils() {
 }
 
 function install_app() {
-    readonly apps=(fd bat hyperfine hexyl pastel exa peco secretive)
+    readonly apps=(fd bat hyperfine hexyl pastel exa peco)
     for app in "${apps[@]}"; do
         if ! command -v $app &> /dev/null; then
             brew install $app
