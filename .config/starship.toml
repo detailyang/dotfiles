@@ -74,5 +74,5 @@ style = "bold yellow"
 utc_time_offset = "+8"
 
 [kubernetes]
-format = 'k8s[⛵ $context \($namespace\)](dimmed green) '
+format = '[⛵ $context\($namespace\)](dimmed green) '
 disabled = false
