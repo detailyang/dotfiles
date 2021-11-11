@@ -14,6 +14,7 @@ format = """\
     $nix_shell\
     $memory_usage\
     $aws\
+    $kubernetes\
     $env_var\
     $git_branch\
     $git_commit\
@@ -71,3 +72,7 @@ format = "[$time]($style) "
 time_format = "%T"
 style = "bold yellow"
 utc_time_offset = "+8"
+
+[kubernetes]
+format = 'k8s[⛵ $context \($namespace\)](dimmed green) '
+disabled = false
