@@ -10,12 +10,14 @@ function proxy -d "set proxy to socks5 7890"
     echo "socks5: $ip:7890 interface:$interface"
 	export HTTPS_PROXY=http://$ip:7890
 	export HTTP_PROXY=http://$ip:7890
+	export ALL_PROXY=http://$ip:7890
 	export SOCKS_PROXY=http://$ip:7890
     set -x no_proxy_192 (seq -f"192.168.44.%g" -s"," 0 40)
     set -x no_proxy_192_168 (seq -f"192.168.0.%g" -s"," 0 254)
     export NO_PROXY="127.0.0.1,localhost,$no_proxy_192,$no_proxy_192_168"
 	echo "HTTP_PROXY:$HTTP_PROXY"
 	echo "HTTPS_PROXY:$HTTPS_PROXY"
+	echo "ALL_PROXY:$HTTPS_PROXY"
 	echo "SOCKS_PROXY:$SOCKS_PROXY"
 	echo "NO_PROXY:$NO_PROXY"
 end
@@ -23,6 +25,7 @@ end
 function unproxy -d "disable proxy to socks5 7890"
 	export HTTPS_PROXY=
 	export HTTP_PROXY=
+	export ALL_PROXY=
 	export GOPROXY=
     export NOPROXY=
 end
@@ -37,11 +40,13 @@ function autoproxy -d "set proxy from system config"
 	export HTTP_PROXY="$httpproxy:$httpport"
 	export HTTPS_PROXY="$httpsproxy:$httpsport"
 	export SOCKS_PROXY="$socksproxy:$socksport"
+	export ALL_PROXY="$socksproxy:$socksport"
     set -x no_proxy_192 (seq -f"192.168.44.%g" -s"," 0 40)
     set -x no_proxy_192_168 (seq -f"192.168.0.%g" -s"," 0 254)
     export NO_PROXY="127.0.0.1,localhost,$no_proxy_192,$no_proxy_192_168"
 	echo "HTTP_PROXY:$HTTP_PROXY"
 	echo "HTTPS_PROXY:$HTTPS_PROXY"
 	echo "SOCKS_PROXY:$SOCKS_PROXY"
+	echo "ALL_PROXY:$SOCKS_PROXY"
 	echo "NO_PROXY:$NO_PROXY"
 end
