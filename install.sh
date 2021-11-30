@@ -7,8 +7,22 @@ function install_binutils() {
     #brew install coreutils gnu-sed
 }
 
+function install_font() {
+    brew tap homebrew/cask-fonts
+    brew install --cask font-fira-code
+}
+
+
+function install_mac_app() {
+    readonly apps=(amphetamine bartender enpass alacritty snippetslab eudic reeder dash karabiner manico vscode-insider)
+
+    for app in "${apps[@]}"; do
+        echo "try to install $app"
+    done
+}
+
 function install_app() {
-    readonly apps=(fd bat stats hyperfine hexyl pastel exa peco)
+    readonly apps=(starship fd bat stats hyperfine hexyl pastel exa peco tmux)
     for app in "${apps[@]}"; do
         if ! command -v $app &> /dev/null; then
             brew install --cask $app
@@ -61,6 +75,12 @@ function main() {
 
     echo "Installing app"
     install_app
+
+    echo "Installing font"
+    install_font
+
+    echo "Installing mac app"
+    install_mac_app
 }
 
 main
