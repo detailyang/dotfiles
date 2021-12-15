@@ -174,4 +174,6 @@ hide_when_typing: true
 shell:
   program: /usr/local/bin/fish
   args:
-    - --command=tmux
+    - -l
+    - -c
+    - "tmux attach || tmux"
