@@ -6,7 +6,7 @@
 	name = detailyang
 
 [core]
-    pager = delta --plus-color="#012800" --minus-color="#340001" --theme='Monokai Extended'
+    pager = delta --plus-style="#012800" --minus-style="#340001" --theme='Monokai Extended'
 
 [interactive]
     diffFilter = delta --color-only
