@@ -1,0 +1,1 @@
+mcfly init fish | source

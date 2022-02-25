@@ -22,7 +22,8 @@ function install_mac_app() {
 }
 
 function install_app() {
-    readonly apps=(goland firefox google-chrome iterm2 starship fd bat stats hyperfine hexyl pastel exa peco tmux git-extras)
+    brew tap cantino/mcfly
+    readonly apps=(goland firefox google-chrome iterm2 starship fd bat stats hyperfine hexyl pastel exa peco tmux git-extras mcfly)
     for app in "${apps[@]}"; do
         if ! command -v $app &> /dev/null; then
             brew install --cask $app
