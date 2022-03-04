@@ -5,6 +5,7 @@
     home.packages = [
         pkgs.tmux
 
+        pkgs.silver-searcher
         pkgs.exa
         pkgs.mcfly
         pkgs.starship
