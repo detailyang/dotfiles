@@ -22,4 +22,8 @@
         pkgs.gnugrep
         pkgs.gnused
     ];
+
+    programs.home-manager = {
+      enable = true;
+    };
 }
