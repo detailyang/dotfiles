@@ -13,9 +13,12 @@
         pkgs.hyperfine
         pkgs.hexyl
         pkgs.git-extras
+        pkgs.curl
+        pkgs.wget
 
         pkgs.vscode
         pkgs.fira-code
+        pkgs.alacritty
 
         pkgs.coreutils
         pkgs.findutils
@@ -25,5 +28,9 @@
 
     programs.home-manager = {
       enable = true;
+    };
+
+    programs.fish = {
+        enable = true;
     };
 }
