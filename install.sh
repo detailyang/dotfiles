@@ -22,8 +22,7 @@ function install_mac_app() {
 }
 
 function install_app() {
-    brew tap cantino/mcfly
-    readonly apps=(goland firefox google-chrome iterm2 starship fd bat stats hyperfine hexyl pastel exa peco tmux git-extras mcfly)
+    readonly apps=(goland firefox google-chrome iterm2 starship fd bat stats hyperfine hexyl pastel exa peco tmux git-extras)
     for app in "${apps[@]}"; do
         if ! command -v $app &> /dev/null; then
             brew install --cask $app
@@ -38,6 +37,7 @@ function preparse_oh_my_fish() {
         omf install z
         omf install peco
         omf install foreign-env
+        omf install bass
     fi
 }
 
@@ -72,16 +72,16 @@ function main() {
     preparse_oh_my_fish
 
     echo "Installing binutils"
-    install_binutils
+#install_binutils
 
     echo "Installing app"
-    install_app
+#    install_app
 
     echo "Installing font"
-    install_font
+#    install_font
 
     echo "Installing mac app"
-    install_mac_app
+#    install_mac_app
 }
 
 main
