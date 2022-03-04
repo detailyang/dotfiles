@@ -3,7 +3,8 @@
     nixpkgs.config.allowUnfree = true;      
 
     home.packages = [
-        pkgs.tmux
+        pkgs.go
+        pkgs.php
 
         pkgs.silver-searcher
         pkgs.exa
@@ -16,9 +17,12 @@
         pkgs.curl
         pkgs.wget
 
+        pkgs.vim
         pkgs.vscode
-        pkgs.fira-code
+        pkgs.tmux
         pkgs.alacritty
+
+        pkgs.fira-code
 
         pkgs.coreutils
         pkgs.findutils
