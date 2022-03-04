@@ -1,1 +1,3 @@
-mcfly init fish | source
+if type -q mcfly
+    mcfly init fish | source
+end
