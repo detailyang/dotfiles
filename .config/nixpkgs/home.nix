@@ -13,9 +13,11 @@
         pkgs.fd
         pkgs.hyperfine
         pkgs.hexyl
-        pkgs.git-extras
         pkgs.curl
         pkgs.wget
+        pkgs.git-extras
+        pkgs.git
+        pkgs.delta
 
         pkgs.vim
         pkgs.vscode
