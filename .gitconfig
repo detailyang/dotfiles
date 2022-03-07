@@ -6,7 +6,7 @@
 	name = detailyang
 
 [core]
-    pager = delta --plus-style="#012800" --minus-style="#340001" --theme='Monokai Extended'
+    pager = delta --plus-style="#012800" --minus-style="#340001"
 
 [interactive]
     diffFilter = delta --color-only
@@ -24,3 +24,5 @@
     pr = !sh -c 'git fetch $1 pull/$2/head:pr-$1-$2 && git checkout pr-$1-$2' -
     cb ="git branch | grep -v "master" | xargs git branch -D"
 
+[pull]
+	rebase = true
