@@ -5,6 +5,7 @@
     home.packages = [
         pkgs.go
         pkgs.php
+        pkgs.protobuf 
 
         pkgs.silver-searcher
         pkgs.exa
