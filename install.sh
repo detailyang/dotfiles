@@ -2,31 +2,11 @@
 
 cd "$(dirname "${BASH_SOURCE}")"
 
-function install_binutils() {
-    echo "skiping install coreutils"
-    #brew install coreutils gnu-sed
-}
-
-function install_font() {
-    brew tap homebrew/cask-fonts
-    brew install --cask font-fira-code
-}
-
-
 function install_mac_app() {
-    readonly apps=(amphetamine bartender enpass alacritty snippetslab eudic reeder dash karabiner manico vscode-insider)
+    readonly apps=(amphetamine bartender enpass snippetslab eudic reeder dash karabiner)
 
     for app in "${apps[@]}"; do
         echo "try to install $app"
-    done
-}
-
-function install_app() {
-    readonly apps=(goland firefox google-chrome iterm2 starship fd bat stats hyperfine hexyl pastel exa peco tmux git-extras)
-    for app in "${apps[@]}"; do
-        if ! command -v $app &> /dev/null; then
-            brew install --cask $app
-        fi
     done
 }
 
@@ -54,7 +34,6 @@ function git_pull() {
     git pull --ff origin master
 }
 
-
 function main() {
     echo "Pulling the lastest changes"
     git_pull
@@ -70,15 +49,6 @@ function main() {
 
     echo "Preparing oh my fish"
     preparse_oh_my_fish
-
-    echo "Installing binutils"
-#install_binutils
-
-    echo "Installing app"
-#    install_app
-
-    echo "Installing font"
-#    install_font
 
     echo "Installing mac app"
 #    install_mac_app
