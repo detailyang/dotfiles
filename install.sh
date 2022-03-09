@@ -14,7 +14,6 @@ function preparse_oh_my_fish() {
     if [ -x "$(command -v omf)" ]; then
         curl -L https://get.oh-my.fish | fish
         omf install fzf
-        omf install z
         omf install peco
         omf install foreign-env
         omf install bass

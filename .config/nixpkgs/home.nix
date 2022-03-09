@@ -7,6 +7,7 @@
         pkgs.php
         pkgs.protobuf 
 
+        pkgs.zoxide
         pkgs.silver-searcher
         pkgs.exa
         pkgs.mcfly
