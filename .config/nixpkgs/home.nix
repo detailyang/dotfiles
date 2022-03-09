@@ -12,6 +12,7 @@
         pkgs.mcfly
         pkgs.starship
         pkgs.fd
+        pkgs.htop
         pkgs.hyperfine
         pkgs.hexyl
         pkgs.curl
