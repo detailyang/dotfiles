@@ -3,6 +3,7 @@
     nixpkgs.config.allowUnfree = true;      
 
     home.packages = [
+        pkgs.nodejs
         pkgs.go
         pkgs.php
         pkgs.protobuf 
