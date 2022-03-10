@@ -11,6 +11,7 @@
         pkgs.zoxide
         pkgs.silver-searcher
         pkgs.exa
+        pkgs.scc
         pkgs.mcfly
         pkgs.starship
         pkgs.fd
