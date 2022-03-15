@@ -10,6 +10,7 @@
 
         pkgs.llvm
         pkgs.lld
+        pkgs.ninja
 
         pkgs.imgcat
         pkgs.zoxide
