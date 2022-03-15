@@ -8,6 +8,9 @@
         pkgs.php
         pkgs.protobuf 
 
+        pkgs.llvm
+        pkgs.lld
+
         pkgs.imgcat
         pkgs.zoxide
         pkgs.silver-searcher
