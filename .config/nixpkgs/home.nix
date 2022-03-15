@@ -8,7 +8,9 @@
         pkgs.php
         pkgs.protobuf 
 
+        pkgs.cmake
         pkgs.llvm
+        pkgs.clang
         pkgs.lld
         pkgs.ninja
 

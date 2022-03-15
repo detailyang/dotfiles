@@ -18,8 +18,6 @@ format = """\
     $env_var\
     $git_branch\
     $git_commit\
-    $git_state\
-    $git_status\
     $cmd_duration\
     $line_break\
     $character\
