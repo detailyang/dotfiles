@@ -1,4 +1,6 @@
-eval "$(starship init zsh)"
+if type "starsship" > /dev/null; then
+    eval "$(starship init zsh)"
+fi
 ZSH_CUSTOM=~/.oh-my-zsh/custom/
 plugins=(
         zsh-z

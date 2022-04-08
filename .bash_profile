@@ -1,3 +1,6 @@
+if type "starsship" > /dev/null; then
+    eval "$(starship init zsh)"
+fi
 for file in ~/.bash/.{path,bash_prompt,exports,aliases,functions,extra}; do
 	[ -r "$file" ] && [ -f "$file" ] && source "$file";
 done;
