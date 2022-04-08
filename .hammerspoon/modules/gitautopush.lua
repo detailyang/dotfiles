@@ -10,7 +10,7 @@ function runGitAutoPush()
     print("Loading gitpush: " .. file)
     local repos = hs.json.read(file) 
     for key, repo in ipairs(repos) do
-        local cmd = "cd " .. repo .. [[ && git add . ; git commit -m \"auto commit\" ; git push]]
+        local cmd = "cd " .. repo .. [[ && git add . ; git commit -m autocommit ; git push]]
         print("repo " .. repo .. " and cmd: " .. cmd)
         shell(cmd)
     end
