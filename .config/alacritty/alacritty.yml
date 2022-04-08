@@ -172,7 +172,7 @@ cursor:
 hide_when_typing: true
 
 shell:
-  program: fish
+  program: /usr/local/bin/fish
   args:
     - -l
     - -c
