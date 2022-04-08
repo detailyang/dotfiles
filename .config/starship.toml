@@ -13,7 +13,6 @@ format = """\
     $rust\
     $nix_shell\
     $memory_usage\
-    $aws\
     $kubernetes\
     $env_var\
     $git_branch\
@@ -22,15 +21,6 @@ format = """\
     $line_break\
     $character\
 """
-
-[aws]
-style = "bold blue"
-symbol = "🅰 "
-displayed_items = "region"
-
-[aws.region_aliases]
-ap-southeast-2 = "au"
-us-east-1 = "va"
 
 [cmd_duration]
 # $duration – The command duration (e.g. "15s")

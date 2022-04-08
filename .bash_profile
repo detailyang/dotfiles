@@ -1,4 +1,4 @@
-if type "starsship" > /dev/null; then
+if type starship > /dev/null; then
     eval "$(starship init zsh)"
 fi
 for file in ~/.bash/.{path,bash_prompt,exports,aliases,functions,extra}; do
