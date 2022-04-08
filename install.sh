@@ -13,7 +13,7 @@ function install_mac_app() {
 }
 
 function preparse_oh_my_fish() {
-    if type -q omf &> /dev/null; then
+    if test -d ~/.local/share/omf/; then
         echo "omf was installed"
     else
         curl -L https://get.oh-my.fish | fish
@@ -44,8 +44,8 @@ function main() {
     echo "Rsyncing to target"
     rsync_dirs
 
-    echo "Sourcing bash profile"
-    source ~/.bash_profile
+    #echo "Sourcing bash profile"
+    #source ~/.bash_profile
 
     echo "Preparing directory"
     prepare_dirs
