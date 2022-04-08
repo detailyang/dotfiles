@@ -3,6 +3,8 @@
 cd "$(dirname "${BASH_SOURCE}")"
 
 function install_mac_app() {
+    # defaults write -g applepressandholdenabled -bool false
+
     readonly apps=(amphetamine bartender enpass snippetslab eudic reeder dash karabiner)
 
     for app in "${apps[@]}"; do
@@ -11,7 +13,9 @@ function install_mac_app() {
 }
 
 function preparse_oh_my_fish() {
-    if [ -x "$(command -v omf)" ]; then
+    if type -q omf &> /dev/null; then
+        echo "omf was installed"
+    else
         curl -L https://get.oh-my.fish | fish
         omf install fzf
         omf install peco
@@ -21,7 +25,7 @@ function preparse_oh_my_fish() {
 }
 
 function prepare_dirs() {
-    mkdir -p ~/art/{opensource,personal}
+    mkdir -p ~/art/{github,opensource,personal}
 }
 
 function rsync_dirs() {
