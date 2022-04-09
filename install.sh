@@ -17,11 +17,16 @@ function preparse_oh_my_fish() {
         echo "omf was installed"
     else
         curl -L https://get.oh-my.fish | fish
-        omf install fzf
-        omf install peco
-        omf install foreign-env
-        omf install bass
     fi
+
+    readonly plugins=(fzf peco "foreign-env" bass)
+    for plugin in "${plugins[@]}"; do
+        if test -d ~/.local/share/omf/pkg/$plugin; then
+            echo "omf plugin $plugin was installed"
+        else
+            fish -c "omf install $plugin"
+        fi
+    done
 }
 
 function prepare_dirs() {
@@ -30,17 +35,17 @@ function prepare_dirs() {
 
 function rsync_dirs() {
     rsync --exclude-from=./.exclude \
-        -avh --no-perms . ~
+        -avh --no-perms . ~ &> /dev/null
 }
 
 function git_pull() {
-    git pull --ff origin master
+    git pull --ff origin master &> /dev/null
 }
 
 function prepare_home_manager() {
       # sh <(curl https://mirrors.tuna.tsinghua.edu.cn/nix/latest/install) --daemon
-      if command -v nix-channel; then
-          if nix-channel --list |grep home-manager &> /dev/null; then
+      if command -v nix-channel &> /dev/null ; then
+          if nix-channel --list |grep -q home-manager &> /dev/null; then
               echo "home-manager was installed"
           else
               nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
