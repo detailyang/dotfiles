@@ -38,6 +38,7 @@ function git_pull() {
 }
 
 function prepare_home_manager() {
+      # sh <(curl https://mirrors.tuna.tsinghua.edu.cn/nix/latest/install) --daemon
       if command -v nix-channel; then
           if nix-channel --list |grep home-manager &> /dev/null; then
               echo "home-manager was installed"
@@ -67,6 +68,8 @@ function main() {
 
     echo "Installing mac app"
 #    install_mac_app
+
+    echo "Installing home-manager"
     prepare_home_manager
 }
 
