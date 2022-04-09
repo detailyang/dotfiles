@@ -37,6 +37,18 @@ function git_pull() {
     git pull --ff origin master
 }
 
+function prepare_home_manager() {
+      if command -v nix-channel; then
+          if nix-channel --list |grep home-manager &> /dev/null; then
+              echo "home-manager was installed"
+          else
+              nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
+              nix-channel --update
+              # nix-shell '<home-manager>' -A install 
+          fi
+      fi
+}
+
 function main() {
     echo "Pulling the lastest changes"
     git_pull
@@ -55,6 +67,7 @@ function main() {
 
     echo "Installing mac app"
 #    install_mac_app
+    prepare_home_manager
 }
 
 main
