@@ -1,4 +1,4 @@
-if type "starsship" > /dev/null; then
+if command -v "starsship" > /dev/null; then
     eval "$(starship init zsh)"
 fi
 ZSH_CUSTOM=~/.oh-my-zsh/custom/

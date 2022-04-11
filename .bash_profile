@@ -14,6 +14,7 @@ for file in ~/bash/*.sh; do
     source $file
 done
 
+
 if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
   # if PATH does *not* contain `~/.nix-profile/bin`
   if [ -n "${PATH##*.nix-profile/bin*}" ]; then

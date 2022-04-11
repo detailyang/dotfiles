@@ -12,7 +12,16 @@ function install_mac_app() {
     done
 }
 
-function preparse_oh_my_fish() {
+function prepare_oh_my_zsh() {
+    if test -d ~/.oh-my-zsh/; then
+        echo "omz was installed"
+    else
+        sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+    fi
+
+}
+
+function prepare_oh_my_fish() {
     if test -d ~/.local/share/omf/; then
         echo "omf was installed"
     else
@@ -68,8 +77,11 @@ function main() {
     echo "Preparing directory"
     prepare_dirs
 
+    echo "Preparing oh my zsh"
+    prepare_oh_my_zsh
+
     echo "Preparing oh my fish"
-    preparse_oh_my_fish
+    prepare_oh_my_fish
 
     echo "Installing mac app"
 #    install_mac_app
