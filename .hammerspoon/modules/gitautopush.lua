@@ -18,7 +18,7 @@ end
 
 hs.timer.doEvery(14400, runGitAutoPush)
 
-hs.hotkey.bind({'cmd', 'shift'}, 'p', function() 
+hs.hotkey.bind({'cmd', 'shift'}, 'j', function() 
 	hs.notify.new({title="Hammerspoon launch", informativeText="auto push git started"}):send()
 	runGitAutoPush()
 	hs.notify.new({title="Hammerspoon launch", informativeText="auto push git completed"}):send()
