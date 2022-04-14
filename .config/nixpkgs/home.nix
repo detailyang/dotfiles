@@ -11,6 +11,7 @@
         pkgs.fortune
         pkgs.lolcat
         pkgs.cowsay
+        pkgs.peco
 
         pkgs.cmake
         pkgs.llvm
