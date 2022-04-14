@@ -8,6 +8,10 @@
         pkgs.php
         pkgs.protobuf 
 
+        pkgs.fortune
+        pkgs.lolcat
+        pkgs.cowsay
+
         pkgs.cmake
         pkgs.llvm
         pkgs.clang
