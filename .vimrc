@@ -25,5 +25,10 @@ set ruler
 
 set laststatus=2
 
+" prefer pager color theme
+set background=light
+colorscheme github
+
 " do not expand tab in Makefile
 autocmd FileType make setlocal noexpandtab
+
