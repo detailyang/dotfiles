@@ -1,4 +1,5 @@
-function osx_path
+function osx
+    export LIBRARY_PATH="/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib:$LIBRARY_PATH"
     export PATH="/Library/Developer/CommandLineTools/usr/bin/:$PATH"
 end
 
