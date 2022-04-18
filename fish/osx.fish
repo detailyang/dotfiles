@@ -9,5 +9,5 @@ function osx
     export PATH="/usr/bin:/Library/Developer/CommandLineTools/usr/bin/:$PATH" &> /dev/null
 end
 
-defaults delete -g ApplePressAndHoldEnabled 2>&1 &> /dev/null # If necessary, reset global default
+defaults write -g ApplePressAndHoldEnabled -bool false 2>&1 &> /dev/null 
 defaults write com.apple.finder AppleShowAllFiles YES
