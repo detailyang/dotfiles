@@ -26,3 +26,6 @@
 
 [pull]
 	rebase = true
+
+[diff]
+    external = difft

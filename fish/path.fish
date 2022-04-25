@@ -23,3 +23,7 @@ end
 if test -d ~/.gloo/bin
     set -x PATH ~/.gloo/bin $PATH
 end
+
+if test -d ~/.fluvio//bin
+    set -x PATH ~/.fluvio/bin $PATH
+end

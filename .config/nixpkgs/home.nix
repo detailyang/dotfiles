@@ -12,6 +12,7 @@
         pkgs.lolcat
         pkgs.cowsay
         pkgs.peco
+        pkgs.difftastic
 
         pkgs.cmake
         pkgs.llvm
