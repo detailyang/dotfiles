@@ -12,6 +12,33 @@ function install_mac_app() {
     done
 }
 
+function prepare_init_darwin() {
+    os="$(uname -s)"
+    if [[ "$os" != "Darwin" ]]; then
+        return 0;
+    fi
+
+    # take screenshots as jpg (usually smaller size) and not png
+    defaults write com.apple.screencapture type jpg
+
+    # do not open previous previewed files (e.g. PDFs) when opening a new one
+    defaults write com.apple.Preview ApplePersistenceIgnoreState YES
+
+    # show Library folder
+    chflags nohidden ~/Library
+
+    # show hidden files
+    defaults write com.apple.finder AppleShowAllFiles YES
+
+    # show path bar
+    defaults write com.apple.finder ShowPathbar -bool true
+
+    # show status bar
+    defaults write com.apple.finder ShowStatusBar -bool true
+
+    killall Finder;
+}
+
 function prepare_oh_my_zsh() {
     if test -d ~/.oh-my-zsh/; then
         echo "omz was installed"
@@ -73,6 +100,9 @@ function main() {
 
     #echo "Sourcing bash profile"
     #source ~/.bash_profile
+
+    echo "Preparing init darwin"
+    prepare_init_darwin
 
     echo "Preparing directory"
     prepare_dirs
