@@ -36,6 +36,9 @@ function prepare_init_darwin() {
     # show status bar
     defaults write com.apple.finder ShowStatusBar -bool true
 
+    # allow hold keyboard
+    defaults write -g ApplePressAndHoldEnabled -bool false 2>&1 &> /dev/null
+
     killall Finder;
 }
 
