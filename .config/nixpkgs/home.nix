@@ -20,6 +20,7 @@
         pkgs.lld
         pkgs.ninja
 
+        pkgs.jq
         pkgs.imgcat
         pkgs.zoxide
         pkgs.silver-searcher
