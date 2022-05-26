@@ -13,6 +13,7 @@
         pkgs.cowsay
         pkgs.peco
         pkgs.difftastic
+        pkgs.graphviz
 
         pkgs.cmake
         pkgs.llvm

@@ -11,3 +11,11 @@ end
 
 defaults write -g ApplePressAndHoldEnabled -bool false 2>&1 &> /dev/null 
 defaults write com.apple.finder AppleShowAllFiles YES
+
+
+ # dock settings
+ defaults write com.apple.dock autohide -int 1
+ defaults write com.apple.dock mineffect -string scale
+ defaults write com.apple.dock minimize-to-application -int 1
+ defaults write com.apple.dock show-recents -int 0
+ defaults write com.apple.dock tilesize -int 44
