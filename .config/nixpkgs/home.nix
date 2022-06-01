@@ -20,6 +20,7 @@
         pkgs.clang
         pkgs.lld
         pkgs.ninja
+        pkgs.colima
 
         pkgs.jq
         pkgs.imgcat
