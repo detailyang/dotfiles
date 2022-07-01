@@ -22,6 +22,7 @@
         pkgs.ninja
         pkgs.colima
 
+        pkgs.skopeo
         pkgs.jq
         pkgs.imgcat
         pkgs.zoxide
