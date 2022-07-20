@@ -29,11 +29,6 @@ min_time = 500
 format = "⌛ [$duration]($style) "
 show_milliseconds = true
 
-[custom.nu]
-command = "printf 🐚"
-format = "[$symbol$output]($style) "
-when = """ test "$SHELL" == "/usr/local/bin/nu" """
-
 [dotnet]
 disabled = true
 
