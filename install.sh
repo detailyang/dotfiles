@@ -39,6 +39,8 @@ function prepare_init_darwin() {
     # allow hold keyboard
     defaults write -g ApplePressAndHoldEnabled -bool false 2>&1 &> /dev/null
 
+    defaults write -g AppleFontSmoothing -int 1
+
     killall Finder;
 }
 
