@@ -9,6 +9,7 @@
         pkgs.protobuf 
 
         pkgs.fortune
+        pkgs.tokei
         pkgs.lolcat
         pkgs.cowsay
         pkgs.peco

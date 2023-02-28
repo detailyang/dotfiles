@@ -5,7 +5,7 @@ cd "$(dirname "${BASH_SOURCE}")"
 function install_mac_app() {
     # defaults write -g applepressandholdenabled -bool false
 
-    readonly apps=(Hovrly NetNewsWire amphetamine bartender enpass snippetslab eudic reeder dash karabiner itsycal paper hammersppon)
+    readonly apps=(shottr Hovrly NetNewsWire amphetamine bartender enpass snippetslab eudic reeder dash karabiner itsycal paper hammersppon)
 
     for app in "${apps[@]}"; do
         echo "try to install $app"
