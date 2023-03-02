@@ -1,8 +1,9 @@
+require "modules.helper"
 require "modules.reload"
 require "modules.volume"
 require "modules.window"
-require "modules.gitautopush"
 require "modules.hotkey"
+require "modules.dns"
 
 hs.hotkey.bind({'cmd', 'shift'}, 'h', function() 
     hs.alert.show("Hello World")
