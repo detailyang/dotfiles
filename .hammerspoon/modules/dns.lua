@@ -3,7 +3,7 @@ function changedns()
     local _, output,_ = shell("networksetup -getdnsservers Wi-Fi")
     local servers = splitlines(output)
 
-    for _, server in ipairs({"223.5.5.5","223.6.6.6"}) do
+    for _, server in ipairs({"127.0.0.1"}) do
         if indexOf(servers, server) == nil then
             servers[#servers+1] = server
         end
