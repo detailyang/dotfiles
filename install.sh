@@ -12,6 +12,13 @@ function install_mac_app() {
     done
 }
 
+function install_brew_app() {
+    readonly apps=(proxychains-ng)
+    for app in "${apps[@]}"; do
+        brew install --build-from-source $app
+    done
+}
+
 function prepare_init_darwin() {
     os="$(uname -s)"
     if [[ "$os" != "Darwin" ]]; then
@@ -120,6 +127,7 @@ function main() {
 
     echo "Installing mac app"
 #    install_mac_app
+    install_brew_app
 
     echo "Installing home-manager"
     prepare_home_manager
