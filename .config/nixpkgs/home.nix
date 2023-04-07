@@ -3,15 +3,14 @@ with import <nixpkgs> {};
 with builtins;
 with lib;
 let 
-  proxychains-ng-src = pkgs.fetchFromGitHub {
-    owner = "rofl0r";
-    repo = "proxychains-ng";
-    rev = "v4.16";
-    sha256 = "uu/zN6W0ue526/3a9QeYg6J4HLaovZJVOYXksjouYok=";
-  };
-  proxychains-ng = pkgs.stdenv.mkDerivation {
+  proxychains-ng = stdenv.mkDerivation {
     name = "proxychains-ng-4.16";
-    src = proxychains-ng-src;
+    src = fetchFromGitHub {
+        owner = "rofl0r";
+        repo = "proxychains-ng";
+        rev = "v4.16";
+        sha256 = "uu/zN6W0ue526/3a9QeYg6J4HLaovZJVOYXksjouYok=";
+    };
     buildInputs = [ pkgs.autoconf pkgs.automake pkgs.libtool ];  # 假设您需要这些构建工具和库
     buildPhase = ''
       sed -i '24i #undef memcpy' src/core.c
@@ -19,20 +18,22 @@ let
       make
       make install
     '';
-    pngpaste = stdenv.mkDerivation {
-	   name = "pngpaste";
-	   src = fetchFromGitHub {
-		  owner = "jcsalterego";
-		  repo = "pngpaste";
-		  rev = "67c39829fedb97397b691617f10a68af75cf0867";
-		  sha256 = "089rqjk7khphs011hz3f355c7z6rjd4ydb4qfygmb4x54z2s7xms";
-	   };
-		buildInputs = [ pkgs.darwin.apple_sdk.frameworks.Cocoa ];
-		installPhase = ''
-		  mkdir -p $out/bin
-		  cp pngpaste $out/bin/
-		'';
-	};
+  };
+  pngpaste = stdenv.mkDerivation {
+    name = "pngpaste";
+    src = fetchFromGitHub {
+      owner = "jcsalterego";
+      repo = "pngpaste";
+      rev = "67c39829fedb97397b691617f10a68af75cf0867";
+      sha256 = "089rqjk7khphs011hz3f355c7z6rjd4ydb4qfygmb4x54z2s7xms";
+    k};
+    buildInputs = [ pkgs.darwin.apple_sdk.frameworks.Cocoa ];
+    installPhase = ''
+      mkdir -p $out/bin
+      cp pngpaste $out/bin/
+    '';
+  };
+
 in
 
 {
@@ -41,6 +42,7 @@ in
   home.packages = [
     proxychains-ng
     pngpaste 
+
     pkgs.nodejs
     pkgs.go
     pkgs.php
@@ -83,7 +85,6 @@ in
     pkgs.vscode
     pkgs.tmux
     pkgs.alacritty
-
     pkgs.fira-code
 
     pkgs.coreutils
