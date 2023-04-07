@@ -1,6 +1,8 @@
 { pkgs, ...}:
-
-let
+with import <nixpkgs> {};
+with builtins;
+with lib;
+let 
   proxychains-ng-src = pkgs.fetchFromGitHub {
     owner = "rofl0r";
     repo = "proxychains-ng";
@@ -17,13 +19,28 @@ let
       make
       make install
     '';
-  };
+    pngpaste = stdenv.mkDerivation {
+	   name = "pngpaste";
+	   src = fetchFromGitHub {
+		  owner = "jcsalterego";
+		  repo = "pngpaste";
+		  rev = "67c39829fedb97397b691617f10a68af75cf0867";
+		  sha256 = "089rqjk7khphs011hz3f355c7z6rjd4ydb4qfygmb4x54z2s7xms";
+	   };
+		buildInputs = [ pkgs.darwin.apple_sdk.frameworks.Cocoa ];
+		installPhase = ''
+		  mkdir -p $out/bin
+		  cp pngpaste $out/bin/
+		'';
+	};
 in
+
 {
   nixpkgs.config.allowUnfree = true;      
 
   home.packages = [
     proxychains-ng
+    pngpaste 
     pkgs.nodejs
     pkgs.go
     pkgs.php
