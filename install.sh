@@ -110,7 +110,7 @@ function prepare_home_manager() {
 
 function main() {
     echo "Pulling the lastest changes"
-#git_pull
+    git_pull
 
     echo "Rsyncing to target"
     rsync_dirs

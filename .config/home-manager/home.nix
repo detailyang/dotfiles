@@ -2,6 +2,8 @@
 
 let
 
+  username = builtins.getEnv "USER";
+  homeDirectory = "/Users/${username}";
   pkgsUnstable = import <nixpkgs-unstable> {};
 
 in
@@ -15,6 +17,9 @@ in
   ];
 
   nixpkgs.config.allowUnfree = true;      
+
+  home.username = username;
+  home.homeDirectory = homeDirectory;
 
   home.stateVersion = "22.11"; # Please read the comment before changing.
 
