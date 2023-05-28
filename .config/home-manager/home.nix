@@ -1,4 +1,4 @@
-{ pkgs, ...}:
+{ config, pkgs, ... }:
 
 let
 
@@ -13,7 +13,10 @@ in
     ./apps/proxychains.nix
     ./apps/alacritty.nix
   ];
+
   nixpkgs.config.allowUnfree = true;      
+
+  home.stateVersion = "22.11"; # Please read the comment before changing.
 
   home.packages = [
     pkgs.nodejs
@@ -58,10 +61,14 @@ in
     pkgs.gnused
   ];
 
-  programs = {
-      home-manager = {
-          enable = true;
-      };
+  home.file = {
+
   };
+
+  home.sessionVariables = {
+    EDITOR = "vim";
+  };
+
+  programs.home-manager.enable = true;
 }
 
