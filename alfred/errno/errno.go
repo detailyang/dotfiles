@@ -1,9 +1,10 @@
 package main
 
 import (
+	"os"
+
 	aw "github.com/deanishe/awgo"
 	fuzzy "github.com/lithammer/fuzzysearch/fuzzy"
-	"os"
 )
 
 var errnors = []string{
