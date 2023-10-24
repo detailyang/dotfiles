@@ -24,6 +24,7 @@ in
   home.stateVersion = "22.11"; # Please read the comment before changing.
 
   home.packages = [
+    pkgs.yazi
     pkgs.nodejs
     pkgs.go
     pkgs.php
