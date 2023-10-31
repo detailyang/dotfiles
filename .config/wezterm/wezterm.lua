@@ -8,4 +8,5 @@ return Config:init()
    :append(require('config.appearance'))
    :append(require('config.lanuch'))
    :append(require('config.fonts'))
+   :append(require('config.bindings'))
    :append(require('config.general')).options

@@ -11,7 +11,7 @@ if platform.is_win then
       { label = 'Nushell', args = { 'nu' } },
    }
 elseif platform.is_mac then
-   options.default_prog = { '/usr/local/bin/fish' , '-l', '-c', 'tmux attach || tmux'}
+   options.default_prog = { '/usr/local/bin/fish' , '-l'}
    options.launch_menu = {
       { label = 'Bash', args = { 'bash' } },
       { label = 'Fish', args = { '/usr/local/bin/fish' } },
