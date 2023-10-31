@@ -27,7 +27,7 @@ return {
    },
 
    -- scrollbar
-   enable_scroll_bar = true,
+   enable_scroll_bar = false,
    min_scroll_bar_height = "3cell",
    colors = {
       scrollbar_thumb = '#454545',
