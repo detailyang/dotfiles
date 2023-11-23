@@ -13,5 +13,5 @@ elseif platform.is_win then
 end
  
 return {
-
+   keys =  { key = 'V', mods = 'CTRL', action = act.PasteFrom 'Clipboard' },
 }
