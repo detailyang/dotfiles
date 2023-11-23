@@ -3,7 +3,7 @@
 let
 
   username = builtins.getEnv "USER";
-  homeDirectory = "/Users/${username}";
+  homeDirectory  = builtins.getEnv "HOME";
   pkgsUnstable = import <nixpkgs-unstable> {};
 
 in
