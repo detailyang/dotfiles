@@ -47,7 +47,7 @@ in
     pkgs.imgcat
     pkgs.zoxide
     pkgs.silver-searcher
-    pkgs.exa
+    pkgs.eza
     pkgs.scc
     pkgs.mcfly
     pkgs.starship
