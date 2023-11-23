@@ -53,10 +53,10 @@ end
 
 function wslproxy -d "set proxy in wsl env"
 	set hostip (cat /etc/resolv.conf | grep nameserver | awk '{ print $2 }')
-	export HTTP_PROXY="$httpproxy:7890"
-	export HTTPS_PROXY="$httpsproxy:7890"
-	export SOCKS_PROXY="$socksproxy:7890"
-	export ALL_PROXY="$socksproxy:7890"
+	export HTTP_PROXY="$hostip:7890"
+	export HTTPS_PROXY="$hostip:7890"
+	export SOCKS_PROXY="$hostip:7890"
+	export ALL_PROXY="$hostip:7890"
 	echo "HTTP_PROXY:$HTTP_PROXY"
 	echo "HTTPS_PROXY:$HTTPS_PROXY"
 	echo "SOCKS_PROXY:$SOCKS_PROXY"
