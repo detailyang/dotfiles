@@ -13,6 +13,11 @@ function install_mac_app() {
 }
 
 function install_brew_app() {
+    os="$(uname -s)"
+    if [[ "$os" != "Darwin" ]]; then
+        return 0;
+    fi
+
     readonly apps=(proxychains-ng)
     for app in "${apps[@]}"; do
         brew install --build-from-source $app
