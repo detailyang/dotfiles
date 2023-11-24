@@ -42,6 +42,7 @@ end
 
 M.set_battery = function()
    -- ref: https://wezfurlong.org/wezterm/config/lua/wezterm/battery_info.html
+   --[[
    local discharging_icons =
       { '', '', '', '', '', '', '', '', '', '' }
    local charging_icons = { '', '', '', '', '', '', '', '', '', '' }
@@ -61,13 +62,14 @@ M.set_battery = function()
    end
 
    M.push(charge, icon, M.colors.battery_fg, M.colors.battery_bg, false)
+  --]]
 end
 
 M.setup = function()
    wezterm.on('update-right-status', function(window, _pane)
       M.cells = {}
       M.set_date()
-      M.set_battery()
+      -- M.set_battery()
 
       window:set_right_status(wezterm.format(M.cells))
    end)
