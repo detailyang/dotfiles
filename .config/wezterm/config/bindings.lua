@@ -11,7 +11,13 @@ elseif platform.is_win then
    mod.SUPER = 'ALT' -- to not conflict with Windows key shortcuts
    mod.SUPER_REV = 'ALT|CTRL'
 end
- 
+
+local keys = {
+   -- copy/paste --
+   { key = 'c', mods = 'CTRL|SHIFT', action = act.CopyTo('Clipboard') },
+   { key = 'v', mods = 'CTRL|SHIFT', action = act.PasteFrom('Clipboard') },
+}
+
 return {
-   keys =  { key = 'V', mods = 'CTRL', action = act.PasteFrom 'Clipboard' },
+   keys = keys,
 }
