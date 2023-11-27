@@ -12,12 +12,29 @@ elseif platform.is_win then
    mod.SUPER_REV = 'ALT|CTRL'
 end
 
+local leader = { key = 'a', mods = 'CTRL' }
+
 local keys = {
    -- copy/paste --
-   { key = 'c', mods = 'CTRL|SHIFT', action = act.CopyTo('Clipboard') },
-   { key = 'v', mods = 'CTRL|SHIFT', action = act.PasteFrom('Clipboard') },
+   { key = 'c', mods = mod.SUPER, action = act.CopyTo('Clipboard') },
+   { key = 'v', mods = mod.SUPER, action = act.PasteFrom('Clipboard') },
+   {
+      key = [[-]],
+      mods = 'LEADER',
+      action = act.SplitVertical({ domain = 'CurrentPaneDomain' }),
+   },
+   {
+      key = [[|]],
+      mods = 'LEADER',
+      action = act.SplitHorizontal({ domain = 'CurrentPaneDomain' }),
+   },
+   { key = 'k', mods = 'LEADER', action = act.ActivatePaneDirection('Up') },
+   { key = 'j', mods = 'LEADER', action = act.ActivatePaneDirection('Down') },
+   { key = 'h', mods = 'LEADER', action = act.ActivatePaneDirection('Left') },
+   { key = 'l', mods = 'LEADER', action = act.ActivatePaneDirection('Right') },
 }
 
 return {
+   leader = leader,
    keys = keys,
 }
