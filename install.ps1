@@ -24,6 +24,8 @@ function Install-App {
 # install app via winget
 
 Install-App -AppId "WingetPathUpdater"
+Install-App -AppId "wez.wezterm"
 Install-App -AppId "Microsoft.PowerToys"
 Install-App -AppId "vim.vim"
 Install-App -AppId "git.git"
+Install-App -AppId "DEVCOM.JetBrainsMonoNerdFont"
