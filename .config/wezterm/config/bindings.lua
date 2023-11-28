@@ -12,7 +12,7 @@ elseif platform.is_win then
    mod.SUPER_REV = 'ALT|CTRL'
 end
 
-local leader = { key = 'a', mods = 'CTRL' }
+local leader = { key = 'w', mods = 'CTRL' }
 
 local keys = {
    -- copy/paste --
@@ -32,6 +32,7 @@ local keys = {
    { key = 'j', mods = 'LEADER', action = act.ActivatePaneDirection('Down') },
    { key = 'h', mods = 'LEADER', action = act.ActivatePaneDirection('Left') },
    { key = 'l', mods = 'LEADER', action = act.ActivatePaneDirection('Right') },
+   { key = 'x', mods = 'LEADER',action = wezterm.action.CloseCurrentPane { confirm = false }},
 }
 
 return {
