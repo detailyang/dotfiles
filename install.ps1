@@ -17,6 +17,7 @@ function Install-App {
     
     # 如果没有安装，那么安装它
     if (-not $installed) {
+        Write-Host "winget installing $AppId"
         winget install --id $AppId
     }
 }
@@ -31,3 +32,4 @@ Install-App -AppId "Git.Git"
 Install-App -AppId "DEVCOM.JetBrainsMonoNerdFont"
 Install-App -AppId "Microsoft.VisualStudioCode.Insiders"
 Install-App -AppId "Microsoft.WindowsTerminal"
+Install-App -AppId "oldj.switchhosts"
