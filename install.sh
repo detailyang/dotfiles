@@ -66,6 +66,13 @@ function prepare_oh_my_zsh() {
 }
 
 function prepare_oh_my_fish() {
+    if command -v fish &> /dev/null; then
+        echo "Fish shell was installed."
+    else
+        echo "Fish shell is not installed."
+        exit 0
+    fi
+    
     if test -d ~/.local/share/omf/; then
         echo "omf was installed"
     else
