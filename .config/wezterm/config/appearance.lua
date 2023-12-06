@@ -31,6 +31,7 @@ return {
    min_scroll_bar_height = "3cell",
    colors = {
       scrollbar_thumb = '#454545',
+      split = "#ff69b4",
    },
 
    -- tab bar

@@ -6,7 +6,7 @@ require('events.new-tab-button').setup()
 
 return Config:init()
    :append(require('config.appearance'))
-   :append(require('config.lanuch'))
    :append(require('config.fonts'))
    :append(require('config.bindings'))
+   :append(require("config.startup"))
    :append(require('config.general')).options
