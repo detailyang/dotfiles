@@ -1,0 +1,9 @@
+#!/bin/bash
+
+export SHELL=/bin/bash
+export PATH=$PATH:$HOME/.nix-profile/bin/:/usr/local/bin
+export BAT_THEME="Catppuccin-mocha"
+export FZF_DEFAULT_OPTS="--reverse --inline-info --bind 'ctrl-y:execute-silent(readlink -f {} | cat {} | pbcopy)+abort' --header 'Press CTRL-Y to copy file content into clipboard'"
+
+fd . "$HOME/snippet" --type f | fzf  --preview='bat --color always {}'
+exit 0
