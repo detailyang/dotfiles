@@ -1,0 +1,15 @@
+# nsenter -a -t <pid> <command>
+# nsenter -m -u -i -n -p -t <pid> <command>
+
+-a, --all enter all namespaces of the target process by the default /proc/[pid]/ns/* namespace paths.
+-m, --mount[=<file>]：进入 mount 命令空间。如果指定了 file，则进入 file 的命名空间
+-u, --uts[=<file>]：进入 UTS 命名空间。如果指定了 file，则进入 file 的命名空间
+-i, --ipc[=<file>]：进入 System V IPC 命名空间。如果指定了 file，则进入 file 的命名空间
+-n, --net[=<file>]：进入 net 命名空间。如果指定了 file，则进入 file 的命名空间
+-p, --pid[=<file>：进入 pid 命名空间。如果指定了 file，则进入 file 的命名空间
+-U, --user[=<file>：进入 user 命名空间。如果指定了 file，则进入 file 的命名空间
+-t, --target <pid> # 指定被进入命名空间的目标进程的 pid
+-G, --setgid gid：设置运行程序的 GID
+-S, --setuid uid：设置运行程序的 UID
+-r, --root[=directory]：设置根目录
+-w, --wd[=directory]：设置工作目录
