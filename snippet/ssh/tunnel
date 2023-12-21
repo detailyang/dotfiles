@@ -1,0 +1,11 @@
+ssh -ngfNTR 1222:192.168.100.3:22 root@192.168.0.173 -o ServerAliveInterval=300
+-f 表示后台执行
+-N 表示不执行任何命令
+-R 建立反向隧道
+1222 A机用来外面ssh的监听端口
+-o ServerAliveInterval=300 的意思是让ssh client每300秒就给server发个心跳,以免链路被RST. 
+-f Requests ssh to go to background just before command execution. 让该命令后台运行 . 
+-n Redirects stdin from /dev/null (actually, prevents reading from stdin). 
+-N Do not execute a remote command. 不执行远程命令 . 
+-T Disable pseudo-tty allocation. 不占用 shell . 
+-g Allows remote hosts to connect to local forwarded ports.

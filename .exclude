@@ -1,5 +1,6 @@
 .exclude
 install.sh
+install.ps1
 vscode
 .git
 .README.md

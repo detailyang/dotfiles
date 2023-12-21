@@ -1,0 +1,1 @@
+set -gx BAT_THEME "Catppuccin-mocha"

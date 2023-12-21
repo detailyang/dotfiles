@@ -1,0 +1,9 @@
+SELECT
+    database,
+    table,
+    formatReadableSize(sum(data_compressed_bytes)) AS compressed
+FROM system.columns
+WHERE  (data_uncompressed_bytes != 0)
+group by 
+    database, table
+ORDER BY sum(data_compressed_bytes) DESC;

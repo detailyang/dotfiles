@@ -1,0 +1,12 @@
+SELECT
+    database,
+    table,
+    name,
+    type,
+    compression_codec,
+    formatReadableSize(data_compressed_bytes) AS compressed,
+    formatReadableSize(data_uncompressed_bytes) AS uncompressed,
+    data_uncompressed_bytes / data_compressed_bytes AS ratio
+FROM system.columns
+WHERE  (data_uncompressed_bytes != 0)
+ORDER BY data_uncompressed_bytes DESC;
