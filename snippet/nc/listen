@@ -1,0 +1,12 @@
+# 接收端能访问
+# 接收端
+nc -4 -l -p 8085 > ctl
+# 发送端
+nc  10.33.20.62 8085 < ctl 
+
+# 接收端不能访问
+#发送端 
+tar zc *.txt | nc -l 60000
+#接收端
+nc bar.example.com 60000 | tar zx
+
