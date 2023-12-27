@@ -1,0 +1,1 @@
+ kubectl scale deployment -n default nginx-deployment --replicas=3
