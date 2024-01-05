@@ -1,0 +1,20 @@
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: hostpath-example-linux
+spec:
+  nodeSelector:
+    kubernetes.io/os: linux
+  containers:
+  - name: example-container
+    image: registry.k8s.io/test-webserver
+    volumeMounts:
+    - mountPath: /foo
+      name: example-volume
+      readOnly: true
+  volumes:
+  - name: example-volume
+    hostPath:
+      path: /data/foo 
+      type: DirectoryOrCreate 
