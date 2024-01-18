@@ -9,6 +9,8 @@ spec:
   containers:
   - name: example-container
     image: registry.k8s.io/test-webserver
+    command: ["printenv"]
+    args: ["HOSTNAME", "KUBERNETES_PORT"]
     volumeMounts:
     - mountPath: /foo
       name: example-volume
