@@ -1,0 +1,5 @@
+#jmap命令保存整个Java堆（在你dump的时间不是事故发生点的时候尤其推荐）
+jmap -dump:format=b,file=heap.bin <pid> 
+
+#jmap命令只保存Java堆中的存活对象, 包含live选项，会在堆转储前执行一次Full GC
+jmap -dump:live,format=b,file=heap.bin <pid>

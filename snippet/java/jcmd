@@ -1,0 +1,2 @@
+#jcmd命令保存整个Java堆,Jdk1.7后有效
+jcmd <pid> GC.heap_dump filename=heap.bin

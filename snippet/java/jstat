@@ -1,0 +1,3 @@
+# 获取JAVA堆，元空间，gc信息，详情参见扩展阅读示例
+jstat -gcutil <pid> 
+
