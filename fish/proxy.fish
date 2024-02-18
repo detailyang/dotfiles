@@ -52,7 +52,8 @@ function autoproxy -d "set proxy from system config"
 end
 
 function wslproxy -d "set proxy in wsl env"
-	set hostip (cat /etc/resolv.conf | grep nameserver | awk '{ print $2 }')
+    #set hostip (cat /etc/resolv.conf | grep nameserver | awk '{ print $2 }')
+    set hostip 127.0.0.1
 	export HTTP_PROXY="$hostip:7890"
 	export HTTPS_PROXY="$hostip:7890"
 	export SOCKS_PROXY="$hostip:7890"
