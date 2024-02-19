@@ -1,0 +1,59 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: kube-nodeproblem
+spec:
+---
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: nodeproblem-detector
+  namespace: kube-nodeproblem
+  labels:
+    app: nodeproblem-detector
+spec:
+  selector:
+    matchLabels:
+      app: nodeproblem-detector
+  template:
+    metadata:
+      labels:
+        app: nodeproblem-detector
+      annotations:
+        "cpuset.cpus": "0-1"
+    spec:
+      hostNetwork: true
+      hostPID: true
+      restartPolicy: Always
+      serviceAccountName: nodeproblem
+      tolerations:
+      - operator: Exists
+      containers:
+      - name: detector
+        image: 
+        resources:
+          limits:
+            cpu: 256m
+            memory: 256Mi
+          requests:
+            cpu: 256m
+            memory: 256Mi
+        command:
+          - /node-problem
+        args:
+          - detector
+          - --monitor-interval=1m
+          - --sink-kube-enable=true
+          - --monitor-bad-disk=true
+        volumeMounts:
+        - name: host
+          mountPath: /host
+          mountPropagation: HostToContainer
+          readOnly: false
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: host
+        hostPath:
+          path: /
+          type: Directory
