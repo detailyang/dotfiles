@@ -1,0 +1,4 @@
+#! /bin/sh
+
+URL=$(cat ~/.bark)
+curl $URL$POPCLIP_URLENCODED_TEXT?copy=$POPCLIP_URLENCODED_TEXT

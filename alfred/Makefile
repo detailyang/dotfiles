@@ -33,7 +33,7 @@ MKFILE_DIR  := $(dir $(MKFILE_PATH))
 
 .PHONY: all
 ## Building all plugin
-all: ip ts ec errno hex tz sb
+all: ip ts ec errno hex tz sb bark
 
 .PHONY: fmt
 ## Format *.go
