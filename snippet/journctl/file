@@ -1,0 +1,1 @@
+ journalctl --file /var/run/log/journal/**/system.journal
