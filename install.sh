@@ -18,9 +18,15 @@ function install_brew_app() {
         return 0;
     fi
 
-    readonly apps=(proxychains-ng)
+    if command -v proxychains4 &> /dev/null; then
+        echo "proxychains4 was installed."
+    else
+        brew install --build-from-source proxychains-ng
+    fi
+
+    readonly apps=()
     for app in "${apps[@]}"; do
-        brew install --build-from-source $app
+        brew install $app
     done
 }
 
