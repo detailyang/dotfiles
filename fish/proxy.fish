@@ -10,24 +10,32 @@ function proxy -d "set proxy to socks5 7890"
     echo "socks5: $ip:7890 interface:$interface"
 	export HTTPS_PROXY=http://$ip:7890
 	export HTTP_PROXY=http://$ip:7890
+	export https_proxy=http://$ip:7890
+	export http_proxy=http://$ip:7890
 	export ALL_PROXY=http://$ip:7890
+	export all_proxy=http://$ip:7890
 	export SOCKS_PROXY=http://$ip:7890
+	export socks_proxy=http://$ip:7890
     set -x no_proxy_192 (seq -f"192.168.44.%g" -s"," 0 40)
     set -x no_proxy_192_168 (seq -f"192.168.0.%g" -s"," 0 254)
     export NO_PROXY="127.0.0.1,localhost,$no_proxy_192,$no_proxy_192_168"
+    export no_proxy="127.0.0.1,localhost,$no_proxy_192,$no_proxy_192_168"
 	echo "HTTP_PROXY:$HTTP_PROXY"
 	echo "HTTPS_PROXY:$HTTPS_PROXY"
 	echo "ALL_PROXY:$HTTPS_PROXY"
 	echo "SOCKS_PROXY:$SOCKS_PROXY"
-	echo "NO_PROXY:$NO_PROXY"
 end
 
 function unproxy -d "disable proxy to socks5 7890"
 	export HTTPS_PROXY=
 	export HTTP_PROXY=
+	export https_proxy=
+	export http_proxy=
 	export ALL_PROXY=
+	export all_proxy=
 	export GOPROXY=
-    export NOPROXY=
+    export NO_PROXY=
+    export no_proxy=
 end
 
 function autoproxy -d "set proxy from system config"
@@ -41,13 +49,18 @@ function autoproxy -d "set proxy from system config"
 	export HTTPS_PROXY="$httpsproxy:$httpsport"
 	export SOCKS_PROXY="$socksproxy:$socksport"
 	export ALL_PROXY="$socksproxy:$socksport"
+	export http_proxy="$httpproxy:$httpport"
+	export https_proxy="$httpsproxy:$httpsport"
+	export socks_proxy="$socksproxy:$socksport"
+	export ALL_PROXY="$socksproxy:$socksport"
+	export all_proxy="$socksproxy:$socksport"
     set -x no_proxy_192 (seq -f"192.168.44.%g" -s"," 0 40)
     set -x no_proxy_192_168 (seq -f"192.168.0.%g" -s"," 0 254)
     export NO_PROXY="127.0.0.1,localhost,$no_proxy_192,$no_proxy_192_168"
+    export no_proxy="127.0.0.1,localhost,$no_proxy_192,$no_proxy_192_168"
 	echo "HTTP_PROXY:$HTTP_PROXY"
 	echo "HTTPS_PROXY:$HTTPS_PROXY"
 	echo "SOCKS_PROXY:$SOCKS_PROXY"
-	echo "ALL_PROXY:$SOCKS_PROXY"
 	echo "NO_PROXY:$NO_PROXY"
 end
 
@@ -56,8 +69,12 @@ function wslproxy -d "set proxy in wsl env"
     set hostip 127.0.0.1
 	export HTTP_PROXY="$hostip:7890"
 	export HTTPS_PROXY="$hostip:7890"
+	export http_proxy="$hostip:7890"
+	export https_proxy="$hostip:7890"
 	export SOCKS_PROXY="$hostip:7890"
+	export socks_proxy="$hostip:7890"
 	export ALL_PROXY="$hostip:7890"
+	export all_proxy="$hostip:7890"
 	echo "HTTP_PROXY:$HTTP_PROXY"
 	echo "HTTPS_PROXY:$HTTPS_PROXY"
 	echo "SOCKS_PROXY:$SOCKS_PROXY"
