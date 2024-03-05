@@ -1,0 +1,7 @@
+/metrics
+/metrics/cadvisor
+/logs
+/metrics/resource/v1alpha1
+/metrics/probes
+/spec
+/stats
