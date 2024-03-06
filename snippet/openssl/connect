@@ -1,0 +1,1 @@
+openssl s_client -showcerts -servername www.example.com -connect www.example.com:443 </dev/null
