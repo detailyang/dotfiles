@@ -1,0 +1,1 @@
+ echo "10.89.97.42  hello.world" | sudo tee  -a /etc/hosts
