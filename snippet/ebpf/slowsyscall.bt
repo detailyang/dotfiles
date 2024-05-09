@@ -1,0 +1,44 @@
+#!/usr/sbin/bpftrace
+
+BEGIN
+{
+    printf("Tracing system calls...\n");
+    @excludes[202] = 1;
+    @excludes[35] = 1;
+    @excludes[281] = 1;
+    @excludes[35] = 1;
+    @excludes[47] = 1;
+    @excludes[232] = 1;
+    @excludes[56] = 1;
+    @excludes[271] = 1;
+    @excludes[7] = 1;
+    @excludes[23] = 1;
+    @excludes[59] = 1;
+    @excludes[247] = 1;
+    @excludes[70] = 1;
+    @excludes[61] = 1;
+}
+
+tracepoint:raw_syscalls:sys_enter /pid == 532059/
+{
+    if(@excludes[args->id] != 1) {
+        @start[tid] = nsecs;
+    }
+}
+
+tracepoint:raw_syscalls:sys_exit /pid == 532059/
+{
+    if(@excludes[args->id] != 1) {
+            $duration = nsecs - @start[tid];
+            if ($duration > 1000000000 && $duration < 11066543899765965) {
+                time("%H:%M:%S");
+                printf("Name: %s PID: %d, TID: %d NR:%d Elapsed:%ld\n", comm, pid, tid, args->id, $duration);
+                printf("%s\n", ustack());
+                printf("%s\n", kstack());
+                printf("====================\n");
+            }
+    }
+    delete(@start[tid]);
+}
+
+
