@@ -1,0 +1,60 @@
+#!/usr/bin/env bpftrace
+
+struct array
+{
+        char *data;
+        int len;
+        int cap;
+};
+
+BEGIN {
+        @total = 0;
+}
+
+uprobe:/home/k8s/etcd-current/bin/etcd:"go.etcd.io/etcd/server/v3/mvcc/backend.(*batchTx).unsafePut"
+/ comm == "etcd"/
+{
+
+        $di = reg("di");
+
+        $si = reg("si");
+        $r8 = reg("r8");
+
+        $r9  = reg("r9");
+        $r10 = reg("r10");
+        $r11 =  reg("r11");
+        $value = str($r9+1, 48);
+        $key = str($di, $si);
+
+        if ($key == "term" || $key == "consistent_index") {
+
+        } else {
+                time("%H:%M:%S -");
+                @total += $r10;
+                printf("PUT [%s(%d)] -> %d -> %s\n", $key, $si, $r10, $value);
+        }
+
+
+}
+
+
+uprobe:/home/k8s/etcd-current/bin/etcd:"go.etcd.io/etcd/server/v3/mvcc/backend.(*batchTx).UnsafeDelete"
+/ comm == "etcd"/
+{
+
+        $di = reg("di");
+        $si = reg("si");
+        $key = str($di, $si);
+
+        time("%H:%M:%S -");
+        printf("DELETE [(%d)]\n", $si);
+
+}
+
+interval:s:30 {
+        time("%H:%M:%S -");
+        printf("Total: %d\n", @total);
+        @total = 0;
+}
+
+
