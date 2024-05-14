@@ -1,0 +1,1 @@
+tshark -i lo -Y "tcp.port==3306" -T fields -e frame.number -e frame.time_delta -e tcp.srcport -e tcp.dstport -e _ws.col.Info -e mysql.query
