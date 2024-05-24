@@ -1,0 +1,10 @@
+# APIServer endpoint
+GET https://10.82.128.134:8013/api/v1/namespaces/default/pods?limit=500
+GET https://10.82.128.134:8013/api/v1/pods?limit=500
+
+# ETCD endpoint /registry/<object-type>/<name-space>/<object-name>
+/registry/pods/default/foo
+/registry/namespaces/default
+/registry/minions/<node-ip-1>
+
+
