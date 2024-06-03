@@ -24,7 +24,7 @@ function install_brew_app() {
         brew install --build-from-source proxychains-ng
     fi
 
-    readonly apps=()
+    readonly apps=(fish)
     for app in "${apps[@]}"; do
         brew install $app
     done
