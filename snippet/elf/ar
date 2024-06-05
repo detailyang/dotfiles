@@ -1,0 +1,2 @@
+ar -rc test.a test.o a.o
+ar -t /usr/lib64/libc.a
