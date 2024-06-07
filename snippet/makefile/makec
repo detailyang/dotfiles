@@ -1,0 +1,9 @@
+CC    = gcc  
+SRC   = $(wildcard *.c)  
+OBJ   = $(SRC:.c=.o)
+
+foo: $(OBJ)
+
+.PHONY: clean
+clean:
+    rm -f $(OBJ) foo
