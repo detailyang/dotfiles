@@ -1,0 +1,2 @@
+# -MMD used to generate the dependency(excluding system header) file and -MP used to generate empty rule for each header,
+gcc -c -MMD -MP main.c
