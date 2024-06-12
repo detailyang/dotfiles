@@ -1,0 +1,44 @@
+
+bpftrace -e 'kprobe:cgroup_mkdir { @start[tid] = nsecs; } kretprobe:cgroup_mkdir /@start[tid]/ { @ns[comm] = hist(nsecs - @start[tid]); delete(@start[tid]); }' 
+
+bpftrace -e 'kprobe:cgroup_rmdir { @start[tid] = nsecs; } kretprobe:cgroup_rmdir /@start[tid]/ { @ns[comm] = hist(nsecs - @start[tid]); delete(@start[tid]); }' 
+
+
+#!/usr/bin/env bpftrace
+
+kprobe:vfs_mkdir {
+    @vfs_mkdir[tid] = nsecs;
+}
+
+kprobe:cgroup_mkdir {
+    @cg_mkdir[tid] = nsecs;
+}
+
+kprobe:cgroup_rmdir {
+    @cg_rmdir[tid] = nsecs;
+}
+
+kretprobe:cgroup_mkdir /@cg_mkdir[tid]/{
+    $elapsed = (nsecs - @cg_mkdir[tid])/1000/1000;
+    @h_mkdir = hist($elapsed);
+    delete(@cg_mkdir[tid]);
+
+    printf("cgroup mkdir %s %d -> %dms\n", comm, tid, $elapsed);
+}
+
+kretprobe:cgroup_rmdir /@cg_rmdir[tid]/ {
+    $elapsed = (nsecs - @cg_rmdir[tid])/1000/1000;
+    @h_rmdir = hist($elapsed);
+    delete(@cg_rmdir[tid]);
+
+    printf("cgroup rmdir %s %d -> %dms\n", comm, tid, $elapsed);
+}
+
+kretprobe:vfs_mkdir/@vfs_mkdir[tid]/ {
+    $elapsed = (nsecs - @vfs_mkdir[tid])/1000/1000;
+    @h_vfs_rmdir = hist($elapsed);
+    delete(@vfs_mkdir[tid]);
+
+    printf("vfs rmdir %s %d -> %dms\n", comm, tid, $elapsed);
+}
+

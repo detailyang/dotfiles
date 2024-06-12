@@ -1,0 +1,5 @@
+CREATE USER 'buddy'@'127.0.0.1' IDENTIFIED BY 'password';
+GRANT ALL PRIVILEGES ON *.* TO 'buddy'@'127.0.0.1';
+FLUSH PRIVILEGES;
+DROP USER 'buddy'@'127.0.0.1';
+

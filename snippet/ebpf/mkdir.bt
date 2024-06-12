@@ -1,0 +1,3 @@
+bpftrace -e 'kprobe:vfs_mkdir { @start[tid] = nsecs; } kretprobe:vfs_mkdir /@start[tid]/ { @ns[comm] = hist(nsecs - @start[tid]); delete(@start[tid]); }' 
+
+bpftrace -e 'kprobe:cgroup_mkdir { @start[tid] = nsecs; } kretprobe:cgroup_mkdir /@start[tid]/ { @ns[comm] = hist(nsecs - @start[tid]); delete(@start[tid]); }' 

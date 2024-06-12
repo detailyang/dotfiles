@@ -1,0 +1,31 @@
+bpftrace a.bt -I/usr/src/kernels/4.18.0-193.el8.x86_64/include/
+头文件应该用源码的头文件，而不是只依赖 /usr/include 下的
+
+#!/usr/bin/env bpftrace
+
+#include <linux/socket.h>
+#include <sys/un.h>
+#include <linux/in.h>
+
+struct sockaddr_unix {
+        sa_family_t sun_family;               /* AF_UNIX */
+        char*        sun_path;            /* Pathname */
+};
+
+tracepoint:syscalls:sys_enter_bind {
+        $addr_in = (struct sockaddr_unix *)args->umyaddr;
+        if ($addr_in->sun_family == AF_UNIX) {
+                $path = $addr_in->sun_path;
+                printf("%s bind to %d %s\n", comm, args->fd, str($path, 16));
+        }
+}
+
+
+#include <linux/socket.h>
+#include <linux/in.h>
+
+tracepoint:syscalls:sys_enter_connect {
+	$addr_in = (struct sockaddr_in *)args->uservaddr;
+	$addr = ntop($addr_in->sin_addr.s_addr);
+	printf("%s connects to %s\n", comm, $addr);
+}
