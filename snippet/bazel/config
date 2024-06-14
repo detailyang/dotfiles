@@ -1,0 +1,2 @@
+--config=name
+Selects additional config section from the rc files; for the current command, it also pulls in the options from command:name if such a section exists. Can be specified multiple times to add flags from several config sections. Expansions can refer to other definitions (for example, expansions can be chained).

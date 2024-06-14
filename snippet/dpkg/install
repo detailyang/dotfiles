@@ -1,0 +1,6 @@
+dpkg -i sss
+dpkg -l # list packges
+dpkg -r sss # remove package
+dpkg -L sss # list installed files
+dpkg -S /var/lib/nginx #  Find package(s) owning file(s).
+
