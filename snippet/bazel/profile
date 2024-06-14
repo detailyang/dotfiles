@@ -1,0 +1,3 @@
+bazel build --profile=first_build.json //...
+
+bazel analyze-profile first_build.json

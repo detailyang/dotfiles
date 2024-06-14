@@ -1,0 +1,8 @@
+bazel info output_base
+/private/var/tmp/_bazel_sngoc/f40639b59d6008c1b45f75138d187679
+
+bazel info install_base
+/var/tmp/_bazel_sngoc/install/6b64cf61be23912f883b7ed0a05b85cf
+
+bazel info repository_cache
+/var/tmp/_bazel_sngoc/cache/repos/v1
