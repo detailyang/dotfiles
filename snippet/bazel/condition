@@ -1,0 +1,31 @@
+条件编译
+config_setting 和 select 可以用于在 Bazel 构建中实现条件编译，根据不同的配置选项选择性地包含不同的文件或编译选项。下面是一个使用 config_setting 和 select 的简单示例：
+
+在项目根目录下创建一个 BUILD 文件（如果尚未创建）。
+
+添加一个 config_setting 规则，用于定义一个名为 use_custom_lib 的配置标志：
+
+config_setting(
+    name = "use_custom_lib",
+    values = {"define": "custom_lib=true"},
+)
+这将创建一个名为 use_custom_lib 的配置设置，它在 --define custom_lib=true 传递给 Bazel 时为真。
+
+在 BUILD 文件中添加一个 cc_library 规则，并使用 select 语句根据 use_custom_lib 的值选择不同的源文件：
+cc_library(
+    name = "conditional_lib",
+    srcs = select({
+        ":use_custom_lib": ["custom_lib.cc"],
+        "//conditions:default": ["default_lib.cc"],
+    }),
+    hdrs = ["lib.h"],
+)
+在这个示例中，当 custom_lib 定义为 true 时，conditional_lib 会使用 custom_lib.cc 作为源文件，否则会使用 default_lib.cc。
+
+构建目标
+# 使用默认库构建
+bazel build //:conditional_lib
+
+# 使用自定义库构建
+bazel build //:conditional_lib --define custom_lib=true
+这个简单的示例展示了如何使用 config_setting 和 select 在 Bazel 构建中实现条件编译。你可以根据项目需求扩展这个示例，例如在不同的平台上使用不同的源文件或依赖项。
