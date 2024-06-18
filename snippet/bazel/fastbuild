@@ -1,0 +1,11 @@
+-c dbg
+These options affect the build commands and/or the output file contents.
+
+--compilation_mode (fastbuild|opt|dbg) (-c)
+    The --compilation_mode option (often shortened to -c, especially -c opt) takes an argument of fastbuild, dbg or opt, and affects various C/C++ code-generation options, such as the level of optimization and the completeness of debug tables. Bazel uses a different output directory for each different compilation mode, so you can switch between modes without needing to do a full rebuild every time.
+
+    fastbuild means build as fast as possible: generate minimal debugging information (-gmlt -Wl,-S), and don’t optimize. This is the default. Note: -DNDEBUG will not be set.
+
+    dbg means build with debugging enabled (-g), so that you can use gdb (or another debugger).
+
+    opt means build with optimization enabled and with assert() calls disabled (-O2 -DNDEBUG). Debugging information will not be generated in opt mode unless you also pass --copt -g.
