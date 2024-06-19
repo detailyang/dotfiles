@@ -1,6 +1,8 @@
 dpkg -i sss
 dpkg -l # list packges
 dpkg -r sss # remove package
-dpkg -L sss # list installed files
+dpkg -L sss # list package installed files
 dpkg -S /var/lib/nginx #  Find package(s) owning file(s).
+dpkg -s package # show the status of package
+apt-cache policy nvidia-firmware-535-535.171.04
 

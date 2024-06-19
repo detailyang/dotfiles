@@ -1,0 +1,2 @@
+ls /usr/lib/modules/6.5.0-41-generic/updates/dkms
+nvidia-drm.ko  nvidia.ko  nvidia-modeset.ko  nvidia-peermem.ko  nvidia-uvm.ko

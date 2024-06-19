@@ -1,0 +1,8 @@
+nvidia_uvm: 这是 NVIDIA Unified Virtual Memory (UVM) 内核模块。它提供了统一的虚拟内存管理，允许多个 GPU 共享内存并协同工作。UVM 技术使得在多个 GPU 上执行并行计算变得更加容易。
+
+nvidia_drm: 这是 NVIDIA Direct Rendering Manager (DRM) 内核模块。它提供了与 DRM 子系统的集成，以支持直接渲染和图形显示。DRM 是 Linux 内核中的子系统，用于管理图形硬件的访问和显示。
+
+nvidia_modeset: 这是 NVIDIA 显卡模式设置内核模块。它负责配置和管理 NVIDIA 显卡的显示模式，包括分辨率、刷新率、色彩空间等设置。该模块依赖于 nvidia_drm 模块，以与 DRM 子系统进行交互。
+
+nvidia: 这是 NVIDIA 显卡驱动程序的主要内核模块。它是其他模块的依赖项，并提供了与 NVIDIA 显卡硬件的底层通信和控制功能。该模块支持各种 NVIDIA 显卡型号，并提供图形渲染、计算和显示功能。
+
