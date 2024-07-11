@@ -110,3 +110,35 @@ function mac-key-repeat() {
 }
 
 
+function llproxy() {
+    local ip=$(ss -t -a state established 'sport = :22'  |awk 'NR==2 {print $4}' | cut -d ':' -f 1)
+
+    echo "socks5: $ip:7890 interface:$interface"
+	export HTTPS_PROXY=http://$ip:7890
+	export HTTP_PROXY=http://$ip:7890
+	export https_proxy=http://$ip:7890
+	export http_proxy=http://$ip:7890
+	export ALL_PROXY=http://$ip:7890
+	export all_proxy=http://$ip:7890
+	export SOCKS_PROXY=http://$ip:7890
+	export socks_proxy=http://$ip:7890
+    export NO_PROXY="127.0.0.1,localhost"
+    export no_proxy="127.0.0.1,localhost"
+	echo "HTTP_PROXY:$HTTP_PROXY"
+	echo "HTTPS_PROXY:$HTTPS_PROXY"
+	echo "ALL_PROXY:$HTTPS_PROXY"
+	echo "SOCKS_PROXY:$SOCKS_PROXY"
+}
+
+
+function unproxy() {
+	export HTTPS_PROXY=
+	export HTTP_PROXY=
+	export https_proxy=
+	export http_proxy=
+	export ALL_PROXY=
+	export all_proxy=
+	export GOPROXY=
+    export NO_PROXY=
+    export no_proxy=
+}
