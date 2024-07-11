@@ -63,6 +63,11 @@ function prepare_init_darwin() {
 }
 
 function prepare_oh_my_zsh() {
+    os="$(uname -s)"
+    if [[ "$os" != "Darwin" ]]; then
+        return 0;
+    fi
+
     if test -d ~/.oh-my-zsh/; then
         echo "omz was installed"
     else
@@ -72,6 +77,11 @@ function prepare_oh_my_zsh() {
 }
 
 function prepare_oh_my_fish() {
+    os="$(uname -s)"
+    if [[ "$os" != "Darwin" ]]; then
+        return 0;
+    fi
+
     if command -v fish &> /dev/null; then
         echo "Fish shell was installed."
     else
@@ -109,6 +119,11 @@ function git_pull() {
 }
 
 function prepare_home_manager() {
+    os="$(uname -s)"
+    if [[ "$os" != "Darwin" ]]; then
+        return 0;
+    fi
+
       # sh <(curl https://mirrors.tuna.tsinghua.edu.cn/nix/latest/install) --daemon
       if command -v nix-channel &> /dev/null ; then
           if nix-channel --list |grep -q home-manager &> /dev/null; then
@@ -127,8 +142,22 @@ function prepare_home_manager() {
 }
 
 function main() {
-    echo "Pulling the lastest changes"
-    git_pull
+    local no_pull=false
+
+    while [[ "$#" -gt 0 ]]; do
+        case "$1" in
+            --no-pull) no_pull=true ;;
+            *) echo "Unknown parameter passed: $1"; exit 1 ;;
+        esac
+        shift
+    done
+
+    if [[ "$no_pull" == false ]]; then
+    	echo "Pulling the latest changes"
+        git_pull
+    else
+        echo "Skipping git pull"
+    fi
 
     echo "Rsyncing to target"
     rsync_dirs
@@ -156,4 +185,4 @@ function main() {
     prepare_home_manager
 }
 
-main
+main "$@"
