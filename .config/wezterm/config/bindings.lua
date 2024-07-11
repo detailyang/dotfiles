@@ -28,6 +28,18 @@ local keys = {
       mods = 'LEADER',
       action = act.SplitHorizontal({ domain = 'CurrentPaneDomain' }),
    },
+   {
+      key = 't',
+      mods = 'LEADER',
+      action = act.PromptInputLine {
+        description = 'Enter new name for tab',
+        action = wezterm.action_callback(function(window, pane, line)
+          if line then
+            window:active_tab():set_title(line)
+          end
+        end),
+      },
+   },
    { key = 'k', mods = 'LEADER', action = act.ActivatePaneDirection('Up') },
    { key = 'j', mods = 'LEADER', action = act.ActivatePaneDirection('Down') },
    { key = 'h', mods = 'LEADER', action = act.ActivatePaneDirection('Left') },
