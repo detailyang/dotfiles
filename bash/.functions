@@ -124,10 +124,10 @@ function llproxy() {
 	export socks_proxy=http://$ip:7890
     export NO_PROXY="127.0.0.1,localhost"
     export no_proxy="127.0.0.1,localhost"
-	echo "HTTP_PROXY:$HTTP_PROXY"
-	echo "HTTPS_PROXY:$HTTPS_PROXY"
-	echo "ALL_PROXY:$HTTPS_PROXY"
-	echo "SOCKS_PROXY:$SOCKS_PROXY"
+	echo "HTTP_PROXY=$HTTP_PROXY"
+	echo "HTTPS_PROXY=$HTTPS_PROXY"
+	echo "ALL_PROXY=$HTTPS_PROXY"
+	echo "SOCKS_PROXY=$SOCKS_PROXY"
 }
 
 
