@@ -1,0 +1,2 @@
+@myrepo//my/app/main:app_binary
+@repo//package-name:target-name
