@@ -1,0 +1,47 @@
+## Checking iptables Rules
+# List all rules iptables-L
+# List rules with verbose output and numerical addresses
+iptables-L -v -n
+
+# List all rules in a format that can be reused
+iptables-save
+
+## Flushing iptables Rules
+iptables -F # Flush all rules in all chains
+iptables -X # Delete all user-defined chains
+iptables -Z # Zero packet and byte counters
+
+## Setting Default Policies
+iptables -P INPUT ACCEPT # Set default policy for INPUT chain
+iptables -P FORWARD ACCEPT # Set default policy for FORWARD chain
+iptables -P OUTPUT ACCEPT # Set default policy for OUTPUT chain
+
+## Allowing/Denying Traffic
+iptables -A INPUT -p tcp --dport <port> -j ACCEPT # Allow incoming traffic on a specific port
+iptables -A INPUT -s <IP> -j ACCEPT # Allow traffic from a specific IP address
+iptables -A INPUT -p tcp --dport <port> -j DROP # Drop incoming traffic on a specific port
+iptables -A INPUT -s <IP> -j DROP # Drop traffic from a specific IP address
+
+## Allowing/Denying Traffic with Conditions
+iptables -A INPUT -p tcp -s <IP> --dport <port> -j ACCEPT # Allow traffic from an IP on a specific port
+iptables -A INPUT -p tcp -s <IP> --dport <port> -j DROP # Drop traffic from an IP on a specific port
+
+## Deleting Rules
+iptables -D INPUT <rule-number> # Delete a specific rule by its number
+iptables -D INPUT -p tcp --dport <port> -j ACCEPT # Delete a specific rule
+
+## Working with Chains
+iptables -N <chain-name> # Create a new chain
+iptables -X <chain-name> # Delete a user-defined chain
+iptables -A INPUT -j <chain-name> # Jump to a user-defined chain
+
+## NAT and Port Forwarding
+iptables -t nat -A POSTROUTING -o <interface> -j MASQUERADE # Enable NAT on an interface
+iptables -t nat -A PREROUTING -p tcp --dport <port> -j DNAT --to-destination <IP>:<port> # Forward traffic from one port to another
+
+## Saving and Restoring Rules
+iptables-save > /etc/iptables/rules.v4 # Save IPv4 rules to a file
+iptables-restore < /etc/iptables/rules.v4 # Restore IPv4 rules from a file
+
+## Logging
+iptables -A INPUT -p tcp --dport <port> -j LOG --log-prefix "IPTables-Dropped:" --log-level
