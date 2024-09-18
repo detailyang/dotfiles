@@ -1,0 +1,6 @@
+#vim /etc/modprobe.d/blacklist.conf
+#sudo update-initramfs -u
+blacklist nouveau
+options nouveau modeset=0
+
+
