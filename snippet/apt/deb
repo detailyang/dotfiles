@@ -1,0 +1,20 @@
+mkdir -p typos_1.28.4-1/DEBIAN
+mkdir -p typos_1.28.4-1/usr/local/bin
+cp typos typos_1.28.4-1/usr/local/bin/
+cat > typos_1.28.4-1/DEBIAN/control << 'EOF'
+Package: typos
+Version: 1.28.4
+Section: utils
+Priority: optional
+Architecture: amd64
+Maintainer: Your Name <your.email@example.com>
+Description: Source code spell checker
+ Typos is a low false-positive source code spell checker written in Rust.
+ It helps catch spelling mistakes and typos in source code.
+EOF
+
+chmod 755 typos_1.28.4-1/DEBIAN
+chmod 755 typos_1.28.4-1/usr/local/bin/typos
+
+dpkg-deb --build typos_1.28.4-1
+

@@ -1,0 +1,1 @@
+watch -d "iptables -nvL | grep DROP"
