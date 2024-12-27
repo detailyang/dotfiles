@@ -1,2 +1,5 @@
 font-family = "JetBrains Mono"
+macos-titlebar-style = tabs
+background-opacity = 0.95
 theme = catppuccin-frappe
+term = xterm
