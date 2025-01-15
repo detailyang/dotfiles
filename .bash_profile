@@ -1,5 +1,13 @@
 if type starship > /dev/null; then
-    eval "$(starship init zsh)"
+    if [[ "$SHELl" == "bash" ]]; then
+        echo "abaa"
+        eval "$(starship init bash)"
+    elif [[ "$SHELL" == "zsh" ]]; then
+        echo "defdf"
+        eval "$(starship init zsh)"
+    else
+        eval "$(starship init bash)"
+    fi
 fi
 
 for file in ~/.bash/.{path,bash_prompt,exports,aliases,functions,extra}; do
@@ -27,4 +35,3 @@ if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
 fi
 
 export PATH="$HOME/bin:$PATH";
-
