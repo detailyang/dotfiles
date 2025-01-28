@@ -1,9 +1,7 @@
 if type starship > /dev/null; then
     if [[ "$SHELl" == "bash" ]]; then
-        echo "abaa"
         eval "$(starship init bash)"
     elif [[ "$SHELL" == "zsh" ]]; then
-        echo "defdf"
         eval "$(starship init zsh)"
     else
         eval "$(starship init bash)"
