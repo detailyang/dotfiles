@@ -12,10 +12,8 @@ function Install-App {
         [Parameter(Mandatory=$true)]
         [string]$AppId
     )
-    # 检查是否已经安装这个软件
     $installed = winget list --id $AppId -e 
     
-    # 如果没有安装，那么安装它
     if (-not $installed) {
         Write-Host "winget installing $AppId"
         winget install --id $AppId
@@ -43,3 +41,4 @@ Install-App -AppId "Discord.Discord"
 Install-App -AppId "Microsoft.Sysinternals.TCPView"
 Install-App -AppId "flux.flux"
 Install-App -AppId "LocalSend.LocalSend"
+Install-App -AppId "zhongyang219.TrafficMonitor.Full"
