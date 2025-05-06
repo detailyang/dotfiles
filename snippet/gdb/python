@@ -1,0 +1,1 @@
+gdb python3.10 18 -ex "source /usr/share/gdb/auto-load/usr/bin/python3.10-gdb.py"   -ex "set pagination off" -ex "set confirm off" -ex "thread apply all py-bt" -ex quit
