@@ -19,7 +19,7 @@ help:
 	@awk '/^[a-zA-Z\-\_0-9]+:/ { \
 		helpMessage = match(lastLine, /^## (.*)/); \
 		if (helpMessage) { \
-			helpCommand = substr($$1, 0, index($$1, ":")-1); \
+			helpCommand = substr($$1, 1, index($$1, ":")-1); \
 			helpMessage = substr(lastLine, RSTART + 3, RLENGTH); \
 			gsub(/;;/,"\n${PADDING}${MAGENTA}>variable: ${RESET}", helpMessage); \
 			printf "  ${YELLOW}%-$(TARGET_MAX_CHAR_NUM)s${RESET} ${GREEN}%s${RESET}\n", helpCommand, helpMessage; \
