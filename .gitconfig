@@ -1,6 +1,9 @@
 [include]
     path = ~/.gitworkconfig
 
+[log]
+    date = iso
+
 [user]
 	email = detailyang@gmail.com
 	name = detailyang

@@ -14,6 +14,7 @@ in
     ./apps/fish.nix
     ./apps/proxychains.nix
     ./apps/alacritty.nix
+    ./apps/fonts.nix
   ];
 
   nixpkgs.config.allowUnfree = true;      
@@ -65,7 +66,6 @@ in
     pkgs.wget
     pkgs.delta
     pkgs.vim
-    pkgs.vscode
     pkgs.tmux
     pkgs.fira-code
     pkgs.coreutils

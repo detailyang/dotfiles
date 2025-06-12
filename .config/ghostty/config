@@ -1,3 +1,5 @@
+shell-integration = fish
+command = /usr/local/bin/fish --login --interactive
 font-family = "JetBrains Mono"
 macos-titlebar-style = tabs
 background-opacity = 0.95

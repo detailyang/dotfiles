@@ -3,6 +3,7 @@ if test (uname) = "Darwin"
     if test -d "/opt/homebrew"
         set homebrew_path "/opt/homebrew"
         set homebrew_core_path "/opt/homebrew/Library/Taps/homebrew/homebrew-core"
+        eval "$(/opt/homebrew/bin/brew shellenv)"
     # Fall back to Intel Homebrew path
     else if test -d "/usr/local/Homebrew"
         set homebrew_path "/usr/local/Homebrew"

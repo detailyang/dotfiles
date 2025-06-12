@@ -26,7 +26,11 @@ function install_brew_app() {
 
     readonly apps=(fish)
     for app in "${apps[@]}"; do
-        brew install $app
+        if command -v fish &> /dev/null; then
+            echo "$app(brew) was installed."
+        else
+            brew install $app
+        fi
     done
 }
 
