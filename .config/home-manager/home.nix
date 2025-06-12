@@ -27,8 +27,8 @@ in
     pkgs.mkcert
     pkgs.jetbrains-mono
     pkgs.bat
-    pkgs.loc
-    pkgs.yzai
+    pkgs.tokei
+    pkgs.yazi
     pkgs.xclip
     pkgs.btop
     pkgs.yazi
