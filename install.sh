@@ -61,7 +61,13 @@ function prepare_init_darwin() {
     # allow hold keyboard
     defaults write -g ApplePressAndHoldEnabled -bool false 2>&1 &> /dev/null
 
+    defaults write com.microsoft.VSCodeInsiders ApplePressAndHoldEnabled -bool false
+
     defaults write -g AppleFontSmoothing -int 1
+
+    defaults write -g KeyRepeat -int 1
+
+    defaults write -g InitialKeyRepeat -int 10
 
     killall Finder;
 }
