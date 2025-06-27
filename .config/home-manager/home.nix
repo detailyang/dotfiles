@@ -33,9 +33,6 @@ in
     pkgs.xclip
     pkgs.btop
     pkgs.yazi
-    pkgs.nodejs
-    pkgs.go
-    pkgs.php
     pkgs.protobuf 
     pkgs.fortune
     pkgs.tokei
