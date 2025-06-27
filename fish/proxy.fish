@@ -45,15 +45,15 @@ function autoproxy -d "set proxy from system config"
 	set --local httpsproxy (scutil --proxy | awk '/HTTPSProxy/{print $3}')
 	set --local socksport (scutil --proxy | awk '/SOCKSPort/{print $3}')
 	set --local socksproxy (scutil --proxy | awk '/SOCKSProxy/{print $3}')
-	export HTTP_PROXY="$httpproxy:$httpport"
-	export HTTPS_PROXY="$httpsproxy:$httpsport"
+	export HTTP_PROXY="http://$httpproxy:$httpport"
+	export HTTPS_PROXY="http://$httpsproxy:$httpsport"
 	export SOCKS_PROXY="$socksproxy:$socksport"
-	export ALL_PROXY="$socksproxy:$socksport"
-	export http_proxy="$httpproxy:$httpport"
-	export https_proxy="$httpsproxy:$httpsport"
+	export ALL_PROXY="http://$socksproxy:$socksport"
+	export http_proxy="http://$httpproxy:$httpport"
+	export https_proxy="http://$httpsproxy:$httpsport"
 	export socks_proxy="$socksproxy:$socksport"
-	export ALL_PROXY="$socksproxy:$socksport"
-	export all_proxy="$socksproxy:$socksport"
+	export ALL_PROXY="http://$socksproxy:$socksport"
+	export all_proxy="http://$socksproxy:$socksport"
     set -x no_proxy_192 (seq -f"192.168.44.%g" -s"," 0 40)
     set -x no_proxy_192_168 (seq -f"192.168.0.%g" -s"," 0 254)
     export NO_PROXY="127.0.0.1,localhost,$no_proxy_192,$no_proxy_192_168"
@@ -67,14 +67,14 @@ end
 function wslproxy -d "set proxy in wsl env"
     #set hostip (cat /etc/resolv.conf | grep nameserver | awk '{ print $2 }')
     set hostip 127.0.0.1
-	export HTTP_PROXY="$hostip:7890"
-	export HTTPS_PROXY="$hostip:7890"
-	export http_proxy="$hostip:7890"
-	export https_proxy="$hostip:7890"
+	export HTTP_PROXY="http://$hostip:7890"
+	export HTTPS_PROXY="http://$hostip:7890"
+	export http_proxy="http://$hostip:7890"
+	export https_proxy="http://$hostip:7890"
 	export SOCKS_PROXY="$hostip:7890"
 	export socks_proxy="$hostip:7890"
-	export ALL_PROXY="$hostip:7890"
-	export all_proxy="$hostip:7890"
+	export ALL_PROXY="http://$hostip:7890"
+	export all_proxy="http://$hostip:7890"
 	echo "HTTP_PROXY:$HTTP_PROXY"
 	echo "HTTPS_PROXY:$HTTPS_PROXY"
 	echo "SOCKS_PROXY:$SOCKS_PROXY"
