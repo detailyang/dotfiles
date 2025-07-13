@@ -105,7 +105,7 @@ function prepare_oh_my_fish() {
         curl https://raw.githubusercontent.com/oh-my-fish/oh-my-fish/master/bin/install | fish
     fi
 
-    readonly plugins=(fzf peco "foreign-env" bass)
+    readonly plugins=(nvm fzf peco "foreign-env" bass)
     for plugin in "${plugins[@]}"; do
         if test -d ~/.local/share/omf/pkg/$plugin; then
             echo "omf plugin $plugin was installed"
