@@ -67,7 +67,7 @@ function prepare_init_darwin() {
 
     defaults write -g KeyRepeat -int 3
 
-    defaults write -g InitialKeyRepeat -int 3
+    defaults write -g InitialKeyRepeat -int 5
 
     killall Finder;
 }
@@ -102,7 +102,7 @@ function prepare_oh_my_fish() {
     if test -d ~/.local/share/omf/; then
         echo "omf was installed"
     else
-        curl -L https://get.oh-my.fish | fish
+        curl https://raw.githubusercontent.com/oh-my-fish/oh-my-fish/master/bin/install | fish
     fi
 
     readonly plugins=(fzf peco "foreign-env" bass)
