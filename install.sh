@@ -65,9 +65,9 @@ function prepare_init_darwin() {
 
     defaults write -g AppleFontSmoothing -int 1
 
-    defaults write -g KeyRepeat -int 3
+    defaults write -g KeyRepeat -int 7
 
-    defaults write -g InitialKeyRepeat -int 5
+    defaults write -g InitialKeyRepeat -int 7
 
     killall Finder;
 }

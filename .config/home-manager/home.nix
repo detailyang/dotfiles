@@ -35,6 +35,7 @@ in
     pkgs.yazi
     pkgs.protobuf 
     pkgs.fortune
+    pkgs.ast-grep
     pkgs.tokei
     pkgs.lolcat
     pkgs.cowsay
