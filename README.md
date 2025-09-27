@@ -1,13 +1,13 @@
 # Dotfiles
 
-My personal development environment configuration for macOS and Linux.
+My personal development environment configuration for macOS/Linux/Windows.
 
 ## Quick Start
 
 ```bash
 git clone https://github.com/detailyang/dotfiles.git
 cd dotfiles
-./install.sh
+./install.sh or ./install.ps1
 ```
 
 ## Key Features
