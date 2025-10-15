@@ -3,7 +3,7 @@ command = /usr/local/bin/fish --login --interactive
 font-family = "JetBrains Mono"
 macos-titlebar-style = tabs
 background-opacity = 0.95
-theme = catppuccin-frappe
+theme = Farmhouse Light
 term = xterm
 keybind = performable:ctrl+v=paste_from_clipboard
 keybind = performable:ctrl+c=copy_to_clipboard

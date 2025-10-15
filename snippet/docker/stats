@@ -1,0 +1,6 @@
+while true; do
+  docker stats --format "{{.Container}}\t{{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}\t{{.MemPerc}}\t{{.NetIO}}\t{{.BlockIO}}\t{{.PIDs}}" ybw --no-stream | while read line; do
+    echo "$(date "+%Y-%m-%d %H:%M:%S") $line"
+  done
+  sleep 1
+done
