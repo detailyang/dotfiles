@@ -1,0 +1,2 @@
+bazel aquery '//project:xyz' --output=text
+
