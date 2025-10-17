@@ -2,7 +2,7 @@ shell-integration = fish
 command = /usr/local/bin/fish --login --interactive
 font-family = "JetBrains Mono"
 macos-titlebar-style = tabs
-background-opacity = 0.8
+background-opacity = 0.85
 theme = Farmhouse Light
 term = xterm
 keybind = performable:ctrl+v=paste_from_clipboard
