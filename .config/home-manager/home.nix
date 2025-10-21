@@ -13,7 +13,6 @@ in
     ./apps/git.nix
     ./apps/fish.nix
     ./apps/proxychains.nix
-    ./apps/alacritty.nix
     ./apps/fonts.nix
   ];
 

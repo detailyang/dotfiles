@@ -8,9 +8,9 @@
 
     programs.git.enable = true;
     programs.git.lfs.enable = true;
-    programs.git.userName = "detailyang";
-    programs.git.userEmail = "detailyang@gmail.com";
-    programs.git.extraConfig = {
+    programs.git.settings.user.name = "detailyang";
+    programs.git.settings.user.email = "detailyang@gmail.com";
+    programs.git.settings.extraConfig = {
         core = {
             quotepath = false;
         };
