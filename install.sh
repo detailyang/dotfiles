@@ -26,10 +26,20 @@ function install_brew_app() {
 
     readonly apps=(fish)
     for app in "${apps[@]}"; do
-        if command -v fish &> /dev/null; then
+        if command -v $app &> /dev/null; then
             echo "$app(brew) was installed."
         else
             brew install $app
+        fi
+    done
+
+    # For gui apps
+    readonly guiapps=(openinterminal)
+    for app in "${guiapps[@]}"; do
+        if command -v $app &> /dev/null; then
+            echo "$app(brew) was installed."
+        else
+            brew install --cask $app
         fi
     done
 }
