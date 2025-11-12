@@ -1,0 +1,6 @@
+kubectl cordon <node-name>
+
+kubectl drain <node-name> --ignore-daemonsets
+
+kubectl uncordon <node-name>
+
