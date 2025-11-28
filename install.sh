@@ -24,7 +24,7 @@ function install_brew_app() {
         brew install --build-from-source proxychains-ng
     fi
 
-    readonly apps=(fish)
+    readonly apps=(fish brightness)
     for app in "${apps[@]}"; do
         if command -v $app &> /dev/null; then
             echo "$app(brew) was installed."
