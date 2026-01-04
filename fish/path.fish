@@ -1,29 +1,23 @@
-set -x PATH ~/bin $PATH
-set -x PATH ~/cargo/bin $PATH
-set -x PATH /usr/local/bin $PATH
-set -x PATH ~/go/bin $PATH
-set -x PATH ~/python/bin $PATH
-set -x PATH ~/bash/bin $PATH
-set -x PATH ~/node/bin $PATH
-set -x PATH ~/java/bin $PATH
-set -x PATH /usr/local/go/bin $PATH
+set -l paths_to_add \
+    ~/bin \
+    ~/cargo/bin \
+    /usr/local/bin \
+    ~/go/bin \
+    ~/python/bin \
+    ~/bash/bin \
+    ~/node/bin \
+    ~/java/bin \
+    /usr/local/go/bin \
+    ~/maven/bin \
+    /usr/local/openresty/bin \
+    ~/.jenv/bin \
+    ~/.gloo/bin \
+    ~/.fluvio/bin \
+    ~/.opencode/bin \
+    ~/.bun/bin
 
-if test -d ~/maven/bin
-    set -x PATH ~/maven/bin $PATH
-end
-
-if test -d /usr/local/openresty/bin 
-    set -x PATH /usr/local/openresty/bin $PATH
-end
-
-if test -d ~/.jenv/bin
-    set -x PATH ~/.jenv/bin $PATH
-end
-
-if test -d ~/.gloo/bin
-    set -x PATH ~/.gloo/bin $PATH
-end
-
-if test -d ~/.fluvio//bin
-    set -x PATH ~/.fluvio/bin $PATH
+for p in $paths_to_add
+    if test -d $p
+        set -x PATH $p $PATH
+    end
 end
