@@ -33,3 +33,5 @@ if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
 fi
 
 export PATH="$HOME/bin:$PATH";
+
+bind 'set enable-bracketed-paste off'
