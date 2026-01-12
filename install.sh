@@ -36,8 +36,8 @@ function install_brew_app() {
     # For gui apps
     readonly guiapps=(openinterminal monitorcontrol)
     for app in "${guiapps[@]}"; do
-        if command -v $app &> /dev/null; then
-            echo "$app(brew) was installed."
+        if brew list --cask | grep -q "^$app$"; then
+            echo "$app(brew cask) was installed."
         else
             brew install --cask $app
         fi
