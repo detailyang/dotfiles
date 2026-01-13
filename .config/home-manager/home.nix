@@ -41,6 +41,7 @@ in
     pkgs.peco
     pkgs.difftastic
     pkgs.graphviz
+    pkgs.aha
     pkgs.cmake
     pkgs.llvm
     pkgs.clang
