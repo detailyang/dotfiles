@@ -32,7 +32,7 @@ in
     pkgs.xclip
     pkgs.btop
     pkgs.yazi
-    pkgs.protobuf 
+    pkgs.protobuf
     pkgs.fortune
     pkgs.ast-grep
     pkgs.tokei
@@ -66,6 +66,7 @@ in
     pkgs.vim
     pkgs.tmux
     pkgs.fira-code
+    pkgs.jujutsu
     pkgs.coreutils
     pkgs.findutils
     pkgs.gnugrep
