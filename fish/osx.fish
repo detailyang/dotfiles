@@ -10,7 +10,6 @@ function osx
 end
 
 if test (uname) = "Darwin"
-    defaults write -g ApplePressAndHoldEnabled -bool false 2>&1 &> /dev/null 
     defaults write com.apple.finder AppleShowAllFiles YES
 
     # dock settings

@@ -3,7 +3,9 @@ install.sh
 install.ps1
 vscode
 .git
-.README.md
+README.md
 LICENSE
 Makefile
+.sisyphus/
+*.md
 

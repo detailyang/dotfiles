@@ -1,12 +1,30 @@
-OPENRESTY_DEVEL_PATH=/shared/art/opensource/github/openresty/openresty-devel-utils
+OPENRESTY_DEVEL_PATH="/shared/art/opensource/github/openresty/openresty-devel-utils"
+
+paths_to_add=(
+    "$HOME/bin"
+    "$HOME/.cargo/bin"
+    "/usr/local/bin"
+    "$HOME/go/bin"
+    "$HOME/bash/bin"
+    "$HOME/python/bin"
+    "$HOME/node/bin"
+    "$HOME/java/bin"
+    "/usr/local/go/bin"
+    "$HOME/maven/bin"
+    "/usr/local/openresty/bin"
+    "$HOME/.jenv/bin"
+    "$HOME/.gloo/bin"
+    "$HOME/.fluvio/bin"
+    "$HOME/.opencode/bin"
+    "$HOME/.bun/bin"
+)
+
 if [[ -d "$OPENRESTY_DEVEL_PATH" ]]; then
-        export PATH="$OPENRESTY_DEVEL_PATH:$PATH"
+    paths_to_add+=("$OPENRESTY_DEVEL_PATH")
 fi
-export PATH="$HOME/bin:$PATH";
-export PATH="$HOME/.cargo/bin:$PATH"
-export PATH="$HOME/.go/bin:$PATH"
-export PATH="$HOME/cargo/bin:$PATH"
-export PATH="$HOME/go/bin:$PATH"
-export PATH="$HOME/bash/bin:$PATH"
-export PATH="$HOME/fish/bin:$PATH"
-export PATH="/usr/local/go/bin:$PATH"
+
+for p in "${paths_to_add[@]}"; do
+    if [[ -d "$p" ]]; then
+        export PATH="$p:$PATH"
+    fi
+done

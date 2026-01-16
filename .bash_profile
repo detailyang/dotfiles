@@ -1,5 +1,5 @@
 if type starship > /dev/null; then
-    if [[ "$SHELl" == "bash" ]]; then
+    if [[ "$SHELL" == "bash" ]]; then
         eval "$(starship init bash)"
     elif [[ "$SHELL" == "zsh" ]]; then
         eval "$(starship init zsh)"
@@ -9,10 +9,6 @@ if type starship > /dev/null; then
 fi
 
 for file in ~/.bash/.{path,bash_prompt,exports,aliases,functions,extra}; do
-	[ -r "$file" ] && [ -f "$file" ] && source "$file";
-done;
-
-for file in ~/bash/.{path,bash_prompt,exports,aliases,functions,extra}; do
 	[ -r "$file" ] && [ -f "$file" ] && source "$file";
 done;
 

@@ -19,27 +19,41 @@ function install_brew_app() {
     fi
 
     if command -v proxychains4 &> /dev/null; then
-        echo "proxychains4 was installed."
+        echo "✓ proxychains4 already installed"
     else
-        brew install --build-from-source proxychains-ng
+        echo "Installing proxychains-ng..."
+        if brew install --build-from-source proxychains-ng; then
+            echo "✓ proxychains-ng installed"
+        else
+            echo "WARNING: Failed to install proxychains-ng"
+        fi
     fi
 
     readonly apps=(fish brightness)
     for app in "${apps[@]}"; do
         if command -v $app &> /dev/null; then
-            echo "$app(brew) was installed."
+            echo "✓ $app already installed"
         else
-            brew install $app
+            echo "Installing $app..."
+            if brew install $app; then
+                echo "✓ $app installed"
+            else
+                echo "WARNING: Failed to install $app"
+            fi
         fi
     done
 
-    # For gui apps
     readonly guiapps=(openinterminal monitorcontrol)
     for app in "${guiapps[@]}"; do
         if brew list --cask | grep -q "^$app$"; then
-            echo "$app(brew cask) was installed."
+            echo "✓ $app already installed"
         else
-            brew install --cask $app
+            echo "Installing $app..."
+            if brew install --cask $app; then
+                echo "✓ $app installed"
+            else
+                echo "WARNING: Failed to install $app"
+            fi
         fi
     done
 }
@@ -129,9 +143,74 @@ function prepare_dirs() {
     mkdir -p ~/art/{github,opensource,personal}
 }
 
+function pre_flight_checks() {
+    echo "Running pre-flight checks..."
+
+    local available_space=$(df -BM ~ | awk 'NR==2 {print $4}' | sed 's/M//')
+    if [[ $available_space -lt 100 ]]; then
+        echo "ERROR: Insufficient disk space. Need at least 100MB, available: ${available_space}MB"
+        exit 1
+    fi
+    echo "✓ Disk space OK (${available_space}MB available)"
+
+    if ! command -v git &> /dev/null; then
+        echo "ERROR: git is not installed. Please install git first."
+        exit 1
+    fi
+    echo "✓ git installed"
+
+    if [[ ! -w "$HOME" ]]; then
+        echo "ERROR: No write permission to home directory"
+        exit 1
+    fi
+    echo "✓ Home directory writable"
+
+    echo "All pre-flight checks passed."
+}
+
+function create_backup() {
+    local backup_dir="$HOME/.dotfiles-backup-$(date +%Y%m%d_%H%M%S)"
+
+    echo "Creating backup at $backup_dir..."
+
+    mkdir -p "$backup_dir"
+
+    local files_to_backup=(
+        "$HOME/.bash_profile"
+        "$HOME/.zshrc"
+        "$HOME/.config/fish"
+        "$HOME/.config/wezterm"
+    )
+
+    for file in "${files_to_backup[@]}"; do
+        if [[ -e "$file" ]]; then
+            echo "  Backing up: $file"
+            cp -a "$file" "$backup_dir/"
+        fi
+    done
+
+    echo "✓ Backup created at $backup_dir"
+    echo "  To restore: cp -r $backup_dir/* ~/"
+}
+
 function rsync_dirs() {
-    rsync --exclude-from=./.exclude \
-        -avh --no-perms . ~ &> /dev/null
+    local dry_run="$1"
+
+    if [[ "$dry_run" == true ]]; then
+        echo "DRY RUN: Would deploy these files:"
+        rsync --exclude-from=./.exclude \
+            -avh --no-perms --dry-run . ~ | grep -v "sending incremental file list" | grep -v "^$"
+    else
+        echo "Deploying configs..."
+        if rsync --exclude-from=./.exclude \
+            -avh --no-perms . ~; then
+            echo "✓ Configs deployed successfully"
+        else
+            echo "ERROR: rsync failed with exit code $?"
+            echo "Please check permissions and disk space"
+            exit 1
+        fi
+    fi
 }
 
 function git_pull() {
@@ -163,24 +242,32 @@ function prepare_home_manager() {
 
 function main() {
     local no_pull=false
+    local dry_run=false
 
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
             --no-pull) no_pull=true ;;
-            *) echo "Unknown parameter passed: $1"; exit 1 ;;
+            --dry-run) dry_run=true ;;
+            *) echo "Unknown parameter passed: $1"; echo "Usage: $0 [--no-pull] [--dry-run]"; exit 1 ;;
         esac
         shift
     done
 
-    if [[ "$no_pull" == false ]]; then
-    	echo "Pulling the latest changes"
+if [[ "$no_pull" == false ]]; then
+    	echo "Pulling latest changes"
         git_pull
     else
         echo "Skipping git pull"
     fi
 
+    pre_flight_checks
+
+    if [[ "$dry_run" == false ]]; then
+        create_backup
+    fi
+
     echo "Rsyncing to target"
-    rsync_dirs
+    rsync_dirs "$dry_run"
 
     #echo "Sourcing bash profile"
     #source ~/.bash_profile
