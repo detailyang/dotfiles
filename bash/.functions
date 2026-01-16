@@ -1,7 +1,21 @@
 #! /usr/bin/env bash
 
 function sb() {
-    ~/dotfiles/bin/snippte "$@"
+    local snippte=""
+    
+    if test -x ~/bin/snippte; then
+        snippte=~/bin/snippte
+    elif test -x ~/dotfiles/bin/snippte; then
+        snippte=~/dotfiles/bin/snippte
+    elif test -x "$(dirname "${BASH_SOURCE}")/../bin/snippte"; then
+        snippte="$(dirname "${BASH_SOURCE}")/../bin/snippte"
+    fi
+    
+    if test -n "$snippte"; then
+        $snippte "$@"
+    else
+        echo "Warning: snippte not found"
+    fi
 }
 
 function rpmbuild-here() {
@@ -103,5 +117,19 @@ function chromium() {
 }
 
 function docker-clean() {
-    ~/dotfiles/snippet/docker/clean
+    local docker_clean=""
+    
+    if test -x ~/snippet/docker/clean; then
+        docker_clean=~/snippet/docker/clean
+    elif test -x ~/dotfiles/snippet/docker/clean; then
+        docker_clean=~/dotfiles/snippet/docker/clean
+    elif test -x "$(dirname "${BASH_SOURCE}")/../snippet/docker/clean"; then
+        docker_clean="$(dirname "${BASH_SOURCE}")/../snippet/docker/clean"
+    fi
+    
+    if test -n "$docker_clean"; then
+        $docker_clean
+    else
+        echo "Warning: snippet/docker/clean not found"
+    fi
 }
