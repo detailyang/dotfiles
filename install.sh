@@ -18,6 +18,12 @@ function install_brew_app() {
         return 0;
     fi
 
+    if ! command -v brew &> /dev/null; then
+        echo "WARNING: Homebrew is not installed. Skipping brew app installation."
+        echo "To install Homebrew: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+        return 0;
+    fi
+
     if command -v proxychains4 &> /dev/null; then
         echo "✓ proxychains4 already installed"
     else
@@ -146,7 +152,7 @@ function prepare_dirs() {
 function pre_flight_checks() {
     echo "Running pre-flight checks..."
 
-    local available_space=$(df -BM ~ | awk 'NR==2 {print $4}' | sed 's/M//')
+    local available_space=$(df -k ~ | awk 'NR==2 {print $4}' | awk '{print int($1/1024)}')
     if [[ $available_space -lt 100 ]]; then
         echo "ERROR: Insufficient disk space. Need at least 100MB, available: ${available_space}MB"
         exit 1
