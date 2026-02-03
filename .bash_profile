@@ -1,33 +1,29 @@
-if type starship > /dev/null; then
-    if [[ "$SHELL" == "bash" ]]; then
-        eval "$(starship init bash)"
-    elif [[ "$SHELL" == "zsh" ]]; then
-        eval "$(starship init zsh)"
-    else
-        eval "$(starship init bash)"
-    fi
+# Initialize starship prompt if available
+if type starship > /dev/null 2>&1; then
+    eval "$(starship init bash)"
 fi
 
-for file in ~/.bash/.{path,bash_prompt,exports,aliases,functions,extra}; do
-	[ -r "$file" ] && [ -f "$file" ] && source "$file";
-done;
+# Source core bash configurations
+for file in ~/.bash/.{path,aliases}; do
+    [ -r "$file" ] && [ -f "$file" ] && source "$file"
+done
 
-for file in ~/bash/*.sh; do
-    source $file
+# Source modular functions
+for file in ~/bash/{cscope,snippte,proxy,k8s,ssh,rpm,nix,nix-common}.sh; do
+    [ -r "$file" ] && [ -f "$file" ] && source "$file"
 done
 
 
+# Nix package manager (if available)
 if [ -e '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh' ]; then
-  # if PATH does *not* contain `~/.nix-profile/bin`
   if [ -n "${PATH##*.nix-profile/bin*}" ]; then
-
-    # If this flag is set, `nix-daemon.sh` returns early
-    # https://github.com/NixOS/nix/issues/5298
     unset __ETC_PROFILE_NIX_SOURCED
     . '/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh'
   fi
 fi
 
-export PATH="$HOME/bin:$PATH";
+# Ensure ~/bin is in PATH
+export PATH="$HOME/bin:$PATH"
 
+# Disable bracketed paste mode
 bind 'set enable-bracketed-paste off'
