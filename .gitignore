@@ -4,3 +4,4 @@
 /alfred/.idea
 .idea
 *.swp
+.worktrees/
