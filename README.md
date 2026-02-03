@@ -53,7 +53,7 @@ The installer will attempt to install missing tools where possible.
 - **Cross-platform**: macOS, Linux, and Windows support with platform-specific optimizations
 - **Automated Installation**: Pre-flight checks, automatic backups, and dry-run mode
 - **Modular Architecture**: Individual function files, dynamic sourcing, minimal coupling
-- **Development-focused**: 44 Fish functions, 85 command snippets, 11 Alfred workflows
+- **Development-focused**: 44 Fish functions, 85 command snippets, 10 Alfred workflows
 - **Backup & Rollback**: Automatic timestamped backups before every deployment
 - **XDG Compliant**: Application configs follow freedesktop.org standards
 
@@ -92,7 +92,7 @@ dotfiles/
 │   ├── ebpf/               # eBPF tracing scripts
 │   └── [tool]/             # 30+ other categories
 ├── alfred/            # Alfred workflows (Go-based)
-│   ├── workflows/          # 11 compiled workflows
+│   ├── workflows/          # 10 compiled workflows
 │   └── Makefile            # Build automation
 ├── bin/               # Executable utilities
 │   └── snippte             # fzf-powered snippet browser
@@ -158,7 +158,7 @@ sb                      # Open snippet browser (Bash version)
 
 ### Alfred Workflows
 
-11 production workflows developed in Go (not JSON):
+10 production workflows developed in Go (not JSON):
 
 | Workflow | Purpose |
 |----------|---------|
@@ -185,11 +185,11 @@ make clean        # Clean build artifacts
 
 | Category | Examples |
 |----------|----------|
-| **bazel** (12) | `aquery`, `profile`, `label` analysis |
+| **bazel** (14) | `aquery`, `profile`, `label` analysis |
 | **docker** (4) | `stats`, `clean`, `history` management |
-| **k8s** (3) / **kube** (7) | Pod debugging, node info, events |
-| **ebpf** (8) | `cgroup.bt`, `vfs_read.bt` tracing |
-| **openssl** (5) | `generate_rsa`, `parse_pem` crypto |
+| **k8s** (2) / **kube** (7) | Pod debugging, node info, events |
+| **ebpf** (9) | `cgroup.bt`, `vfs_read.bt` tracing |
+| **openssl** (4) | `generate_rsa`, `parse_pem` crypto |
 | **nvidia** (4) | GPU/driver management |
 
 ```bash
