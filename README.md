@@ -5,7 +5,7 @@
 ![Windows](https://img.shields.io/badge/Windows-supported-blue?logo=windows)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Cross-platform development environment configuration for macOS/Linux/Windows with automated installation, modular shell configurations, and extensive tool integration.
+Cross-platform development environment for power users featuring modular shell configurations, 85+ command snippets, and automated deployment with intelligent backup.
 
 ## Table of Contents
 
@@ -50,11 +50,11 @@ The installer will attempt to install missing tools where possible.
 
 ## Key Features
 
-- **Cross-platform**: macOS, Linux, and Windows support with platform-specific optimizations
-- **Automated Installation**: Pre-flight checks, automatic backups, and dry-run mode
-- **Modular Architecture**: Individual function files, dynamic sourcing, minimal coupling
-- **Development-focused**: 44 Fish functions, 85 command snippets, 10 Alfred workflows
-- **Backup & Rollback**: Automatic timestamped backups before every deployment
+- **Cross-platform**: macOS, Linux, and Windows with platform-specific optimizations
+- **Automated Installation**: Pre-flight checks, automatic backups, dry-run mode
+- **Modular Architecture**: 47 Fish shell functions, each in its own file with dynamic loading
+- **Rich Tooling**: 85 command snippets across 34 categories, 10 Alfred workflows
+- **Safe Deployment**: Automatic timestamped backups before every installation
 - **XDG Compliant**: Application configs follow freedesktop.org standards
 
 ## Philosophy & Conventions
@@ -78,31 +78,28 @@ The installer will attempt to install missing tools where possible.
 
 ```
 dotfiles/
-├── fish/              # Fish shell config (44 modular functions)
+├── fish/              # Fish shell (47 modular functions)
 │   ├── fish_prompt.fish    # Two-line prompt with Git/K8s context
-│   ├── proxy.fish          # 4-mode proxy management
+│   ├── proxy.fish          # Advanced 4-mode proxy management
 │   ├── path.fish           # Centralized PATH (17 directories)
-│   └── [tool].fish         # Tool-specific functions
+│   └── [tool].fish         # Tool-specific functions (kubectl, docker, go, etc.)
 ├── bash/              # Bash shell configuration
 │   └── nix-common.sh       # Shared Nix config (Fish + Bash)
 ├── snippet/           # Command snippets (85 files, 34 categories)
-│   ├── bazel/              # Build system commands
-│   ├── docker/             # Container management
-│   ├── k8s/, kube/         # Kubernetes utilities
-│   ├── ebpf/               # eBPF tracing scripts
-│   └── [tool]/             # 30+ other categories
+│   ├── bazel/             # Build system (12 commands)
+│   ├── docker/            # Container ops (4 commands)
+│   ├── k8s/, kube/        # Kubernetes (9 commands)
+│   ├── ebpf/              # eBPF tracing (9 scripts)
+│   └── [tool]/            # 30+ other categories
 ├── alfred/            # Alfred workflows (Go-based)
-│   ├── workflows/          # 10 compiled workflows
-│   └── Makefile            # Build automation
+│   ├── workflows/         # 10 compiled workflows
+│   └── Makefile           # Build automation
 ├── bin/               # Executable utilities
-│   └── snippte             # fzf-powered snippet browser
+│   └── snippte            # fzf-powered snippet browser
 ├── .config/           # XDG application configs
-│   ├── alacritty/          # Terminal emulator
-│   ├── ghostty/            # Modern terminal
-│   ├── wezterm/            # Cross-platform terminal
-│   ├── karabiner/          # macOS keyboard remapping
-│   ├── starship.toml       # Cross-shell prompt
-│   └── [app]/              # Other app configs
+│   ├── alacritty/, ghostty/, wezterm/  # Terminal emulators
+│   ├── karabiner/         # macOS keyboard remapping
+│   └── starship.toml      # Cross-shell prompt config
 ├── .hammerspoon/      # macOS automation (Lua)
 ├── darwin/            # macOS-specific utilities
 ├── docker/            # CentOS7 dev environment
@@ -114,13 +111,13 @@ dotfiles/
 
 ### Fish Shell (Primary)
 
-Fish is the primary shell with **44 modular functions** organized by tool/purpose:
+Fish is the primary shell with **47 modular functions** (one per file):
 
-- **Modular architecture**: One function per file for maintainability
-- **Intelligent autocompletion**: Tool-aware completions (kubectl, docker, etc.)
-- **History search**: fzf integration with `fd` backend (Ctrl+R)
-- **Custom prompt**: Two-line design with Git branch, K8s context, and status
-- **Proxy management**: 4-mode system (manual, auto, WSL, disable)
+- **Modular architecture**: Single-responsibility functions with dynamic loading
+- **Intelligent completion**: Tool-aware for kubectl, docker, go, etc.
+- **History search**: fzf integration with fd backend (Ctrl+R)
+- **Custom prompt**: Two-line design with Git branch, K8s context
+- **Advanced proxy**: 4-mode system (manual, auto, WSL, disable)
 
 #### Common Fish Commands
 
@@ -181,7 +178,7 @@ make clean        # Clean build artifacts
 
 ### Command Snippets
 
-85 command snippets across 34 tool categories:
+85 executable commands across 34 tool categories:
 
 | Category | Examples |
 |----------|----------|
@@ -318,137 +315,99 @@ cp ~/.dotfiles-backup-20250103_114505/.gitconfig ~/
 
 ## Troubleshooting
 
-### Installation Issues
+### Installation
 
-#### Disk Space
 ```bash
-df -h ~               # Check available disk space
+# Check disk space
+df -h ~
+
+# Verify permissions
+ls -ld ~
+ls -l install.sh
+
+# Preview changes before deployment
+./install.sh --dry-run
 ```
 
-#### Permissions
-```bash
-ls -ld ~              # Verify home directory ownership
-ls -l install.sh      # Verify installer is executable
-```
+### Shell Configuration
 
-#### Preview Changes
-```bash
-./install.sh --dry-run    # See what would be deployed
-```
-
-### Shell Issues
-
-#### Fish Prompt Not Showing
+**Fish prompt not showing:**
 ```fish
-# Check prompt file exists
 ls -l ~/.config/fish/functions/fish_prompt.fish
-
-# Reload Fish configuration
 source ~/.config/fish/config.fish
-
-# Check for errors
-fish --version
 ```
 
-#### Bash Not Loading Configs
+**Bash not loading:**
 ```bash
-# Check .bash_profile exists and is sourced
 cat ~/.bash_profile
-
-# Reload Bash
 source ~/.bash_profile
-
-# Verify shell
 echo $SHELL
 ```
 
-#### Starship Prompt Issues
+**Starship issues:**
 ```bash
-# Verify starship is installed
 which starship
-
-# Check config for errors
 starship --explain
-
-# Re-initialize
-eval "$(starship init bash)"
-eval "$(starship init fish)"
+eval "$(starship init bash)"  # or fish
 ```
 
-### Tool-Specific Issues
+### Tools
 
-#### fzf Integration Missing
+**fzf missing:**
 ```bash
-# Install fzf
-brew install fzf      # macOS
-# or
-apt install fzf       # Ubuntu/Debian
-
-# Check fzf bindings
-fish_fzf_key_bindings  # Fish
+brew install fzf              # macOS
+apt install fzf               # Ubuntu/Debian
+fish_fzf_key_bindings         # Verify bindings
 ```
 
-#### Alfred Workflows Not Building
+**Alfred workflows:**
 ```bash
-# Check Go installation
 go version
-
-# Update Go modules
-cd alfred
-go mod download
-
-# Build with verbose output
-make -n              # Dry-run
+cd alfred && go mod download
+make -n                       # Dry-run build
 ```
 
-#### Docker Environment Issues
+**Docker environment:**
 ```bash
-# Check Docker daemon
 docker info
-
-# Rebuild image
 docker-compose build
 ```
 
 ## Maintenance
 
-### Updating Configuration
+### Update Dotfiles
 
 ```bash
-cd ~/dotfiles
-git pull
-./install.sh              # Deploy latest changes
+cd ~/dotfiles && git pull && ./install.sh
 ```
 
-### Adding New Fish Functions
+### Add Fish Function
 
-1. Create file: `fish/yourfunction.fish`
-2. Write function:
-   ```fish
-   function yourfunction
-       # Your logic here
-   end
-   ```
-3. Function auto-loads on next shell start
-4. Reload immediately: `source ~/.config/fish/config.fish`
+Create `fish/yourfunction.fish`:
+```fish
+function yourfunction
+    # Your logic here
+end
+```
 
-### Modifying Nix Configuration
+Auto-loads on next shell start. Reload immediately: `source ~/.config/fish/config.fish`
 
-Edit `bash/nix-common.sh` — shared between Bash and Fish.
+### Add Snippet
 
-Changes apply to both shells after re-sourcing.
+```bash
+mkdir -p snippet/yourtool
+cat > snippet/yourtool/command.sh << 'EOF'
+#!/bin/bash
+# Your command here
+EOF
+chmod +x snippet/yourtool/command.sh
+```
 
-### Adding Snippets
+Access via `s` (Fish) or `~/dotfiles/bin/snippte`
 
-1. Create directory: `snippet/yourtool/`
-2. Add executable commands:
-   ```bash
-   # snippet/yourtool/command.sh
-   #!/bin/bash
-   # Your command here
-   ```
-3. Make executable: `chmod +x snippet/yourtool/command.sh`
-4. Access via `s` command or `~/dotfiles/bin/snippte`
+### Modify Nix
+
+Edit `bash/nix-common.sh` — shared by both Bash and Fish. Changes apply after re-sourcing.
 
 ## License
 
