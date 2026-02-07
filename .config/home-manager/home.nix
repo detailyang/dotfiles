@@ -4,7 +4,7 @@ let
 
   username = builtins.getEnv "USER";
   homeDirectory  = builtins.getEnv "HOME";
-  pkgsUnstable = import <nixpkgs-unstable> {};
+  pkgsStable = import <nixpkgs> {};
 
 in
 
@@ -42,6 +42,7 @@ in
     pkgs.difftastic
     pkgs.graphviz
     pkgs.aha
+    pkgs.jj
     pkgs.cmake
     pkgs.llvm
     pkgs.clang

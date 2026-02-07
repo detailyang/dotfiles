@@ -2,7 +2,7 @@
 
 let
 
-  pkgsUnstable = import <nixpkgs-unstable> {};
+  pkgsStable = import <nixpkgs> {};
 
 in
 

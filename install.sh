@@ -63,6 +63,21 @@ function install_brew_app() {
             fi
         fi
     done
+
+    readonly tap_casks=(steipete/tap/codexbar)
+    for cask in "${tap_casks[@]}"; do
+        cask_name="${cask##*/}"
+        if brew list --cask | grep -q "^$cask_name$"; then
+            echo "✓ $cask_name already installed"
+        else
+            echo "Installing $cask..."
+            if brew install --cask $cask; then
+                echo "✓ $cask_name installed"
+            else
+                echo "WARNING: Failed to install $cask"
+            fi
+        fi
+    done
 }
 
 function prepare_init_darwin() {
@@ -240,9 +255,9 @@ function prepare_home_manager() {
               # nix-shell '<home-manager>' -A install 
           fi
 
-          if nix-channel --list |grep -q  nixpkgs-unstable &> /dev/null; then
-              echo "add nixpkgs-unstable to channel"
-              nix-channel --add https://mirrors.ustc.edu.cn/nix-channels/nixpkgs-unstable nixpkgs-unstable
+          if nix-channel --list |grep -q  nixpkgs &> /dev/null; then
+              echo "add nixpkgs to channel"
+              nix-channel --add https://mirrors.ustc.edu.cn/nix-channels/nixpkgs nixpkgs
           fi
       fi
 }
