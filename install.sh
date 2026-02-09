@@ -52,7 +52,8 @@ function install_brew_app() {
     readonly guiapps=(openinterminal monitorcontrol productdevbook/tap/portkiller)
 
     for app in "${guiapps[@]}"; do
-        if brew list --cask | grep -q "^$app$"; then
+        app_name=$(basename "$app")
+        if brew list --cask "$app" &> /dev/null; then
             echo "✓ $app already installed"
         else
             echo "Installing $app..."
