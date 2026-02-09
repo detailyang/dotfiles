@@ -7,5 +7,5 @@ README.md
 LICENSE
 Makefile
 .sisyphus/
-*.md
+/*.md
 
