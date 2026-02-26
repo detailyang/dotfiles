@@ -81,6 +81,37 @@ function install_brew_app() {
     done
 }
 
+function install_skills() {
+    os="$(uname -s)"
+    if [[ "$os" != "Darwin" ]]; then
+        return 0;
+    fi
+
+    if ! command -v npx &> /dev/null; then
+        echo "WARNING: npx is not installed. Skipping skills installation."
+        return 0;
+    fi
+
+    local installed_skills
+    installed_skills="$(npx skills list -g 2>/dev/null || true)"
+
+    readonly skills=(vercel-labs/agent-browser)
+    for skill in "${skills[@]}"; do
+        local skill_name="${skill##*/}"
+        if [[ "$installed_skills" == *"$skill_name"* ]]; then
+            echo "✓ $skill already installed (global)"
+            continue
+        fi
+
+        echo "Installing skill $skill..."
+        if npx skills add --yes -g "$skill"; then
+            echo "✓ $skill installed"
+        else
+            echo "WARNING: Failed to install $skill"
+        fi
+    done
+}
+
 function prepare_init_darwin() {
     os="$(uname -s)"
     if [[ "$os" != "Darwin" ]]; then
@@ -284,6 +315,9 @@ if [[ "$no_pull" == false ]]; then
     fi
 
     pre_flight_checks
+
+    echo "Installing skills"
+    install_skills
 
     if [[ "$dry_run" == false ]]; then
         create_backup
