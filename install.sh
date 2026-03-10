@@ -297,18 +297,22 @@ function prepare_home_manager() {
 function main() {
     local no_pull=false
     local dry_run=false
+    local install_skills=false
+    local install_mac_apps=false
 
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
             --no-pull) no_pull=true ;;
             --dry-run) dry_run=true ;;
-            *) echo "Unknown parameter passed: $1"; echo "Usage: $0 [--no-pull] [--dry-run]"; exit 1 ;;
+            --skills) install_skills=true ;;
+            --mac-apps) install_mac_apps=true ;;
+            *) echo "Unknown parameter passed: $1"; echo "Usage: $0 [--no-pull] [--dry-run] [--skills] [--mac-apps]"; exit 1 ;;
         esac
         shift
     done
 
 if [[ "$no_pull" == false ]]; then
-    	echo "Pulling latest changes"
+     	echo "Pulling latest changes"
         git_pull
     else
         echo "Skipping git pull"
@@ -316,8 +320,12 @@ if [[ "$no_pull" == false ]]; then
 
     pre_flight_checks
 
-    echo "Installing skills"
-    install_skills
+    if [[ "$install_skills" == true ]]; then
+        echo "Installing skills"
+        install_skills
+    else
+        echo "Skipping skills installation (use --skills to install)"
+    fi
 
     if [[ "$dry_run" == false ]]; then
         create_backup
@@ -342,7 +350,11 @@ if [[ "$no_pull" == false ]]; then
     prepare_oh_my_fish
 
     echo "Installing mac app"
-#    install_mac_app
+    if [[ "$install_mac_apps" == true ]]; then
+        install_mac_app
+    else
+        echo "Skipping mac app installation (use --mac-apps to install)"
+    fi
     install_brew_app
 
     echo "Installing home-manager"

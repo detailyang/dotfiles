@@ -1,142 +1,135 @@
 ---
 name: news
-description: |
-  CLI tool to fetch trending news and hot topics from 66 sources across 44 platforms. Returns structured news items with titles, URLs, and metadata.
-
-  USE FOR:
-  - Fetching trending/hot news from Chinese and international platforms
-  - Monitoring hot topics across social media, tech, finance, and news sites
-  - Getting structured news data as JSON for further processing
-  - Listing available news sources
-
-  Requires npm install. Some sources need env vars (PRODUCTHUNT_API_TOKEN). Some sources may be blocked by Cloudflare (linuxdo).
+description: 每日阅读工作流 - 依次展示 HN 10条和 Feedly 10条未读文章，用户选择后 AI 分析原文，自动标记已读
 allowed-tools:
-  - Bash(newsnow *)
-  - Bash(npx newsnow *)
+  - Bash(python3 scripts/fetch_hn.py)
+  - Bash(agent-browser *)
+  - WebFetch
 ---
 
-# newsnow CLI
+# News Reader - 每日阅读工作流
 
-Fetch trending news and hot topics from 66 sources across 44 platforms. Returns news items with title, URL, and optional metadata.
+## 触发
 
-Run `newsnow --help` for usage details.
-
-## Workflow
-
-Follow this pattern:
-
-1. **List** - Don't know what sources are available? List them first.
-2. **Fetch** - Know the source? Fetch news directly.
-3. **JSON** - Need structured data? Add `--json` for machine-readable output.
-
-| Need | Command | When |
-|---|---|---|
-| See all sources | `newsnow list` | Don't know source names |
-| See sources as JSON | `newsnow list --json` | Need source list programmatically |
-| Get news | `newsnow <source>` | Know the source, want readable output |
-| Get news as JSON | `newsnow <source> --json` | Need structured data for processing |
-
-## Commands
-
-### list
-
-List all available sources.
-
-```bash
-newsnow list
-newsnow list --json
+```
+/news
 ```
 
-### Fetch a source
+## 工作流程
+
+### 第一步：获取 HN Top 10
 
 ```bash
-newsnow hackernews
-newsnow hackernews --json
+python3 scripts/fetch_hn.py
 ```
 
-Output fields (JSON mode):
-- `id` - Unique item identifier
-- `title` - News headline
-- `url` - Link to the article (optional)
-- `pubDate` - Publication date (optional)
-- `extra` - Additional metadata like view counts, comments (optional)
+输出格式：
+```json
+[
+  {"title": "文章标题", "url": "https://...", "score": 123, "comments": 45}
+]
+```
 
-## Sources
+展示给用户，格式：
+```
+1. [标题] (score: N, comments: N)
+2. [标题] (score: N, comments: N)
+...
+```
 
-66 source endpoints across 44 platforms:
+### 第二步：用户选择 HN 文章
 
-| Platform | Sources |
-|---|---|
-| 36kr | `36kr`, `36kr-quick`, `36kr-renqi` |
-| Baidu | `baidu` |
-| Bilibili | `bilibili`, `bilibili-hot-search`, `bilibili-hot-video`, `bilibili-ranking` |
-| Cankaoxiaoxi | `cankaoxiaoxi` |
-| Chongbuluo | `chongbuluo`, `chongbuluo-hot`, `chongbuluo-latest` |
-| CLS | `cls`, `cls-telegraph`, `cls-depth`, `cls-hot` |
-| Coolapk | `coolapk` |
-| Douban | `douban` |
-| Douyin | `douyin` |
-| Fastbull | `fastbull`, `fastbull-express`, `fastbull-news` |
-| FreeBuf | `freebuf` |
-| Gelonghui | `gelonghui` |
-| Ghxi | `ghxi` |
-| GitHub | `github`, `github-trending-today` |
-| Hacker News | `hackernews` |
-| Hupu | `hupu` |
-| iFeng | `ifeng` |
-| iQIYI | `iqiyi-hot-ranklist` |
-| ITHome | `ithome` |
-| Jin10 | `jin10` |
-| Juejin | `juejin` |
-| Kaopu | `kaopu` |
-| Kuaishou | `kuaishou` |
-| LinuxDo | `linuxdo`, `linuxdo-latest`, `linuxdo-hot` |
-| MktNews | `mktnews`, `mktnews-flash` |
-| Nowcoder | `nowcoder` |
-| PCBeta | `pcbeta-windows`, `pcbeta-windows11` |
-| Product Hunt | `producthunt` |
-| QQ Video | `qqvideo-tv-hotsearch` |
-| SMZDM | `smzdm` |
-| Solidot | `solidot` |
-| Sputnik News CN | `sputniknewscn` |
-| SSPai | `sspai` |
-| Steam | `steam` |
-| Tencent | `tencent-hot` |
-| The Paper | `thepaper` |
-| Tieba | `tieba` |
-| Toutiao | `toutiao` |
-| V2EX | `v2ex`, `v2ex-share` |
-| Wall Street CN | `wallstreetcn`, `wallstreetcn-quick`, `wallstreetcn-news`, `wallstreetcn-hot` |
-| Weibo | `weibo` |
-| Xueqiu | `xueqiu`, `xueqiu-hotstock` |
-| Zaobao | `zaobao` |
-| Zhihu | `zhihu` |
+用户输入感兴趣的序号 (如 `1,3,5` 或 `1-3`)
 
-## Source Selection Guide
+### 第三步：AI 分析 HN 文章
 
-| Category | Recommended Sources |
-|---|---|
-| Tech | `hackernews`, `github`, `v2ex`, `juejin`, `ithome`, `linuxdo` |
-| Finance | `xueqiu`, `wallstreetcn`, `cls`, `jin10`, `gelonghui`, `fastbull` |
-| General News | `toutiao`, `baidu`, `thepaper`, `ifeng`, `zaobao`, `cankaoxiaoxi` |
-| Social/Trending | `weibo`, `douyin`, `bilibili`, `zhihu`, `tieba`, `douban` |
-| Security | `freebuf` |
-| Product/Design | `producthunt`, `sspai` |
+对每篇选择的文章，使用 WebFetch 获取原文内容，然后总结要点。
 
-## Environment Variables
+### 第四步：获取 Feedly 未读
 
-- `PRODUCTHUNT_API_TOKEN` - Required for `producthunt` source
-
-## Known Limitations
-
-- `linuxdo`, `linuxdo-latest`, `linuxdo-hot` may return 403 Forbidden (Cloudflare)
-- Some Chinese sources may be inaccessible from outside mainland China
-
-## Working with Results
+使用 `--auto-connect` 连接你已有的 Chrome (复用登录态)：
 
 ```bash
-newsnow hackernews --json | jq '.[].title'
-newsnow hackernews --json | jq '.[:5]'
-newsnow weibo --json | jq '.[] | "\(.title) \(.url)"'
+# 连接到已有 Chrome
+agent-browser --auto-connect open "https://feedly.com/i/my/me"
+agent-browser wait --load networkidle
+
+# 获取页面快照
+agent-browser snapshot -i
+
+# 使用 eval 提取未读文章并自动标记已读
+agent-browser eval --stdin <<'EOF'
+(function(){
+  const items = document.querySelectorAll('.entry--unread, .previewable-entity');
+  const results = [];
+  for(let i=0; i<Math.min(10, items.length); i++){
+    const el = items[i];
+    const title = el.querySelector('.title')?.textContent?.trim();
+    const link = el.querySelector('a')?.href;
+    if(title && link) {
+      results.push({title, url: link});
+      // 尝试标记已读
+      const markBtn = el.querySelector('[data-original-title="Mark as read"]');
+      if(markBtn) markBtn.click();
+    }
+  }
+  return JSON.stringify(results);
+})()
+EOF
 ```
 
+**首次使用**：需先开启 Chrome 远程调试（复用你的 Chrome 配置）：
+```bash
+open -a "Google Chrome" --args --remote-debugging-port=9222 --user-data-dir="$HOME/Library/Application Support/Google/Chrome"
+```
+
+### 第五步：展示 Feedly 文章
+
+格式：
+```
+1. [中文标题]
+2. [中文标题]
+...
+```
+
+### 第六步：用户选择 Feedly 文章
+
+用户输入感兴趣的序号
+
+### 第七步：AI 分析 Feedly 文章
+
+使用 WebFetch 获取原文并总结。
+
+## 输出格式
+
+每个阶段的展示格式：
+
+**HN:**
+```
+=== HackerNews Top 10 ===
+
+1. [Title](url) — 一句话总结 (score: N, comments: N)
+2. [Title](url) — 一句话总结 (score: N, comments: N)
+...
+
+请输入要分析的文章序号 (如 1,3,5 或 1-3):
+```
+
+**Feedly:**
+```
+=== Feedly 未读 (前10条) ===
+
+1. [中文标题]
+2. [中文标题]
+...
+
+请输入要分析的文章序号 (如 1,3,5 或 1-3):
+```
+
+## 依赖
+
+- Python 3
+- agent-browser CLI
+- WebFetch (xray-url)
+- Chrome 开启远程调试: `open -a "Google Chrome" --args --remote-debugging-port=9222`
+- Feedly 已登录 (复用你的 Chrome 登录态)
