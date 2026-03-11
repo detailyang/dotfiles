@@ -14,6 +14,7 @@ dotfiles/
 ├── snippet/        # 85+ executable command snippets (34 tool categories)
 ├── alfred/         # Go-based Alfred workflow development (9 workflows)
 ├── bash/           # Bash configurations (fallback shell, 7 files)
+├── .agents/skills/ # AI agent skills (primary storage, symlinked to ~/.config/opencode/skills/)
 ├── .config/        # XDG application configs (starship, wezterm, alacritty)
 ├── .hammerspoon/   # Lua automation modules (7 modules, macOS-specific)
 ├── darwin/         # macOS-specific utilities
@@ -30,6 +31,7 @@ dotfiles/
 | Shell setup | `fish/`, `bash/` | Fish primary, Bash fallback |
 | Snippet browsing | `snippet/` | Tool-first organization (bazel, docker, k8s, ebpf, etc.) |
 | Alfred workflows | `alfred/` | Go source + Makefile, not JSON editing |
+| AI agent skills | `.agents/skills/` | Primary storage, symlinked to `~/.config/opencode/skills/` and `.claude/skills/` |
 | macOS automation | `.hammerspoon/` | 7 Lua modules (window, dns, volume, hotkey, reload) |
 | Terminal config | `.config/alacritty/`, `.config/wezterm/` | Cross-platform terminals |
 | Installation | `install.sh` / `install.ps1` | Platform-specific with backup/rollback |
@@ -90,7 +92,7 @@ cp -r ~/.dotfiles-backup-YYYYMMDD_HHMMSS/* ~/
 
 ## NOTES
 - Repository serves both personal dotfiles AND team infrastructure
-- Existing AGENTS.md in `.agents/` is Chinese, focuses on AI development principles (library-first, CLI-mandatory, TDD-strict)
+- AI agent skills stored in `.agents/skills/` (primary), symlinked to `~/.config/opencode/skills/` and `.claude/skills/`
 - Known issues tracked in `.sisyphus/plans/dotfiles-conservative-refactor.md` (20+ hardcoded proxy ports, cargo PATH inconsistency, duplicate configs)
 - Alfred workflows require Go toolchain, build to `~/.alfred/`
 - Snippets integrate with tmux via `bin/snippte` binary
