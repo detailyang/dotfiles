@@ -352,10 +352,10 @@ if [[ "$no_pull" == false ]]; then
     echo "Installing mac app"
     if [[ "$install_mac_apps" == true ]]; then
         install_mac_app
+        install_brew_app
     else
         echo "Skipping mac app installation (use --mac-apps to install)"
     fi
-    install_brew_app
 
     echo "Installing home-manager"
     prepare_home_manager
