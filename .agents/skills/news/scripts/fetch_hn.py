@@ -1,1 +1,0 @@
-/Users/detailyang/.claude/skills/hn/scripts/fetch_hn.py
