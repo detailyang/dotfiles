@@ -519,6 +519,7 @@ phase_postinstall() {
         setup_oh_my_zsh
         setup_oh_my_fish
         setup_home_manager
+        setup_lazygit_symlink
     fi
     
     log_success "Post-install configuration completed"
@@ -595,6 +596,33 @@ setup_home_manager() {
     fi
     
     log_success "home-manager setup completed"
+}
+
+setup_lazygit_symlink() {
+    local source="$HOME/.config/lazygit/config.yml"
+    local target="$HOME/Library/Application Support/lazygit/config.yml"
+    
+    if [[ ! -f "$source" ]]; then
+        log_info "lazygit config not found at $source, skipping symlink setup"
+        return 0
+    fi
+    
+    log_info "Setting up lazygit config symlink..."
+    
+    # Create target directory if it doesn't exist
+    mkdir -p "$HOME/Library/Application Support/lazygit"
+    
+    # Remove existing file/link if it exists
+    if [[ -e "$target" || -L "$target" ]]; then
+        rm -f "$target"
+    fi
+    
+    # Create symlink
+    if ln -s "$source" "$target"; then
+        log_success "lazygit config symlinked: $target -> $source"
+    else
+        log_warn "Failed to create lazygit config symlink"
+    fi
 }
 
 # ============================================================================
