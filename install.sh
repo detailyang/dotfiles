@@ -1,364 +1,688 @@
-#! /usr/bin/env bash
+#!/usr/bin/env bash
 
-cd "$(dirname "${BASH_SOURCE}")"
+# Dotfiles Installation Script
+# Supports macOS, Linux, and WSL
+# Usage: ./install.sh [--no-pull] [--dry-run] [--npx] [--mac-apps]
 
-function install_mac_app() {
-    # defaults write -g applepressandholdenabled -bool false
+set -o pipefail
 
-    readonly apps=(Proxifier shottr Hovrly amphetamine bartender enpass snippetslab karabiner itsycal paper hammersppon lulu SwitchHosts kap PicGo)
+cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
-    for app in "${apps[@]}"; do
-        echo "try to install $app"
-    done
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+
+readonly SCRIPT_VERSION="2.0.0"
+
+# Brew CLI packages
+readonly BREW_CLI_PACKAGES=(
+    "fish"
+    "brightness"
+)
+
+# Brew cask packages
+readonly BREW_CASK_PACKAGES=(
+    "openinterminal"
+    "monitorcontrol"
+    "productdevbook/tap/portkiller"
+)
+
+# Brew tap casks
+readonly BREW_TAP_CASKS=(
+    "steipete/tap/codexbar"
+)
+
+# NPX skills to install
+readonly NPX_SKILLS=(
+    "vercel-labs/agent-browser"
+)
+
+# Oh-My-Fish plugins
+readonly OMF_PLUGINS=(
+    "nvm"
+    "fzf"
+    "peco"
+    "foreign-env"
+    "bass"
+)
+
+# Files to backup before deployment
+readonly BACKUP_FILES=(
+    "$HOME/.bash_profile"
+    "$HOME/.zshrc"
+    "$HOME/.config/fish"
+    "$HOME/.config/wezterm"
+    "$HOME/.config/alacritty"
+    "$HOME/.hammerspoon"
+)
+
+# Directory structure to create
+readonly ART_DIRS=(
+    "$HOME/art/github"
+    "$HOME/art/opensource"
+    "$HOME/art/personal"
+)
+
+# ============================================================================
+# HELPER FUNCTIONS - Logging
+# ============================================================================
+
+log_info() {
+    echo "ℹ️  $*"
 }
 
-function install_brew_app() {
-    os="$(uname -s)"
-    if [[ "$os" != "Darwin" ]]; then
-        return 0;
-    fi
+log_success() {
+    echo "✓ $*"
+}
 
-    if ! command -v brew &> /dev/null; then
-        echo "WARNING: Homebrew is not installed. Skipping brew app installation."
-        echo "To install Homebrew: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
-        return 0;
-    fi
+log_warn() {
+    echo "⚠️  WARNING: $*" >&2
+}
 
-    if command -v proxychains4 &> /dev/null; then
-        echo "✓ proxychains4 already installed"
+log_error() {
+    echo "❌ ERROR: $*" >&2
+}
+
+log_step() {
+    echo ""
+    echo "===> $*"
+}
+
+# ============================================================================
+# HELPER FUNCTIONS - Platform Detection
+# ============================================================================
+
+is_macos() {
+    [[ "$(uname -s)" == "Darwin" ]]
+}
+
+is_linux() {
+    [[ "$(uname -s)" == "Linux" ]]
+}
+
+is_wsl() {
+    [[ -f /proc/version ]] && grep -qi microsoft /proc/version
+}
+
+get_platform() {
+    if is_macos; then
+        echo "macOS"
+    elif is_wsl; then
+        echo "WSL"
+    elif is_linux; then
+        echo "Linux"
     else
-        echo "Installing proxychains-ng..."
-        if brew install --build-from-source proxychains-ng; then
-            echo "✓ proxychains-ng installed"
-        else
-            echo "WARNING: Failed to install proxychains-ng"
-        fi
+        echo "Unknown"
     fi
-
-    readonly apps=(fish brightness)
-    for app in "${apps[@]}"; do
-        if command -v $app &> /dev/null; then
-            echo "✓ $app already installed"
-        else
-            echo "Installing $app..."
-            if brew install $app; then
-                echo "✓ $app installed"
-            else
-                echo "WARNING: Failed to install $app"
-            fi
-        fi
-    done
-
-    readonly guiapps=(openinterminal monitorcontrol productdevbook/tap/portkiller)
-
-    for app in "${guiapps[@]}"; do
-        app_name=$(basename "$app")
-        if brew list --cask "$app" &> /dev/null; then
-            echo "✓ $app already installed"
-        else
-            echo "Installing $app..."
-            if brew install --cask $app; then
-                echo "✓ $app installed"
-            else
-                echo "WARNING: Failed to install $app"
-            fi
-        fi
-    done
-
-    readonly tap_casks=(steipete/tap/codexbar)
-    for cask in "${tap_casks[@]}"; do
-        cask_name="${cask##*/}"
-        if brew list --cask | grep -q "^$cask_name$"; then
-            echo "✓ $cask_name already installed"
-        else
-            echo "Installing $cask..."
-            if brew install --cask $cask; then
-                echo "✓ $cask_name installed"
-            else
-                echo "WARNING: Failed to install $cask"
-            fi
-        fi
-    done
 }
 
-function install_skills() {
-    os="$(uname -s)"
-    if [[ "$os" != "Darwin" ]]; then
-        return 0;
-    fi
+# ============================================================================
+# HELPER FUNCTIONS - Command Checks
+# ============================================================================
 
-    if ! command -v npx &> /dev/null; then
-        echo "WARNING: npx is not installed. Skipping skills installation."
-        return 0;
-    fi
-
-    local installed_skills
-    installed_skills="$(npx skills list -g 2>/dev/null || true)"
-
-    readonly skills=(vercel-labs/agent-browser)
-    for skill in "${skills[@]}"; do
-        local skill_name="${skill##*/}"
-        if [[ "$installed_skills" == *"$skill_name"* ]]; then
-            echo "✓ $skill already installed (global)"
-            continue
-        fi
-
-        echo "Installing skill $skill..."
-        if npx skills add --yes -g "$skill"; then
-            echo "✓ $skill installed"
-        else
-            echo "WARNING: Failed to install $skill"
-        fi
-    done
+check_command() {
+    local cmd="$1"
+    command -v "$cmd" &> /dev/null
 }
 
-function prepare_init_darwin() {
-    os="$(uname -s)"
-    if [[ "$os" != "Darwin" ]]; then
-        return 0;
+require_command() {
+    local cmd="$1"
+    local install_hint="${2:-}"
+    
+    if ! check_command "$cmd"; then
+        log_error "$cmd is not installed."
+        if [[ -n "$install_hint" ]]; then
+            log_info "To install: $install_hint"
+        fi
+        return 1
     fi
-
-    # take screenshots as jpg (usually smaller size) and not png
-    defaults write com.apple.screencapture type jpg
-
-    # do not open previous previewed files (e.g. PDFs) when opening a new one
-    defaults write com.apple.Preview ApplePersistenceIgnoreState YES
-
-    # show Library folder
-    chflags nohidden ~/Library
-
-    # show hidden files
-    defaults write com.apple.finder AppleShowAllFiles YES
-
-    # show path bar
-    defaults write com.apple.finder ShowPathbar -bool true
-
-    # show status bar
-    defaults write com.apple.finder ShowStatusBar -bool true
-
-    # allow hold keyboard
-    defaults write -g ApplePressAndHoldEnabled -bool false 2>&1 &> /dev/null
-
-    defaults write com.microsoft.VSCodeInsiders ApplePressAndHoldEnabled -bool false
-
-    defaults write -g AppleFontSmoothing -int 1
-
-    defaults write -g KeyRepeat -int 2
-
-    defaults write -g InitialKeyRepeat -int 15
-
-    killall Finder;
+    return 0
 }
 
-function prepare_oh_my_zsh() {
-    os="$(uname -s)"
-    if [[ "$os" != "Darwin" ]]; then
-        return 0;
-    fi
-
-    if test -d ~/.oh-my-zsh/; then
-        echo "omz was installed"
+check_command_silent() {
+    local cmd="$1"
+    if check_command "$cmd"; then
+        log_success "$cmd is available"
+        return 0
     else
-        sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"
+        log_warn "$cmd is not available"
+        return 1
     fi
-
 }
 
-function prepare_oh_my_fish() {
-    os="$(uname -s)"
-    if [[ "$os" != "Darwin" ]]; then
-        return 0;
-    fi
+# ============================================================================
+# HELPER FUNCTIONS - Package Management
+# ============================================================================
 
-    if command -v fish &> /dev/null; then
-        echo "Fish shell was installed."
-    else
-        echo "Fish shell is not installed."
-        exit 0
+install_brew_package() {
+    local package="$1"
+    
+    if check_command "$package"; then
+        log_success "$package already installed"
+        return 0
     fi
     
-    if test -d ~/.local/share/omf/; then
-        echo "omf was installed"
+    log_info "Installing $package..."
+    if brew install "$package"; then
+        log_success "$package installed"
+        return 0
     else
-        curl https://raw.githubusercontent.com/oh-my-fish/oh-my-fish/master/bin/install | fish
+        log_warn "Failed to install $package"
+        return 1
     fi
-
-    readonly plugins=(nvm fzf peco "foreign-env" bass)
-    for plugin in "${plugins[@]}"; do
-        if test -d ~/.local/share/omf/pkg/$plugin; then
-            echo "omf plugin $plugin was installed"
-        else
-            fish -c "omf install $plugin"
-        fi
-    done
 }
 
-function prepare_dirs() {
-    mkdir -p ~/art/{github,opensource,personal}
+install_brew_cask() {
+    local cask="$1"
+    local cask_name
+    cask_name=$(basename "$cask")
+    
+    if brew list --cask "$cask" &> /dev/null; then
+        log_success "$cask_name already installed"
+        return 0
+    fi
+    
+    log_info "Installing $cask..."
+    if brew install --cask "$cask"; then
+        log_success "$cask_name installed"
+        return 0
+    else
+        log_warn "Failed to install $cask"
+        return 1
+    fi
 }
 
-function pre_flight_checks() {
-    echo "Running pre-flight checks..."
+# ============================================================================
+# PHASE 1: Pre-flight Checks
+# ============================================================================
 
-    local available_space=$(df -k ~ | awk 'NR==2 {print $4}' | awk '{print int($1/1024)}')
+phase_preflight() {
+    log_step "Phase 1: Pre-flight Checks"
+    
+    log_info "Platform: $(get_platform)"
+    log_info "Script version: $SCRIPT_VERSION"
+    
+    # Check git
+    if ! require_command git "Visit https://git-scm.com/downloads"; then
+        exit 1
+    fi
+    log_success "git installed"
+    
+    # Check disk space
+    local available_space
+    available_space=$(df -k ~ | awk 'NR==2 {print $4}' | awk '{print int($1/1024)}')
     if [[ $available_space -lt 100 ]]; then
-        echo "ERROR: Insufficient disk space. Need at least 100MB, available: ${available_space}MB"
+        log_error "Insufficient disk space. Need at least 100MB, available: ${available_space}MB"
         exit 1
     fi
-    echo "✓ Disk space OK (${available_space}MB available)"
-
-    if ! command -v git &> /dev/null; then
-        echo "ERROR: git is not installed. Please install git first."
-        exit 1
-    fi
-    echo "✓ git installed"
-
+    log_success "Disk space OK (${available_space}MB available)"
+    
+    # Check home directory writable
     if [[ ! -w "$HOME" ]]; then
-        echo "ERROR: No write permission to home directory"
+        log_error "No write permission to home directory"
         exit 1
     fi
-    echo "✓ Home directory writable"
-
-    echo "All pre-flight checks passed."
+    log_success "Home directory writable"
+    
+    log_success "All pre-flight checks passed"
 }
 
-function create_backup() {
+# ============================================================================
+# PHASE 2: Backup
+# ============================================================================
+
+phase_backup() {
+    local dry_run="$1"
+    
+    if [[ "$dry_run" == true ]]; then
+        log_step "Phase 2: Backup (skipped in dry-run mode)"
+        return 0
+    fi
+    
+    log_step "Phase 2: Creating Backup"
+    
     local backup_dir="$HOME/.dotfiles-backup-$(date +%Y%m%d_%H%M%S)"
-
-    echo "Creating backup at $backup_dir..."
-
-    mkdir -p "$backup_dir"
-
-    local files_to_backup=(
-        "$HOME/.bash_profile"
-        "$HOME/.zshrc"
-        "$HOME/.config/fish"
-        "$HOME/.config/wezterm"
-    )
-
-    for file in "${files_to_backup[@]}"; do
+    log_info "Backup location: $backup_dir"
+    
+    mkdir -p "$backup_dir" || {
+        log_error "Failed to create backup directory"
+        exit 1
+    }
+    
+    local backed_up=0
+    for file in "${BACKUP_FILES[@]}"; do
         if [[ -e "$file" ]]; then
-            echo "  Backing up: $file"
-            cp -a "$file" "$backup_dir/"
+            log_info "Backing up: $file"
+            cp -a "$file" "$backup_dir/" && ((backed_up++))
         fi
     done
-
-    echo "✓ Backup created at $backup_dir"
-    echo "  To restore: cp -r $backup_dir/* ~/"
+    
+    if [[ $backed_up -gt 0 ]]; then
+        log_success "Backup created: $backed_up files backed up"
+        log_info "To restore: cp -r $backup_dir/* ~/"
+    else
+        log_info "No existing files to backup"
+    fi
 }
 
-function rsync_dirs() {
-    local dry_run="$1"
+# ============================================================================
+# PHASE 3: Deploy Configuration Files
+# ============================================================================
 
+phase_deploy() {
+    local dry_run="$1"
+    
+    log_step "Phase 3: Deploying Configuration Files"
+    
+    if [[ ! -f ".exclude" ]]; then
+        log_warn ".exclude file not found, proceeding without exclusions"
+    fi
+    
     if [[ "$dry_run" == true ]]; then
-        echo "DRY RUN: Would deploy these files:"
+        log_info "DRY RUN: Would deploy these files:"
         rsync --exclude-from=./.exclude \
-            -avh --no-perms --dry-run . ~ | grep -v "sending incremental file list" | grep -v "^$"
+            -avh --no-perms --dry-run . ~ 2>&1 | \
+            grep -v "sending incremental file list" | \
+            grep -v "^$" || true
     else
-        echo "Deploying configs..."
-        if rsync --exclude-from=./.exclude \
-            -avh --no-perms . ~; then
-            echo "✓ Configs deployed successfully"
+        log_info "Deploying configs with rsync..."
+        if rsync --exclude-from=./.exclude -avh --no-perms . ~; then
+            log_success "Configs deployed successfully"
         else
-            echo "ERROR: rsync failed with exit code $?"
-            echo "Please check permissions and disk space"
+            log_error "rsync failed with exit code $?"
+            log_error "Please check permissions and disk space"
             exit 1
         fi
     fi
 }
 
-function git_pull() {
-    git pull --ff origin master &> /dev/null
-}
+# ============================================================================
+# PHASE 4: Platform-Specific Setup
+# ============================================================================
 
-function prepare_home_manager() {
-    os="$(uname -s)"
-    if [[ "$os" != "Darwin" ]]; then
-        return 0;
+phase_platform_setup() {
+    log_step "Phase 4: Platform-Specific Setup"
+    
+    if is_macos; then
+        setup_macos_defaults
+    elif is_linux; then
+        log_info "Linux-specific setup not yet implemented"
+    else
+        log_info "No platform-specific setup for $(get_platform)"
     fi
-
-      # sh <(curl https://mirrors.tuna.tsinghua.edu.cn/nix/latest/install) --daemon
-      if command -v nix-channel &> /dev/null ; then
-          if nix-channel --list |grep -q home-manager &> /dev/null; then
-              echo "home-manager was installed"
-          else
-              nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
-              nix-channel --update
-              # nix-shell '<home-manager>' -A install 
-          fi
-
-          if nix-channel --list |grep -q  nixpkgs &> /dev/null; then
-              echo "add nixpkgs to channel"
-              nix-channel --add https://mirrors.ustc.edu.cn/nix-channels/nixpkgs nixpkgs
-          fi
-      fi
 }
 
-function main() {
+setup_macos_defaults() {
+    log_info "Configuring macOS defaults..."
+    
+    # Screenshots as JPG
+    defaults write com.apple.screencapture type jpg
+    
+    # Don't reopen previous files in Preview
+    defaults write com.apple.Preview ApplePersistenceIgnoreState YES
+    
+    # Show Library folder
+    chflags nohidden ~/Library 2>/dev/null || true
+    
+    # Show hidden files in Finder
+    defaults write com.apple.finder AppleShowAllFiles YES
+    
+    # Show path bar in Finder
+    defaults write com.apple.finder ShowPathbar -bool true
+    
+    # Show status bar in Finder
+    defaults write com.apple.finder ShowStatusBar -bool true
+    
+    # Enable key repeat
+    defaults write -g ApplePressAndHoldEnabled -bool false 2>&1 > /dev/null || true
+    defaults write com.microsoft.VSCodeInsiders ApplePressAndHoldEnabled -bool false 2>&1 > /dev/null || true
+    
+    # Font smoothing
+    defaults write -g AppleFontSmoothing -int 1
+    
+    # Key repeat rate
+    defaults write -g KeyRepeat -int 2
+    defaults write -g InitialKeyRepeat -int 15
+    
+    # Restart Finder
+    killall Finder 2>/dev/null || true
+    
+    log_success "macOS defaults configured"
+}
+
+# ============================================================================
+# PHASE 5: Package Management
+# ============================================================================
+
+phase_package_management() {
+    local install_mac_apps="$1"
+    local install_npx="$2"
+    
+    log_step "Phase 5: Package Management"
+    
+    if is_macos; then
+        if [[ "$install_mac_apps" == true ]]; then
+            install_homebrew_packages
+        else
+            log_info "Skipping Homebrew packages (use --mac-apps to install)"
+        fi
+    fi
+    
+    if [[ "$install_npx" == true ]]; then
+        install_npx_tools
+    else
+        log_info "Skipping npx tools (use --npx to install)"
+    fi
+}
+
+install_homebrew_packages() {
+    log_info "Installing Homebrew packages..."
+    
+    if ! check_command brew; then
+        log_warn "Homebrew is not installed"
+        log_info "To install: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+        return 0
+    fi
+    
+    # Install proxychains-ng from source
+    if check_command proxychains4; then
+        log_success "proxychains4 already installed"
+    else
+        log_info "Installing proxychains-ng from source..."
+        if brew install --build-from-source proxychains-ng; then
+            log_success "proxychains-ng installed"
+        else
+            log_warn "Failed to install proxychains-ng"
+        fi
+    fi
+    
+    # Install CLI packages
+    for package in "${BREW_CLI_PACKAGES[@]}"; do
+        install_brew_package "$package"
+    done
+    
+    # Install cask packages
+    for cask in "${BREW_CASK_PACKAGES[@]}"; do
+        install_brew_cask "$cask"
+    done
+    
+    # Install tap casks
+    for cask in "${BREW_TAP_CASKS[@]}"; do
+        local cask_name="${cask##*/}"
+        if brew list --cask | grep -q "^$cask_name$"; then
+            log_success "$cask_name already installed"
+        else
+            log_info "Installing $cask..."
+            if brew install --cask "$cask"; then
+                log_success "$cask_name installed"
+            else
+                log_warn "Failed to install $cask"
+            fi
+        fi
+    done
+    
+    log_success "Homebrew packages installation completed"
+}
+
+install_npx_tools() {
+    if ! is_macos; then
+        log_info "npx tools installation only supported on macOS"
+        return 0
+    fi
+    
+    if ! check_command npx; then
+        log_warn "npx is not installed. Skipping npx tools installation."
+        return 0
+    fi
+    
+    log_info "Installing npx tools..."
+    
+    # Install skills
+    local installed_skills
+    installed_skills="$(npx skills list -g 2>/dev/null || true)"
+    
+    for skill in "${NPX_SKILLS[@]}"; do
+        local skill_name="${skill##*/}"
+        if [[ "$installed_skills" == *"$skill_name"* ]]; then
+            log_success "$skill already installed (global)"
+            continue
+        fi
+        
+        log_info "Installing skill $skill..."
+        if npx skills add --yes -g "$skill"; then
+            log_success "$skill installed"
+        else
+            log_warn "Failed to install $skill"
+        fi
+    done
+    
+    # Setup ctx7
+    log_info "Running ctx7 setup..."
+    if npx ctx7 setup; then
+        log_success "ctx7 setup completed"
+    else
+        log_warn "ctx7 setup failed"
+    fi
+    
+    log_success "npx tools installation completed"
+}
+
+# ============================================================================
+# PHASE 6: Post-Install Configuration
+# ============================================================================
+
+phase_postinstall() {
+    log_step "Phase 6: Post-Install Configuration"
+    
+    # Create directory structure
+    log_info "Creating directory structure..."
+    for dir in "${ART_DIRS[@]}"; do
+        if [[ ! -d "$dir" ]]; then
+            mkdir -p "$dir" && log_success "Created $dir"
+        else
+            log_success "$dir already exists"
+        fi
+    done
+    
+    # Setup shell frameworks
+    if is_macos; then
+        setup_oh_my_zsh
+        setup_oh_my_fish
+        setup_home_manager
+    fi
+    
+    log_success "Post-install configuration completed"
+}
+
+setup_oh_my_zsh() {
+    if [[ -d ~/.oh-my-zsh/ ]]; then
+        log_success "oh-my-zsh already installed"
+        return 0
+    fi
+    
+    log_info "Installing oh-my-zsh..."
+    if sh -c "$(curl -fsSL https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh)"; then
+        log_success "oh-my-zsh installed"
+    else
+        log_warn "Failed to install oh-my-zsh"
+    fi
+}
+
+setup_oh_my_fish() {
+    if ! check_command fish; then
+        log_info "Fish shell is not installed, skipping oh-my-fish setup"
+        return 0
+    fi
+    
+    if [[ -d ~/.local/share/omf/ ]]; then
+        log_success "oh-my-fish already installed"
+    else
+        log_info "Installing oh-my-fish..."
+        if curl -fsSL https://raw.githubusercontent.com/oh-my-fish/oh-my-fish/master/bin/install | fish; then
+            log_success "oh-my-fish installed"
+        else
+            log_warn "Failed to install oh-my-fish"
+            return 1
+        fi
+    fi
+    
+    # Install plugins
+    for plugin in "${OMF_PLUGINS[@]}"; do
+        if [[ -d ~/.local/share/omf/pkg/$plugin ]]; then
+            log_success "omf plugin $plugin already installed"
+        else
+            log_info "Installing omf plugin $plugin..."
+            if fish -c "omf install $plugin"; then
+                log_success "omf plugin $plugin installed"
+            else
+                log_warn "Failed to install omf plugin $plugin"
+            fi
+        fi
+    done
+}
+
+setup_home_manager() {
+    if ! check_command nix-channel; then
+        log_info "Nix is not installed, skipping home-manager setup"
+        return 0
+    fi
+    
+    log_info "Setting up home-manager..."
+    
+    if nix-channel --list | grep -q home-manager; then
+        log_success "home-manager channel already added"
+    else
+        log_info "Adding home-manager channel..."
+        nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
+        nix-channel --update
+    fi
+    
+    if nix-channel --list | grep -q nixpkgs; then
+        log_success "nixpkgs channel already added"
+    else
+        log_info "Adding nixpkgs channel..."
+        nix-channel --add https://mirrors.ustc.edu.cn/nix-channels/nixpkgs nixpkgs
+    fi
+    
+    log_success "home-manager setup completed"
+}
+
+# ============================================================================
+# GIT OPERATIONS
+# ============================================================================
+
+git_pull_latest() {
+    log_info "Pulling latest changes from origin/master..."
+    if git pull --ff origin master &> /dev/null; then
+        log_success "Repository updated"
+    else
+        log_warn "Failed to pull latest changes (continuing anyway)"
+    fi
+}
+
+# ============================================================================
+# MAIN FUNCTION
+# ============================================================================
+
+show_usage() {
+    cat << EOF
+Dotfiles Installation Script v${SCRIPT_VERSION}
+
+Usage: $0 [OPTIONS]
+
+OPTIONS:
+    --no-pull       Skip git pull before installation
+    --dry-run       Show what would be deployed without making changes
+    --npx           Install npx tools (skills + ctx7)
+    --mac-apps      Install Homebrew packages and casks (macOS only)
+    -h, --help      Show this help message
+
+EXAMPLES:
+    $0                          # Standard installation
+    $0 --dry-run                # Preview changes
+    $0 --mac-apps --npx         # Full installation with all packages
+    $0 --no-pull --dry-run      # Preview without updating repo
+
+EOF
+}
+
+main() {
     local no_pull=false
     local dry_run=false
-    local install_skills=false
+    local install_npx=false
     local install_mac_apps=false
-
+    
+    # Parse arguments
     while [[ "$#" -gt 0 ]]; do
         case "$1" in
-            --no-pull) no_pull=true ;;
-            --dry-run) dry_run=true ;;
-            --skills) install_skills=true ;;
-            --mac-apps) install_mac_apps=true ;;
-            *) echo "Unknown parameter passed: $1"; echo "Usage: $0 [--no-pull] [--dry-run] [--skills] [--mac-apps]"; exit 1 ;;
+            --no-pull)
+                no_pull=true
+                ;;
+            --dry-run)
+                dry_run=true
+                ;;
+            --npx)
+                install_npx=true
+                ;;
+            --mac-apps)
+                install_mac_apps=true
+                ;;
+            -h|--help)
+                show_usage
+                exit 0
+                ;;
+            *)
+                log_error "Unknown parameter: $1"
+                show_usage
+                exit 1
+                ;;
         esac
         shift
     done
-
-if [[ "$no_pull" == false ]]; then
-     	echo "Pulling latest changes"
-        git_pull
+    
+    # Show banner
+    echo "╔════════════════════════════════════════════════════════════╗"
+    echo "║         Dotfiles Installation Script v${SCRIPT_VERSION}           ║"
+    echo "╔════════════════════════════════════════════════════════════╗"
+    echo ""
+    
+    # Git pull
+    if [[ "$no_pull" == false ]]; then
+        git_pull_latest
     else
-        echo "Skipping git pull"
+        log_info "Skipping git pull (--no-pull specified)"
     fi
-
-    pre_flight_checks
-
-    if [[ "$install_skills" == true ]]; then
-        echo "Installing skills"
-        install_skills
-    else
-        echo "Skipping skills installation (use --skills to install)"
-    fi
-
+    
+    # Execute phases
+    phase_preflight
+    phase_backup "$dry_run"
+    phase_deploy "$dry_run"
+    
     if [[ "$dry_run" == false ]]; then
-        create_backup
-    fi
-
-    echo "Rsyncing to target"
-    rsync_dirs "$dry_run"
-
-    #echo "Sourcing bash profile"
-    #source ~/.bash_profile
-
-    echo "Preparing init darwin"
-    prepare_init_darwin
-
-    echo "Preparing directory"
-    prepare_dirs
-
-    echo "Preparing oh my zsh"
-    prepare_oh_my_zsh
-
-    echo "Preparing oh my fish"
-    prepare_oh_my_fish
-
-    echo "Installing mac app"
-    if [[ "$install_mac_apps" == true ]]; then
-        install_mac_app
-        install_brew_app
+        phase_platform_setup
+        phase_package_management "$install_mac_apps" "$install_npx"
+        phase_postinstall
     else
-        echo "Skipping mac app installation (use --mac-apps to install)"
+        log_info "Skipping remaining phases in dry-run mode"
     fi
-
-    echo "Installing home-manager"
-    prepare_home_manager
+    
+    # Final message
+    echo ""
+    echo "╔════════════════════════════════════════════════════════════╗"
+    echo "║                  Installation Complete!                   ║"
+    echo "╚════════════════════════════════════════════════════════════╝"
+    echo ""
+    
+    if [[ "$dry_run" == false ]]; then
+        log_info "Next steps:"
+        log_info "  1. Restart your terminal or run: source ~/.bash_profile"
+        log_info "  2. If using Fish: exec fish"
+        log_info "  3. Verify installation: which fish"
+    fi
 }
+
+# ============================================================================
+# ENTRY POINT
+# ============================================================================
 
 main "$@"
