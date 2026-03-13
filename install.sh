@@ -37,6 +37,11 @@ readonly NPX_SKILLS=(
     "vercel-labs/agent-browser"
 )
 
+# Go packages to install
+readonly GO_PACKAGES=(
+    "github.com/m7medvision/lazycommit@latest"
+)
+
 # Oh-My-Fish plugins
 readonly OMF_PLUGINS=(
     "nvm"
@@ -370,8 +375,10 @@ phase_package_management() {
     
     if [[ "$install_npx" == true ]]; then
         install_npx_tools
+        install_go_tools
     else
         log_info "Skipping npx tools (use --npx to install)"
+        log_info "Skipping Go tools (use --npx to install)"
     fi
 }
 
@@ -465,6 +472,29 @@ install_npx_tools() {
     fi
     
     log_success "npx tools installation completed"
+}
+
+install_go_tools() {
+    if ! check_command go; then
+        log_warn "Go is not installed. Skipping Go tools installation."
+        return 0
+    fi
+    
+    log_info "Installing Go tools..."
+    
+    for package in "${GO_PACKAGES[@]}"; do
+        local package_name
+        package_name=$(echo "$package" | sed 's/@.*//' | awk -F'/' '{print $NF}')
+        
+        log_info "Installing Go package $package..."
+        if go install "$package"; then
+            log_success "$package_name installed"
+        else
+            log_warn "Failed to install $package"
+        fi
+    done
+    
+    log_success "Go tools installation completed"
 }
 
 # ============================================================================
