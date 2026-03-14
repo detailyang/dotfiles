@@ -29,6 +29,7 @@ in
     pkgs.bat
     pkgs.tokei
     pkgs.yazi
+    pkgs.lazygit
     pkgs.xclip
     pkgs.btop
     pkgs.yazi
@@ -67,7 +68,6 @@ in
     pkgs.vim
     pkgs.tmux
     pkgs.fira-code
-    pkgs.jujutsu
     pkgs.coreutils
     pkgs.findutils
     pkgs.gnugrep
