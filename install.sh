@@ -35,6 +35,7 @@ readonly BREW_TAP_CASKS=(
 # NPX skills to install
 readonly NPX_SKILLS=(
     "vercel-labs/agent-browser"
+    "pbakaus/impeccable"
 )
 
 # Go packages to install
