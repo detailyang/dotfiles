@@ -24,6 +24,22 @@ Each line should be a JSON object with at least:
 
 For retries, write a new prompt file with a retry suffix and append a `phase_retried` event before the retry begins.
 
+## Agent Preflight Logging
+
+Before Phase 1 and before any agent reselection, append probe results to `.design-review/{topic}/logs/agent-checks.jsonl`.
+Each line should be a JSON object with at least:
+
+- `ts`
+- `agent`
+- `command`
+- `exit_code`
+- `status`
+- `reason`
+- `selected`
+
+Use a real non-interactive smoke test. Command existence alone is not a valid availability check.
+Also append `agent_check_started`, `agent_check_completed`, `agent_selected`, and `agent_reselected` events to `.design-review/{topic}/logs/events.jsonl` as applicable.
+
 ## Phase 1: Architect
 
 Write to `.design-review/{topic}/design_v1.md`.
@@ -147,6 +163,9 @@ Adversarial Design Review Complete
 Topic:   {topic}
 Output:  .design-review/{topic}/
 
+Execution
+  Selected agent:     {agent}
+
 Scores
   Critic score:       X/10
   Final score:        X/10
@@ -159,7 +178,7 @@ Files
   risks.md           Risk analysis
   design_final.md    Final design
   final_review.md    Second critic verdict
-  logs/              Phase prompts and lifecycle events
+  logs/              Phase prompts, lifecycle events, and agent checks
 
 Recommendation: {whether another iteration is advised and why}
 ═══════════════════════════════════════
