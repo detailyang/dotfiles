@@ -1,4 +1,0 @@
-interface:
-  display_name: "Xray Plan"
-  short_description: "Adversarial multi-agent design review"
-  default_prompt: "Use $xray-plan to run adversarial design review on [topic], requirements: [requirements]."
