@@ -1,0 +1,1 @@
+bash <(curl -Ls https://Check.Place) -I

@@ -1,0 +1,2 @@
+bash <(curl -Ls https://Check.Place) -N
+bash <(curl -Ls https://Check.Place) -H
