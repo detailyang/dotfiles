@@ -18,13 +18,13 @@ readonly SCRIPT_VERSION="2.0.0"
 readonly BREW_CLI_PACKAGES=(
     "fish"
     "brightness"
+    "loop"
 )
 
 # Brew cask packages
 readonly BREW_CASK_PACKAGES=(
     "openinterminal"
     "monitorcontrol"
-    "productdevbook/tap/portkiller"
 )
 
 # Brew tap casks
