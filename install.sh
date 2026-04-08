@@ -25,6 +25,12 @@ readonly BREW_CLI_PACKAGES=(
 readonly BREW_CASK_PACKAGES=(
     "openinterminal"
     "monitorcontrol"
+    "codeisland"
+)
+
+# Brew taps
+readonly BREW_TAPS=(
+    "wxtsky/tap"
 )
 
 # Brew tap casks
@@ -195,6 +201,24 @@ install_brew_cask() {
         return 0
     else
         log_warn "Failed to install $cask"
+        return 1
+    fi
+}
+
+install_brew_tap() {
+    local tap="$1"
+
+    if brew tap | grep -qx "$tap"; then
+        log_success "$tap already tapped"
+        return 0
+    fi
+
+    log_info "Tapping $tap..."
+    if brew tap "$tap"; then
+        log_success "$tap tapped"
+        return 0
+    else
+        log_warn "Failed to tap $tap"
         return 1
     fi
 }
@@ -408,6 +432,11 @@ install_homebrew_packages() {
     # Install CLI packages
     for package in "${BREW_CLI_PACKAGES[@]}"; do
         install_brew_package "$package"
+    done
+
+    # Install taps
+    for tap in "${BREW_TAPS[@]}"; do
+        install_brew_tap "$tap"
     done
     
     # Install cask packages
