@@ -36,6 +36,7 @@ readonly BREW_TAP_CASKS=(
 readonly NPX_SKILLS=(
     "vercel-labs/agent-browser"
     "pbakaus/impeccable"
+    "tw93/Waza"
 )
 
 # Go packages to install
