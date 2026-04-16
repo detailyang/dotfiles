@@ -1,5 +1,5 @@
 gui:
-  sidePanelWidth: 0.24
+  sidePanelWidth: 0.23
 keybinding:
   files:
     commitChanges: "c"   
