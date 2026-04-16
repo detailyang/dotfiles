@@ -1,5 +1,6 @@
 gui:
   sidePanelWidth: 0.23
+  showCommandLog: false
 keybinding:
   files:
     commitChanges: "c"   
