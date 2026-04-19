@@ -18,6 +18,7 @@ import * as os from "node:os";
 import * as path from "node:path";
 
 const SPINNER_FRAMES = ["|", "/", "-", "\\"];
+const SPINNER_INTERVAL_MS = 100;
 
 const COMMIT_SYSTEM_PROMPT = `Create a git commit for the current changes using a concise Conventional Commits-style subject.
 
@@ -59,51 +60,8 @@ function extractText(content: unknown): string {
   return parts.join("");
 }
 
-function formatToolInput(input: unknown): string {
-  if (!input || typeof input !== "object") return "";
-  const value = input as Record<string, unknown>;
-
-  if (typeof value.command === "string") return truncate(value.command, 120);
-  if (typeof value.filePath === "string") return value.filePath;
-  if (typeof value.path === "string") return value.path;
-  if (typeof value.pattern === "string") return truncate(value.pattern, 120);
-  if (typeof value.prompt === "string") return truncate(value.prompt, 120);
-
-  try {
-    return truncate(JSON.stringify(value), 120);
-  } catch {
-    return "";
-  }
-}
-
 function summarizeEvent(event: any): string | null {
   switch (event?.type) {
-    case "agent_start":
-      return "starting";
-    case "agent_end":
-      return "finishing";
-    case "turn_start":
-      return "thinking";
-    case "turn_end":
-      return "thinking";
-    case "tool_execution_start":
-    case "tool_call": {
-      const name = event.toolName ?? event.name ?? "tool";
-      if (name === "bash") return "running commands";
-      if (name === "read") return "reading files";
-      if (name === "write" || name === "edit") return "updating files";
-      const detail = formatToolInput(event.input);
-      return detail ? `${name}: ${detail}` : `running ${name}`;
-    }
-    case "tool_execution_end": {
-      if (event.error) return "tool failed";
-      return null;
-    }
-    case "message_start":
-      if (event.message?.role === "assistant") return "thinking";
-      return null;
-    case "message_end":
-      return null;
     case "error":
       return truncate(typeof event.error === "string" ? event.error : JSON.stringify(event.error), 200) || "subagent error";
     default:
@@ -127,17 +85,17 @@ export default function (pi: ExtensionAPI) {
     description: "Create a git commit in an isolated context (no context pollution)",
     handler: async (args, ctx) => {
       let spinnerIndex = 0;
-      let currentStage = "committing";
+      let spinnerTimer: NodeJS.Timeout | undefined;
+      let failureMessage = "";
       const renderProgress = () => {
         const frame = SPINNER_FRAMES[spinnerIndex % SPINNER_FRAMES.length];
-        const text = `${frame} ${currentStage}...`;
+        const text = frame;
         if (ctx.hasUI) {
           ctx.ui.setStatus("commit", text);
           ctx.ui.setWidget("commit", [text]);
         }
       };
-      const advanceProgress = (stage?: string | null) => {
-        if (stage) currentStage = truncate(stage, 80);
+      const advanceProgress = () => {
         spinnerIndex += 1;
         renderProgress();
       };
@@ -153,6 +111,7 @@ export default function (pi: ExtensionAPI) {
       const piArgs = ["--mode", "json", "-p", "--no-session", "--append-system-prompt", promptFile, task];
 
       renderProgress();
+      spinnerTimer = setInterval(advanceProgress, SPINNER_INTERVAL_MS);
 
       try {
         const invocation = getPiInvocation(piArgs);
@@ -176,7 +135,7 @@ export default function (pi: ExtensionAPI) {
               try {
                 const event = JSON.parse(line);
                 const summary = summarizeEvent(event);
-                advanceProgress(summary);
+                if (summary) failureMessage = summary;
                 if (event.type === "message_end" && event.message?.role === "assistant") {
                   finalText = extractText(event.message.content);
                 }
@@ -191,7 +150,7 @@ export default function (pi: ExtensionAPI) {
             for (const line of lines) {
               const text = line.trim();
               if (!text) continue;
-              advanceProgress(`stderr: ${text}`);
+              failureMessage = `stderr: ${text}`;
             }
           });
 
@@ -201,7 +160,7 @@ export default function (pi: ExtensionAPI) {
               try {
                 const event = JSON.parse(trailingStdout);
                 const summary = summarizeEvent(event);
-                advanceProgress(summary);
+                if (summary) failureMessage = summary;
                 if (event.type === "message_end" && event.message?.role === "assistant") {
                   finalText = extractText(event.message.content);
                 }
@@ -209,7 +168,7 @@ export default function (pi: ExtensionAPI) {
             }
 
             const trailingStderr = stderrBuffer.trim();
-            if (trailingStderr) advanceProgress(`stderr: ${trailingStderr}`);
+            if (trailingStderr) failureMessage = `stderr: ${trailingStderr}`;
 
             resolve(code ?? 0);
           });
@@ -217,11 +176,12 @@ export default function (pi: ExtensionAPI) {
         });
 
         if (exitCode !== 0) {
-          ctx.ui.notify("Commit failed", "error");
+          ctx.ui.notify(failureMessage || "Commit failed", "error");
         } else {
           ctx.ui.notify(finalText.trim() || "Commit completed", "success");
         }
       } finally {
+        if (spinnerTimer) clearInterval(spinnerTimer);
         ctx.ui.setStatus("commit", "");
         if (ctx.hasUI) ctx.ui.setWidget("commit", undefined);
         try { fs.unlinkSync(promptFile); } catch {}
