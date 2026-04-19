@@ -89,7 +89,7 @@ export default function (pi: ExtensionAPI) {
       let failureMessage = "";
       const renderProgress = () => {
         const frame = SPINNER_FRAMES[spinnerIndex % SPINNER_FRAMES.length];
-        const text = frame;
+        const text = `committing ${frame}`;
         if (ctx.hasUI) {
           ctx.ui.setStatus("commit", text);
           ctx.ui.setWidget("commit", [text]);
