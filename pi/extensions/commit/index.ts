@@ -92,7 +92,6 @@ export default function (pi: ExtensionAPI) {
         const text = `committing ${frame}`;
         if (ctx.hasUI) {
           ctx.ui.setStatus("commit", text);
-          ctx.ui.setWidget("commit", [text]);
         }
       };
       const advanceProgress = () => {
@@ -183,7 +182,6 @@ export default function (pi: ExtensionAPI) {
       } finally {
         if (spinnerTimer) clearInterval(spinnerTimer);
         ctx.ui.setStatus("commit", "");
-        if (ctx.hasUI) ctx.ui.setWidget("commit", undefined);
         try { fs.unlinkSync(promptFile); } catch {}
         try { fs.rmdirSync(tmpDir); } catch {}
       }
