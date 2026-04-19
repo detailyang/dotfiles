@@ -8,4 +8,5 @@ LICENSE
 Makefile
 .sisyphus/
 /*.md
+pi/node_modules
 

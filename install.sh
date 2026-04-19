@@ -52,7 +52,7 @@ readonly GO_PACKAGES=(
 
 # PI extensions to install
 readonly PI_EXTENSIONS=(
-    "git:github.com/earendil-works/pi-review"
+    "npm:pi-planning-with-files"
 )
 
 # Oh-My-Fish plugins
