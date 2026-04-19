@@ -17,7 +17,7 @@ import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
 
-const TRACE_WIDGET_LINES = 8;
+const SPINNER_FRAMES = ["|", "/", "-", "\\"];
 
 const COMMIT_SYSTEM_PROMPT = `Create a git commit for the current changes using a concise Conventional Commits-style subject.
 
@@ -79,30 +79,31 @@ function formatToolInput(input: unknown): string {
 function summarizeEvent(event: any): string | null {
   switch (event?.type) {
     case "agent_start":
-      return "subagent started";
+      return "starting";
     case "agent_end":
-      return "subagent finished";
+      return "finishing";
     case "turn_start":
-      return `turn ${event.turnIndex ?? "?"} started`;
+      return "thinking";
     case "turn_end":
-      return `turn ${event.turnIndex ?? "?"} finished`;
+      return "thinking";
     case "tool_execution_start":
     case "tool_call": {
       const name = event.toolName ?? event.name ?? "tool";
+      if (name === "bash") return "running commands";
+      if (name === "read") return "reading files";
+      if (name === "write" || name === "edit") return "updating files";
       const detail = formatToolInput(event.input);
-      return detail ? `${name}: ${detail}` : `${name} started`;
+      return detail ? `${name}: ${detail}` : `running ${name}`;
     }
     case "tool_execution_end": {
-      const name = event.toolName ?? event.name ?? "tool";
-      const status = event.error ? "failed" : "done";
-      return `${name} ${status}`;
+      if (event.error) return "tool failed";
+      return null;
     }
     case "message_start":
-      if (event.message?.role === "assistant") return "assistant responding";
+      if (event.message?.role === "assistant") return "thinking";
       return null;
     case "message_end":
-      if (event.message?.role !== "assistant") return null;
-      return truncate(extractText(event.message.content), 200) || "assistant responded";
+      return null;
     case "error":
       return truncate(typeof event.error === "string" ? event.error : JSON.stringify(event.error), 200) || "subagent error";
     default:
@@ -125,18 +126,20 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("commit", {
     description: "Create a git commit in an isolated context (no context pollution)",
     handler: async (args, ctx) => {
-      const traceLines: string[] = [];
-      let lastTraceLine = "";
-      const pushTrace = (line: string) => {
-        const text = truncate(line, 220);
-        if (!text || text === lastTraceLine) return;
-        lastTraceLine = text;
-        traceLines.push(text);
-        if (traceLines.length > TRACE_WIDGET_LINES) traceLines.shift();
+      let spinnerIndex = 0;
+      let currentStage = "committing";
+      const renderProgress = () => {
+        const frame = SPINNER_FRAMES[spinnerIndex % SPINNER_FRAMES.length];
+        const text = `${frame} ${currentStage}...`;
         if (ctx.hasUI) {
           ctx.ui.setStatus("commit", text);
-          ctx.ui.setWidget("commit", traceLines.map((entry) => `commit> ${entry}`));
+          ctx.ui.setWidget("commit", [text]);
         }
+      };
+      const advanceProgress = (stage?: string | null) => {
+        if (stage) currentStage = truncate(stage, 80);
+        spinnerIndex += 1;
+        renderProgress();
       };
 
       const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "pi-commit-"));
@@ -149,7 +152,7 @@ export default function (pi: ExtensionAPI) {
 
       const piArgs = ["--mode", "json", "-p", "--no-session", "--append-system-prompt", promptFile, task];
 
-      pushTrace("committing...");
+      renderProgress();
 
       try {
         const invocation = getPiInvocation(piArgs);
@@ -173,7 +176,7 @@ export default function (pi: ExtensionAPI) {
               try {
                 const event = JSON.parse(line);
                 const summary = summarizeEvent(event);
-                if (summary) pushTrace(summary);
+                advanceProgress(summary);
                 if (event.type === "message_end" && event.message?.role === "assistant") {
                   finalText = extractText(event.message.content);
                 }
@@ -188,7 +191,7 @@ export default function (pi: ExtensionAPI) {
             for (const line of lines) {
               const text = line.trim();
               if (!text) continue;
-              pushTrace(`stderr: ${text}`);
+              advanceProgress(`stderr: ${text}`);
             }
           });
 
@@ -198,7 +201,7 @@ export default function (pi: ExtensionAPI) {
               try {
                 const event = JSON.parse(trailingStdout);
                 const summary = summarizeEvent(event);
-                if (summary) pushTrace(summary);
+                advanceProgress(summary);
                 if (event.type === "message_end" && event.message?.role === "assistant") {
                   finalText = extractText(event.message.content);
                 }
@@ -206,7 +209,7 @@ export default function (pi: ExtensionAPI) {
             }
 
             const trailingStderr = stderrBuffer.trim();
-            if (trailingStderr) pushTrace(`stderr: ${trailingStderr}`);
+            if (trailingStderr) advanceProgress(`stderr: ${trailingStderr}`);
 
             resolve(code ?? 0);
           });
