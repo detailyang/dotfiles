@@ -50,6 +50,11 @@ readonly GO_PACKAGES=(
     "github.com/m7medvision/lazycommit@latest"
 )
 
+# PI extensions to install
+readonly PI_EXTENSIONS=(
+    "git:github.com/earendil-works/pi-review"
+)
+
 # Oh-My-Fish plugins
 readonly OMF_PLUGINS=(
     "nvm"
@@ -388,6 +393,7 @@ setup_macos_defaults() {
 phase_package_management() {
     local install_mac_apps="$1"
     local install_npx="$2"
+    local install_pi="$3"
     
     log_step "Phase 5: Package Management"
     
@@ -405,6 +411,12 @@ phase_package_management() {
     else
         log_info "Skipping npx tools (use --npx to install)"
         log_info "Skipping Go tools (use --npx to install)"
+    fi
+
+    if [[ "$install_pi" == true ]]; then
+        install_pi_extensions
+    else
+        log_info "Skipping PI extensions (use --pi to install)"
     fi
 }
 
@@ -526,6 +538,28 @@ install_go_tools() {
     done
     
     log_success "Go tools installation completed"
+}
+
+install_pi_extensions() {
+    if ! check_command pi; then
+        log_info "pi is not installed. Skipping PI extensions installation."
+        return 0
+    fi
+
+    log_info "Installing PI extensions..."
+
+    for extension in "${PI_EXTENSIONS[@]}"; do
+        local ext_name="${extension##*/}"
+        
+        log_info "Installing PI extension $extension..."
+        if pi install "$extension"; then
+            log_success "$ext_name installed"
+        else
+            log_warn "Failed to install $ext_name"
+        fi
+    done
+
+    log_success "PI extensions installation completed"
 }
 
 # ============================================================================
@@ -683,13 +717,14 @@ OPTIONS:
     --no-pull       Skip git pull before installation
     --dry-run       Show what would be deployed without making changes
     --npx           Install npx tools (skills + ctx7)
+    --pi            Install PI extensions
     --mac-apps      Install Homebrew packages and casks (macOS only)
     -h, --help      Show this help message
 
 EXAMPLES:
     $0                          # Standard installation
     $0 --dry-run                # Preview changes
-    $0 --mac-apps --npx         # Full installation with all packages
+    $0 --mac-apps --npx --pi    # Full installation with all optional components
     $0 --no-pull --dry-run      # Preview without updating repo
 
 EOF
@@ -699,6 +734,7 @@ main() {
     local no_pull=false
     local dry_run=false
     local install_npx=false
+    local install_pi=false
     local install_mac_apps=false
     
     # Parse arguments
@@ -712,6 +748,9 @@ main() {
                 ;;
             --npx)
                 install_npx=true
+                ;;
+            --pi)
+                install_pi=true
                 ;;
             --mac-apps)
                 install_mac_apps=true
@@ -749,7 +788,7 @@ main() {
     
     if [[ "$dry_run" == false ]]; then
         phase_platform_setup
-        phase_package_management "$install_mac_apps" "$install_npx"
+        phase_package_management "$install_mac_apps" "$install_npx" "$install_pi"
         phase_postinstall
     else
         log_info "Skipping remaining phases in dry-run mode"
