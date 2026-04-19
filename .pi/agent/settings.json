@@ -1,5 +1,0 @@
-{
-  "defaultProvider": "anthropic",
-  "defaultModel": "claude-sonnet-4-6",
-  "theme": "catppuccin"
-}
