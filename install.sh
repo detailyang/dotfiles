@@ -475,11 +475,6 @@ install_homebrew_packages() {
 }
 
 install_npx_tools() {
-    if ! is_macos; then
-        log_info "npx tools installation only supported on macOS"
-        return 0
-    fi
-    
     if ! check_command npx; then
         log_warn "npx is not installed. Skipping npx tools installation."
         return 0
@@ -489,7 +484,7 @@ install_npx_tools() {
     
     # Install skills
     local installed_skills
-    installed_skills="$(npx skills list -g 2>/dev/null || true)"
+    installed_skills="$(/usr/bin/env npx skills list -g 2>/dev/null || true)"
     
     for skill in "${NPX_SKILLS[@]}"; do
         local skill_name="${skill##*/}"
@@ -499,7 +494,7 @@ install_npx_tools() {
         fi
         
         log_info "Installing skill $skill..."
-        if npx skills add --yes -g "$skill"; then
+        if /usr/bin/env npx skills add --yes -g "$skill"; then
             log_success "$skill installed"
         else
             log_warn "Failed to install $skill"
@@ -508,7 +503,7 @@ install_npx_tools() {
     
     # Setup ctx7
     log_info "Running ctx7 setup..."
-    if npx ctx7 setup; then
+    if /usr/bin/env npx ctx7 setup --opencode --yes; then
         log_success "ctx7 setup completed"
     else
         log_warn "ctx7 setup failed"
