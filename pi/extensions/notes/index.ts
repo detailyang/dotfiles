@@ -176,13 +176,13 @@ const buildConversationText = (entries: SessionEntry[]): string => {
 };
 
 /**
- * 构建总结提示词
+ * 构建总结提示词（系统指令 + 用户内容分离）
  */
-const buildNotesPrompt = (conversationText: string, customTitle?: string): string => {
+const buildNotesSystemPrompt = (customTitle?: string): string => {
 	const titleHint = customTitle ? `\n建议标题: ${customTitle}` : "";
 
 	return [
-		"请将以下对话内容总结成一篇结构化的中文学习笔记。",
+		"请将用户提供的对话内容总结成一篇结构化的中文学习笔记。",
 		"",
 		"要求:",
 		"1. 保留核心知识点、关键概念和重要结论",
@@ -223,11 +223,20 @@ const buildNotesPrompt = (conversationText: string, customTitle?: string): strin
 		"- 标题要有层级关系，不要所有都用同一级别",
 		"- 主标题用 #，大节用 ##，小节用 ###",
 		titleHint,
+	].join("\n");
+};
+
+const buildNotesUserMessage = (conversationText: string, customTitle?: string): string => {
+	const titleHint = customTitle ? `建议标题：${customTitle}` : "";
+
+	return [
+		"任务：将下面对话总结为结构化中文学习笔记，保留关键知识点、代码/命令和结论。",
+		titleHint,
 		"",
 		"<对话内容>",
 		conversationText,
 		"</对话内容>",
-	].join("\n");
+	].filter(Boolean).join("\n");
 };
 
 /**
@@ -323,7 +332,7 @@ const showNotesPreview = async (content: string, filePath: string, ctx: Extensio
 
 export default function (pi: ExtensionAPI) {
 	pi.registerCommand("to-notes", {
-		description: "总结当前会话生成中文学习笔记",
+		description: "总结当前会话生成学习笔记",
 		handler: async (args, ctx) => {
 			const customTitle = args.trim() || undefined;
 
@@ -371,14 +380,14 @@ export default function (pi: ExtensionAPI) {
 				const summaryMessages = [
 					{
 						role: "user" as const,
-						content: [{ type: "text" as const, text: buildNotesPrompt(conversationText, customTitle) }],
+						content: [{ type: "text" as const, text: buildNotesUserMessage(conversationText, customTitle) }],
 						timestamp: Date.now(),
 					},
 				];
 
 				const response = await complete(
 					ctx.model,
-					{ messages: summaryMessages },
+					{ systemPrompt: buildNotesSystemPrompt(customTitle), messages: summaryMessages },
 					{
 						apiKey: auth.apiKey,
 						headers: auth.headers,
@@ -390,13 +399,26 @@ export default function (pi: ExtensionAPI) {
 				const notesContent = response.content
 					.filter((c): c is { type: "text"; text: string } => c.type === "text")
 					.map((c) => c.text)
-					.join("\n");
+					.join("\n")
+					.trim();
 
-				if (!notesContent.trim()) {
+				if (response.stopReason === "error" || response.stopReason === "aborted") {
+					const errorMsg = response.errorMessage?.trim() || `模型生成失败（${response.stopReason}）`;
 					if (ctx.hasUI) {
-						ctx.ui.notify("生成的笔记内容为空", "error");
+						ctx.ui.notify(`生成笔记失败: ${errorMsg}`, "error");
 					} else {
-						console.error("生成的笔记内容为空");
+						console.error(`生成笔记失败: ${errorMsg}`);
+					}
+					return;
+				}
+
+				if (!notesContent) {
+					const blockTypes = [...new Set(response.content.map((c) => c.type))].join(", ") || "none";
+					const detail = `stopReason=${response.stopReason}, blocks=${blockTypes}`;
+					if (ctx.hasUI) {
+						ctx.ui.notify(`模型未返回可保存的正文（${detail}）`, "error");
+					} else {
+						console.error(`模型未返回可保存的正文（${detail}）`);
 					}
 					return;
 				}
