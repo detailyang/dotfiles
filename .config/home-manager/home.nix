@@ -24,12 +24,10 @@ in
   home.stateVersion = "23.11"; # Please read the comment before changing.
 
   home.packages = [
-    pkgs.yazi
     pkgs.mkcert
     pkgs.jetbrains-mono
     pkgs.bat
     pkgs.tokei
-    pkgs.yazi
     pkgs.lazygit
     pkgs.xclip
     pkgs.btop
