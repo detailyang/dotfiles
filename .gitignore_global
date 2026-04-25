@@ -1,6 +1,10 @@
 .DS_Store
 **/.DS_Store
 .vscode
-/tags
+.idea
 .claude/
+*.swp
+*.swo
+*.bak
+/tags
 CLAUDE.md
