@@ -53,6 +53,7 @@ readonly GO_PACKAGES=(
 # PI extensions to install
 readonly PI_EXTENSIONS=(
     "npm:pi-planning-with-files"
+    "npm:@ff-labs/pi-fff"
 )
 
 # Oh-My-Fish plugins
