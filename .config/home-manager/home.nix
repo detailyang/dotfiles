@@ -24,6 +24,7 @@ in
   home.stateVersion = "23.11"; # Please read the comment before changing.
 
   home.packages = [
+    pkgs.pstree
     pkgs.mkcert
     pkgs.jetbrains-mono
     pkgs.bat

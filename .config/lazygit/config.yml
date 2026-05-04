@@ -4,3 +4,5 @@ gui:
 os:
   editCommand: 'vim'
   editCommandTemplate: '{{editor}} +{{line}} {{filename}}'
+refresher:
+  fetchInterval: 0 
