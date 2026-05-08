@@ -907,7 +907,7 @@ export default function reviewExtension(pi: ExtensionAPI) {
 		applyAllReviewState(ctx, { clearAutoFinish: true });
 	});
 
-	pi.on("session_switch", (_event, ctx) => {
+	(pi.on as any)("session_switch", (_event: unknown, ctx: ExtensionContext) => {
 		applyAllReviewState(ctx, { clearAutoFinish: true });
 	});
 
@@ -931,6 +931,8 @@ export default function reviewExtension(pi: ExtensionAPI) {
 				selectedPrefix: (text) => theme.fg("accent", text),
 				selectedText: (text) => theme.fg("accent", text),
 				description: (text) => theme.fg("muted", text),
+				scrollInfo: (text) => theme.fg("dim", text),
+				noMatch: (text) => theme.fg("warning", text),
 			});
 
 			selectList.onSelect = (item) => done(item.value as ReviewKind);
@@ -1535,15 +1537,15 @@ export default function reviewExtension(pi: ExtensionAPI) {
 	): Promise<boolean> {
 		// Check if we're already in a review
 		if (reviewOriginId) {
-			ctx.ui.notify("Already in a review. Use /end-review to finish first.", "warning");
-			return false;
-		}
-
-		if (useFreshSession && !(await startReviewBranch(ctx, "code-review", "code"))) {
+			ctx.ui.notify("Already in a review. Run /review to open the finish menu.", "warning");
 			return false;
 		}
 
 		const { fullPrompt, hint } = await buildFullCodeReviewPrompt(ctx, target, options);
+		if (useFreshSession && !(await startReviewBranch(ctx, "code-review", "code"))) {
+			return false;
+		}
+
 		const modeHint = useFreshSession ? " (fresh session)" : "";
 		ctx.ui.notify(`Starting review: ${hint}${modeHint}`, "info");
 
@@ -1792,7 +1794,7 @@ export default function reviewExtension(pi: ExtensionAPI) {
 
 		const baselineAssistantId = getLastAssistantSnapshot(ctx)?.id;
 		pi.sendUserMessage(buildCodeReviewSynthesisPrompt(target, results));
-		ctx.ui.notify("Code reviews complete - consolidating findings", "success");
+		ctx.ui.notify("Code reviews complete - consolidating findings", "info");
 		const started = await waitForLoopTurnToStart(ctx, baselineAssistantId);
 		if (!started) {
 			ctx.ui.notify("Code review consolidation did not start in time.", "warning");
@@ -1948,26 +1950,31 @@ export default function reviewExtension(pi: ExtensionAPI) {
 
 			if (reviewKind === "plan") {
 				if (reviewOriginId) {
-					ctx.ui.notify("Already in a review. Use /end-review to finish first.", "warning");
+					ctx.ui.notify("Already in a review. Run /review to open the finish menu.", "warning");
 					return;
 				}
 				if (!startReviewDelta(ctx, "plan")) {
 					return;
 				}
-				const baselineAssistantId = getLastAssistantSnapshot(ctx)?.id;
-				const completed = await runPlanReview(pi, ctx);
-				if (!completed) {
+				try {
+					const baselineAssistantId = getLastAssistantSnapshot(ctx)?.id;
+					const completed = await runPlanReview(pi, ctx);
+					if (!completed) {
+						clearReviewState(ctx);
+						return;
+					}
+					const started = await waitForLoopTurnToStart(ctx, baselineAssistantId);
+					if (!started) {
+						ctx.ui.notify("Plan review reflection did not start in time.", "warning");
+						clearReviewState(ctx);
+						return;
+					}
+					await ctx.waitForIdle();
+					await runEndReview(ctx);
+				} catch (error) {
 					clearReviewState(ctx);
-					return;
+					ctx.ui.notify(`Plan review failed: ${error instanceof Error ? error.message : String(error)}`, "error");
 				}
-				const started = await waitForLoopTurnToStart(ctx, baselineAssistantId);
-				if (!started) {
-					ctx.ui.notify("Plan review reflection did not start in time.", "warning");
-					clearReviewState(ctx);
-					return;
-				}
-				await ctx.waitForIdle();
-				await runEndReview(ctx);
 				return;
 			}
 
@@ -1978,7 +1985,7 @@ export default function reviewExtension(pi: ExtensionAPI) {
 
 			// Check if we're already in a review
 			if (reviewOriginId) {
-				ctx.ui.notify("Already in a review. Use /end-review to finish first.", "warning");
+				ctx.ui.notify("Already in a review. Run /review to open the finish menu.", "warning");
 				return;
 			}
 
@@ -2051,13 +2058,18 @@ export default function reviewExtension(pi: ExtensionAPI) {
 					return;
 				}
 
-				const completed = await runParallelCodeReview(ctx, target, reviewerModels, extraInstruction);
-				if (!completed) {
-					clearReviewState(ctx);
-					return;
-				}
+				try {
+					const completed = await runParallelCodeReview(ctx, target, reviewerModels, extraInstruction);
+					if (!completed) {
+						clearReviewState(ctx);
+						return;
+					}
 
-				await runEndReview(ctx);
+					await runEndReview(ctx);
+				} catch (error) {
+					clearReviewState(ctx);
+					ctx.ui.notify(`Code review failed: ${error instanceof Error ? error.message : String(error)}`, "error");
+				}
 				return;
 			}
 		},
@@ -2330,8 +2342,7 @@ Instructions:
 			]);
 
 			if (choice === undefined) {
-				clearReviewState(ctx);
-				ctx.ui.notify("Finish review cancelled; cleared review status.", "info");
+				ctx.ui.notify("Cancelled. Run /review to reopen the finish menu.", "info");
 				return;
 			}
 

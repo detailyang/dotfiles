@@ -434,6 +434,7 @@ class MultiSelectList {
 class ReviewDashboard {
   private panes: ReviewPane[];
   private abortController = new AbortController();
+  private cancelled = false;
   private scrollFromBottom = 0;
   private cachedLines?: string[];
   private cachedWidth?: number;
@@ -493,6 +494,15 @@ class ReviewDashboard {
   }
 
   abort() {
+    this.cancelled = true;
+    for (const pane of this.panes) {
+      if (!pane.done && !pane.error) {
+        pane.error = true;
+        pane.status = "";
+        pane.lines = [];
+      }
+    }
+    this.invalidate();
     this.abortController.abort();
   }
 
@@ -501,8 +511,10 @@ class ReviewDashboard {
     const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, "");
     return this.panes.map((p) => ({
       model: p.model,
-      text: stripAnsi(p.finalText || p.lines.join("\n")).trim(),
-      error: p.error,
+      text: this.cancelled || (p.error && !p.finalText)
+        ? ""
+        : stripAnsi(p.finalText || p.lines.join("\n")).trim(),
+      error: this.cancelled || p.error,
     }));
   }
 
@@ -713,16 +725,24 @@ export async function runParallelReviewDashboard(
   options: ParallelReviewOptions = {}
 ): Promise<ParallelReviewResult[]> {
   const dashboard = new ReviewDashboard(models);
+  let closed = false;
 
   await ctx.ui.custom<void>(
     (tui, _theme, _kb, done) => {
       dashboard.setHandle({
         requestRender: () => tui.requestRender(),
-        close: () => done(undefined),
+        close: () => {
+          if (closed) return;
+          closed = true;
+          done(undefined);
+        },
       });
       dashboard.run(prompt, options).catch((err) => {
         console.error("Parallel review dashboard error:", err);
-        done(undefined);
+        if (!closed) {
+          closed = true;
+          done(undefined);
+        }
       });
 
       return {
@@ -822,7 +842,7 @@ export async function runPlanReview(pi: ExtensionAPI, ctx: ExtensionCommandConte
 
         ctx.ui.notify(
           `Plan review complete — triggering reflection (${results.length} model${results.length === 1 ? "" : "s"})`,
-          "success"
+          "info"
         );
         return true;
       } else {
