@@ -1,5 +1,5 @@
 shell-integration = fish
-command = /usr/local/bin/fish --login --interactive
+command = /bin/sh -c 'command -v tmux >/dev/null 2>&1 && exec tmux new-session -A -s main || exec /usr/local/bin/fish --login --interactive'
 font-family = "JetBrains Mono"
 font-size = 14
 macos-titlebar-style = tabs
