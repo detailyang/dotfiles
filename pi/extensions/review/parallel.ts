@@ -41,11 +41,18 @@ type ReviewStreamEvent =
 // ─── Preferences (persist last selection) ────────────────────────────────────
 
 const PREFS_PATH = join(getAgentDir(), "extension-state", "review.json");
+const MAX_STDERR_CHARS = 256_000;
+const MAX_ASSISTANT_TEXT_CHARS = 2_000_000;
+const TRUNCATED_MARKER = "\n\n[review output truncated by extension safety limit]";
 
 function loadPrefs(): Prefs {
   try {
-    return JSON.parse(readFileSync(PREFS_PATH, "utf8")) as Prefs;
-  } catch {
+    const parsed = JSON.parse(readFileSync(PREFS_PATH, "utf8")) as Partial<Prefs>;
+    return { lastSelected: Array.isArray(parsed.lastSelected) ? parsed.lastSelected : [] };
+  } catch (err: any) {
+    if (err?.code !== "ENOENT") {
+      console.error(`Failed to load review preferences from ${PREFS_PATH}: ${err?.message ?? err}`);
+    }
     return { lastSelected: [] };
   }
 }
@@ -54,8 +61,8 @@ function savePrefs(prefs: Prefs): void {
   try {
     mkdirSync(dirname(PREFS_PATH), { recursive: true });
     writeFileSync(PREFS_PATH, JSON.stringify(prefs, null, 2), "utf8");
-  } catch {
-    // Non-fatal — best-effort persistence
+  } catch (err: any) {
+    console.error(`Failed to save review preferences to ${PREFS_PATH}: ${err?.message ?? err}`);
   }
 }
 
@@ -78,21 +85,13 @@ function buildReviewPayload(ctx: ExtensionCommandContext): { reviewPrompt: strin
   for (const entry of entries) {
     if (entry.type !== "message") continue;
     const msg = entry.message;
+    const text = extractMessageText(msg);
+    if (!text.trim()) continue;
+
     if (msg.role === "user") {
-      const text =
-        typeof msg.content === "string"
-          ? msg.content
-          : msg.content
-              .filter((c: any) => c.type === "text")
-              .map((c: any) => c.text)
-              .join("\n");
       msgLines.push(`USER:\n${text}\n`);
     } else if (msg.role === "assistant") {
-      const text = (Array.isArray(msg.content) ? msg.content : [])
-        .filter((c: any) => c.type === "text")
-        .map((c: any) => c.text)
-        .join("\n");
-      if (text.trim()) msgLines.push(`ASSISTANT:\n${text}\n`);
+      msgLines.push(`ASSISTANT:\n${text}\n`);
     }
   }
 
@@ -148,6 +147,11 @@ function compactOneLine(text: string, maxWidth = 120): string {
   const oneLine = text.replace(/\s+/g, " ").trim();
   if (oneLine.length <= maxWidth) return oneLine;
   return `${oneLine.slice(0, maxWidth - 1)}…`;
+}
+
+function limitText(text: string, maxChars: number): string {
+  if (text.length <= maxChars) return text;
+  return `${text.slice(0, maxChars)}${TRUNCATED_MARKER}`;
 }
 
 function extractToolText(value: any): string {
@@ -292,7 +296,7 @@ function runModelReview(
         (event.type === "message_update" || event.type === "message_end") &&
         event.message?.role === "assistant"
       ) {
-        const text = extractMessageText(event.message);
+        const text = limitText(extractMessageText(event.message), MAX_ASSISTANT_TEXT_CHARS);
         if (text) onEvent({ type: "assistant", text });
         return;
       }
@@ -320,7 +324,17 @@ function runModelReview(
       for (const line of lines) processLine(line);
     });
     child.stderr.on("data", (chunk: Buffer) => {
-      stderr += chunk.toString("utf8");
+      stderr = limitText(stderr + chunk.toString("utf8"), MAX_STDERR_CHARS);
+    });
+
+    // Propagate stdin errors immediately to avoid race conditions where
+    // the process exits with code 0 before the close handler runs.
+    child.stdin.on("error", (err: any) => {
+      if (err?.code !== "EPIPE") {
+        const error = err instanceof Error ? err : new Error(String(err));
+        child.kill("SIGTERM");
+        reject(error);
+      }
     });
 
     child.on("error", reject);
@@ -334,10 +348,16 @@ function runModelReview(
       }
     });
 
-    if (options.stdin !== undefined) {
-      child.stdin.write(options.stdin, "utf8");
+    try {
+      if (options.stdin !== undefined) {
+        child.stdin.write(options.stdin, "utf8");
+      }
+      child.stdin.end();
+    } catch (err: any) {
+      if (err?.code !== "EPIPE") {
+        reject(err instanceof Error ? err : new Error(String(err)));
+      }
     }
-    child.stdin.end();
   });
 }
 
@@ -467,8 +487,9 @@ class ReviewDashboard {
             options,
             (event) => {
               if (event.type === "assistant") {
+                // Text already limited in runModelReview; store directly.
                 pane.finalText = event.text;
-                pane.lines = event.text.split("\n");
+                pane.lines = pane.finalText.split("\n");
               } else {
                 pane.status = event.text;
               }
