@@ -1,8 +1,8 @@
 /**
- * Code Review Extension (inspired by Codex's review feature)
+ * Unified Review Extension
  *
- * Provides a `/review` command that prompts the agent to review code changes.
- * Supports multiple review modes:
+ * Provides one `/review` command for plan and code reviews.
+ * Code review supports multiple review modes:
  * - Review a GitHub pull request (checks out the PR locally)
  * - Review against a base branch (PR style)
  * - Review uncommitted changes
@@ -10,7 +10,9 @@
  * - Shared custom review instructions (applied to all review modes when configured)
  *
  * Usage:
- * - `/review` - show interactive selector
+ * - `/review` - choose Plan or Code, then select reviewer models
+ * - `/review plan` - review the current plan/conversation
+ * - `/review code` - show code review selector
  * - `/review pr 123` - review PR #123 (checks out locally)
  * - `/review pr https://github.com/owner/repo/pull/123` - review PR from URL
  * - `/review uncommitted` - review uncommitted changes directly
@@ -40,15 +42,23 @@ import {
 } from "@earendil-works/pi-tui";
 import path from "node:path";
 import { promises as fs } from "node:fs";
+import {
+	type ParallelReviewResult,
+	formatParallelReviewResults,
+	runParallelReviewDashboard,
+	runPlanReview,
+	selectReviewerModels,
+} from "./parallel.js";
 
 // State to track fresh session review (where we branched from).
 // Module-level state means only one review can be active at a time.
-// This is intentional - the UI and /end-review command assume a single active review.
+// This is intentional - the review finish UI assumes a single active review.
 let reviewOriginId: string | undefined = undefined;
 let endReviewInProgress = false;
 let reviewLoopFixingEnabled = false;
 let reviewCustomInstructions: string | undefined = undefined;
 let reviewLoopInProgress = false;
+let reviewActiveKind: "code" | "plan" = "code";
 
 const REVIEW_STATE_TYPE = "review-session";
 const REVIEW_ANCHOR_TYPE = "review-anchor";
@@ -60,6 +70,7 @@ const REVIEW_LOOP_START_POLL_MS = 50;
 type ReviewSessionState = {
 	active: boolean;
 	originId?: string;
+	kind?: "code" | "plan";
 };
 
 type ReviewSettingsState = {
@@ -75,11 +86,12 @@ function setReviewWidget(ctx: ExtensionContext, active: boolean) {
 	}
 
 	ctx.ui.setWidget("review", (_tui, theme) => {
+		const kindLabel = reviewActiveKind === "plan" ? "Plan review" : "Code review";
 		const message = reviewLoopInProgress
-			? "Review session active (loop fixing running)"
+			? `${kindLabel} active (loop fixing running)`
 			: reviewLoopFixingEnabled
-				? "Review session active (loop fixing enabled), return with /end-review"
-				: "Review session active, return with /end-review";
+				? `${kindLabel} active (loop fixing enabled), finish menu will open automatically`
+				: `${kindLabel} active, finish menu will open automatically`;
 		const text = new Text(theme.fg("warning", message), 0, 0);
 		return {
 			render(width: number) {
@@ -108,11 +120,13 @@ function applyReviewState(ctx: ExtensionContext) {
 
 	if (state?.active && state.originId) {
 		reviewOriginId = state.originId;
+		reviewActiveKind = state.kind ?? "code";
 		setReviewWidget(ctx, true);
 		return;
 	}
 
 	reviewOriginId = undefined;
+	reviewActiveKind = "code";
 	setReviewWidget(ctx, false);
 }
 
@@ -837,8 +851,14 @@ const REVIEW_PRESETS = [
 	{ value: "folder", label: "Review a folder (or more)", description: "(snapshot, not diff)" },
 ] as const;
 
+const REVIEW_KIND_OPTIONS = [
+	{ value: "plan", label: "Plan", description: "Review the current plan/conversation" },
+	{ value: "code", label: "Code", description: "Review code changes or files" },
+] as const;
+
 const TOGGLE_LOOP_FIXING_VALUE = "toggleLoopFixing" as const;
 const TOGGLE_CUSTOM_INSTRUCTIONS_VALUE = "toggleCustomInstructions" as const;
+type ReviewKind = (typeof REVIEW_KIND_OPTIONS)[number]["value"];
 type ReviewPresetValue =
 	| (typeof REVIEW_PRESETS)[number]["value"]
 	| typeof TOGGLE_LOOP_FIXING_VALUE
@@ -878,6 +898,46 @@ export default function reviewExtension(pi: ExtensionAPI) {
 	pi.on("session_tree", (_event, ctx) => {
 		applyAllReviewState(ctx);
 	});
+
+	async function showReviewKindSelector(ctx: ExtensionContext): Promise<ReviewKind | null> {
+		const items: SelectItem[] = REVIEW_KIND_OPTIONS.map((option) => ({
+			value: option.value,
+			label: option.label,
+			description: option.description,
+		}));
+
+		return ctx.ui.custom<ReviewKind | null>((tui, theme, _kb, done) => {
+			const container = new Container();
+			container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
+			container.addChild(new Text(theme.fg("accent", theme.bold("Select review type"))));
+
+			const selectList = new SelectList(items, items.length, {
+				selectedPrefix: (text) => theme.fg("accent", text),
+				selectedText: (text) => theme.fg("accent", text),
+				description: (text) => theme.fg("muted", text),
+			});
+
+			selectList.onSelect = (item) => done(item.value as ReviewKind);
+			selectList.onCancel = () => done(null);
+
+			container.addChild(selectList);
+			container.addChild(new Text(theme.fg("dim", "Press enter to confirm or esc to cancel")));
+			container.addChild(new DynamicBorder((str) => theme.fg("accent", str)));
+
+			return {
+				render(width: number) {
+					return container.render(width);
+				},
+				invalidate() {
+					container.invalidate();
+				},
+				handleInput(data: string) {
+					selectList.handleInput(data);
+					tui.requestRender();
+				},
+			};
+		}, { overlay: true });
+	}
 
 	/**
 	 * Determine the smart default review type based on git state
@@ -1342,76 +1402,88 @@ export default function reviewExtension(pi: ExtensionAPI) {
 		};
 	}
 
-	/**
-	 * Execute the review
-	 */
-	async function executeReview(
+	async function startReviewBranch(
 		ctx: ExtensionCommandContext,
-		target: ReviewTarget,
-		useFreshSession: boolean,
-		options?: { includeLocalChanges?: boolean; extraInstruction?: string },
+		label: string,
+		kind: "code" | "plan" = "code",
 	): Promise<boolean> {
-		// Check if we're already in a review
-		if (reviewOriginId) {
-			ctx.ui.notify("Already in a review. Use /end-review to finish first.", "warning");
+		// Store current position (where we'll return to).
+		// In an empty session there is no leaf yet, so create a lightweight anchor first.
+		let originId = ctx.sessionManager.getLeafId() ?? undefined;
+		if (!originId) {
+			pi.appendEntry(REVIEW_ANCHOR_TYPE, { createdAt: new Date().toISOString() });
+			originId = ctx.sessionManager.getLeafId() ?? undefined;
+		}
+		if (!originId) {
+			ctx.ui.notify("Failed to determine review origin.", "error");
+			return false;
+		}
+		reviewOriginId = originId;
+		reviewActiveKind = kind;
+
+		// Keep a local copy so session_tree events during navigation don't wipe it.
+		const lockedOriginId = originId;
+
+		// NOTE: reviewActiveKind is set again after navigateTree (below) as a defensive
+		// measure — session_tree events during navigation can trigger applyAllReviewState,
+		// which resets the module-level state. The redundant write ensures the kind is
+		// correct regardless of event ordering.
+
+		// Find the first user message in the session.
+		// If none exists (e.g. brand-new session), we'll stay on the current leaf.
+		const entries = ctx.sessionManager.getEntries();
+		const firstUserMessage = entries.find(
+			(e) => e.type === "message" && e.message.role === "user",
+		);
+
+		if (firstUserMessage) {
+			try {
+				const result = await ctx.navigateTree(firstUserMessage.id, { summarize: false, label });
+				if (result.cancelled) {
+					reviewOriginId = undefined;
+					return false;
+				}
+			} catch (error) {
+				reviewOriginId = undefined;
+				ctx.ui.notify(`Failed to start review: ${error instanceof Error ? error.message : String(error)}`, "error");
+				return false;
+			}
+
+			// Clear the editor (navigating to user message fills it with the message text).
+			ctx.ui.setEditorText("");
+		}
+
+		// Restore origin after navigation events (session_tree can reset it).
+		reviewOriginId = lockedOriginId;
+		reviewActiveKind = kind;
+		setReviewWidget(ctx, true);
+		pi.appendEntry(REVIEW_STATE_TYPE, { active: true, originId: lockedOriginId, kind });
+		return true;
+	}
+
+	function startReviewDelta(ctx: ExtensionCommandContext, kind: "code" | "plan"): boolean {
+		let originId = ctx.sessionManager.getLeafId() ?? undefined;
+		if (!originId) {
+			pi.appendEntry(REVIEW_ANCHOR_TYPE, { createdAt: new Date().toISOString() });
+			originId = ctx.sessionManager.getLeafId() ?? undefined;
+		}
+		if (!originId) {
+			ctx.ui.notify("Failed to determine review origin.", "error");
 			return false;
 		}
 
-		// Handle fresh session mode
-		if (useFreshSession) {
-			// Store current position (where we'll return to).
-			// In an empty session there is no leaf yet, so create a lightweight anchor first.
-			let originId = ctx.sessionManager.getLeafId() ?? undefined;
-			if (!originId) {
-				pi.appendEntry(REVIEW_ANCHOR_TYPE, { createdAt: new Date().toISOString() });
-				originId = ctx.sessionManager.getLeafId() ?? undefined;
-			}
-			if (!originId) {
-				ctx.ui.notify("Failed to determine review origin.", "error");
-				return false;
-			}
-			reviewOriginId = originId;
+		reviewOriginId = originId;
+		reviewActiveKind = kind;
+		setReviewWidget(ctx, true);
+		pi.appendEntry(REVIEW_STATE_TYPE, { active: true, originId, kind });
+		return true;
+	}
 
-			// Keep a local copy so session_tree events during navigation don't wipe it
-			const lockedOriginId = originId;
-
-			// Find the first user message in the session.
-			// If none exists (e.g. brand-new session), we'll stay on the current leaf.
-			const entries = ctx.sessionManager.getEntries();
-			const firstUserMessage = entries.find(
-				(e) => e.type === "message" && e.message.role === "user",
-			);
-
-			if (firstUserMessage) {
-				// Navigate to first user message to create a new branch from that point
-				// Label it as "code-review" so it's visible in the tree
-				try {
-					const result = await ctx.navigateTree(firstUserMessage.id, { summarize: false, label: "code-review" });
-					if (result.cancelled) {
-						reviewOriginId = undefined;
-						return false;
-					}
-				} catch (error) {
-					// Clean up state if navigation fails
-					reviewOriginId = undefined;
-					ctx.ui.notify(`Failed to start review: ${error instanceof Error ? error.message : String(error)}`, "error");
-					return false;
-				}
-
-				// Clear the editor (navigating to user message fills it with the message text)
-				ctx.ui.setEditorText("");
-			}
-
-			// Restore origin after navigation events (session_tree can reset it)
-			reviewOriginId = lockedOriginId;
-
-			// Show widget indicating review is active
-			setReviewWidget(ctx, true);
-
-			// Persist review state so tree navigation can restore/reset it
-			pi.appendEntry(REVIEW_STATE_TYPE, { active: true, originId: lockedOriginId });
-		}
-
+	async function buildFullCodeReviewPrompt(
+		ctx: ExtensionCommandContext,
+		target: ReviewTarget,
+		options?: { includeLocalChanges?: boolean; extraInstruction?: string },
+	): Promise<{ fullPrompt: string; hint: string }> {
 		const prompt = await buildReviewPrompt(pi, target, {
 			includeLocalChanges: options?.includeLocalChanges === true,
 		});
@@ -1433,6 +1505,29 @@ export default function reviewExtension(pi: ExtensionAPI) {
 			fullPrompt += `\n\nThis project has additional instructions for code reviews:\n\n${projectGuidelines}`;
 		}
 
+		return { fullPrompt, hint };
+	}
+
+	/**
+	 * Execute the review
+	 */
+	async function executeReview(
+		ctx: ExtensionCommandContext,
+		target: ReviewTarget,
+		useFreshSession: boolean,
+		options?: { includeLocalChanges?: boolean; extraInstruction?: string },
+	): Promise<boolean> {
+		// Check if we're already in a review
+		if (reviewOriginId) {
+			ctx.ui.notify("Already in a review. Use /end-review to finish first.", "warning");
+			return false;
+		}
+
+		if (useFreshSession && !(await startReviewBranch(ctx, "code-review", "code"))) {
+			return false;
+		}
+
+		const { fullPrompt, hint } = await buildFullCodeReviewPrompt(ctx, target, options);
 		const modeHint = useFreshSession ? " (fresh session)" : "";
 		ctx.ui.notify(`Starting review: ${hint}${modeHint}`, "info");
 
@@ -1494,6 +1589,22 @@ export default function reviewExtension(pi: ExtensionAPI) {
 		}
 
 		return tokens;
+	}
+
+	function parseReviewInvocation(args: string | undefined): { kind: ReviewKind | null; codeArgs?: string } {
+		if (!args?.trim()) return { kind: null };
+
+		const tokens = tokenizeArgs(args.trim());
+		const first = tokens[0]?.toLowerCase();
+		if (first === "plan") {
+			return { kind: "plan" };
+		}
+
+		if (first === "code") {
+			return { kind: "code", codeArgs: tokens.slice(1).join(" ") };
+		}
+
+		return { kind: "code", codeArgs: args };
 	}
 
 	function parseArgs(args: string | undefined): ParsedReviewArgs {
@@ -1614,6 +1725,65 @@ export default function reviewExtension(pi: ExtensionAPI) {
 		}
 
 		return false;
+	}
+
+	function buildCodeReviewSynthesisPrompt(target: ReviewTarget, results: ParallelReviewResult[]): string {
+		return [
+			"Multiple reviewer models have completed independent code reviews.",
+			"",
+			`Review scope: ${getUserFacingHint(target)}`,
+			"",
+			"Consolidate the reports below into one actionable review result.",
+			"Deduplicate overlapping findings, preserve the highest justified priority, and keep exact file paths and line references where available.",
+			"Do not fix anything yet. Produce the review result only.",
+			"",
+			"Use this structure:",
+			"## Review Scope",
+			"## Verdict",
+			"## Findings",
+			"## Fix Queue",
+			"## Constraints & Preferences",
+			"## Human Reviewer Callouts (Non-Blocking)",
+			"",
+			"Reviewer reports:",
+			"",
+			formatParallelReviewResults(results),
+		].join("\n");
+	}
+
+	async function runParallelCodeReview(
+		ctx: ExtensionCommandContext,
+		target: ReviewTarget,
+		models: string[],
+		extraInstruction?: string,
+	): Promise<boolean> {
+		const { fullPrompt, hint } = await buildFullCodeReviewPrompt(ctx, target, { extraInstruction });
+		ctx.ui.notify(
+			`Starting code review: ${hint} (${models.length} model${models.length === 1 ? "" : "s"})`,
+			"info",
+		);
+
+		const results = await runParallelReviewDashboard(ctx, models, fullPrompt, {
+			cwd: ctx.cwd,
+			noSkills: true,
+		});
+
+		const aborted = results.every((result) => result.text === "" && result.error);
+		if (aborted) {
+			ctx.ui.notify("Code review cancelled - no results to inject", "info");
+			return false;
+		}
+
+		const baselineAssistantId = getLastAssistantSnapshot(ctx)?.id;
+		pi.sendUserMessage(buildCodeReviewSynthesisPrompt(target, results));
+		ctx.ui.notify("Code reviews complete - consolidating findings", "success");
+		const started = await waitForLoopTurnToStart(ctx, baselineAssistantId);
+		if (!started) {
+			ctx.ui.notify("Code review consolidation did not start in time.", "warning");
+			return false;
+		}
+		await ctx.waitForIdle();
+		return true;
 	}
 
 	async function runLoopFixingReview(
@@ -1737,10 +1907,51 @@ export default function reviewExtension(pi: ExtensionAPI) {
 
 	// Register the /review command
 	pi.registerCommand("review", {
-		description: "Review code changes (PR, uncommitted, branch, commit, or folder)",
+		description: "Review a plan or code changes",
 		handler: async (args, ctx) => {
 			if (!ctx.hasUI) {
 				ctx.ui.notify("Review requires interactive mode", "error");
+				return;
+			}
+
+			if (getActiveReviewOrigin(ctx)) {
+				await runEndReview(ctx);
+				return;
+			}
+
+			const invocation = parseReviewInvocation(args);
+			let reviewKind = invocation.kind;
+
+			if (!reviewKind) {
+				reviewKind = await showReviewKindSelector(ctx);
+				if (!reviewKind) {
+					ctx.ui.notify("Review cancelled", "info");
+					return;
+				}
+			}
+
+			if (reviewKind === "plan") {
+				if (reviewOriginId) {
+					ctx.ui.notify("Already in a review. Use /end-review to finish first.", "warning");
+					return;
+				}
+				if (!startReviewDelta(ctx, "plan")) {
+					return;
+				}
+				const baselineAssistantId = getLastAssistantSnapshot(ctx)?.id;
+				const completed = await runPlanReview(pi, ctx);
+				if (!completed) {
+					clearReviewState(ctx);
+					return;
+				}
+				const started = await waitForLoopTurnToStart(ctx, baselineAssistantId);
+				if (!started) {
+					ctx.ui.notify("Plan review reflection did not start in time.", "warning");
+					clearReviewState(ctx);
+					return;
+				}
+				await ctx.waitForIdle();
+				await runEndReview(ctx);
 				return;
 			}
 
@@ -1766,7 +1977,7 @@ export default function reviewExtension(pi: ExtensionAPI) {
 			let target: ReviewTarget | null = null;
 			let fromSelector = false;
 			let extraInstruction: string | undefined;
-			const parsed = parseArgs(args);
+			const parsed = parseArgs(invocation.codeArgs);
 			if (parsed.error) {
 				ctx.ui.notify(parsed.error, "error");
 				return;
@@ -1814,31 +2025,23 @@ export default function reviewExtension(pi: ExtensionAPI) {
 					return;
 				}
 
-				// Determine if we should use fresh session mode
-				// Check if this is a new session (no messages yet)
-				const entries = ctx.sessionManager.getEntries();
-				const messageCount = entries.filter((e) => e.type === "message").length;
-
-				// In an empty session, default to fresh review mode so /end-review works consistently.
-				let useFreshSession = messageCount === 0;
-
-				if (messageCount > 0) {
-					// Existing session - ask user which mode they want
-					const choice = await ctx.ui.select("Start review in:", ["Empty branch", "Current session"]);
-
-					if (choice === undefined) {
-						if (fromSelector) {
-							target = null;
-							continue;
-						}
-						ctx.ui.notify("Review cancelled", "info");
-						return;
-					}
-
-					useFreshSession = choice === "Empty branch";
+				const reviewerModels = await selectReviewerModels(ctx, "Code Review — Select reviewer models", "review");
+				if (!reviewerModels || reviewerModels.length === 0) {
+					ctx.ui.notify("Review cancelled", "info");
+					return;
 				}
 
-				await executeReview(ctx, target, useFreshSession, { extraInstruction });
+				if (!startReviewDelta(ctx, "code")) {
+					return;
+				}
+
+				const completed = await runParallelCodeReview(ctx, target, reviewerModels, extraInstruction);
+				if (!completed) {
+					clearReviewState(ctx);
+					return;
+				}
+
+				await runEndReview(ctx);
 				return;
 			}
 		},
@@ -1888,6 +2091,35 @@ These are informational callouts for humans and are not fix items by themselves.
 
 Preserve exact file paths, function names, and error messages where available.`;
 
+	const PLAN_REVIEW_SUMMARY_PROMPT = `We are leaving a plan-review branch and returning to the main working branch.
+Create a structured handoff that can be used immediately to improve the plan or implementation approach.
+
+You MUST summarize the review that happened in this branch so findings can be acted on.
+Do not omit findings: include every actionable issue that was identified.
+
+Required sections (in order):
+
+## Review Scope
+- What plan, design, or conversation was reviewed
+
+## Verdict
+- "sound" or "needs attention"
+
+## Findings
+For EACH finding, include:
+- Priority tag ([P0]..[P3]) and short title
+- Why it matters
+- What should change
+
+## Fix Queue
+1. Ordered checklist for revising the plan or next implementation steps
+
+## Constraints & Preferences
+- Any constraints, assumptions, preferences, or unresolved questions mentioned during review
+- Or "(none)"
+
+Preserve exact terminology, decisions, and constraints where available.`;
+
 	const REVIEW_FIX_FINDINGS_PROMPT = `Use the latest review summary in this session and implement the review findings now.
 
 Instructions:
@@ -1900,6 +2132,15 @@ Instructions:
 7. JSON parsing/decoding should fail loudly by default; avoid silent fallback parsing.
 8. Run relevant tests/checks for touched code where practical.
 9. End with: fixed items, deferred/skipped items (with reasons), and verification results.`;
+
+	const PLAN_REVIEW_FIX_FINDINGS_PROMPT = `Use the latest plan review summary in this session and revise the plan or implementation approach now.
+
+Instructions:
+1. Treat the summary's Findings/Fix Queue as a checklist.
+2. Address P0/P1 issues first, then P2/P3 where practical.
+3. If a finding is invalid, already addressed, or not actionable right now, briefly explain why and continue.
+4. Preserve user constraints and explicit preferences.
+5. End with: applied revisions, deferred/skipped items (with reasons), and any remaining decisions needed.`;
 
 	type EndReviewAction = "returnOnly" | "returnAndFix" | "returnAndSummarize";
 	type EndReviewActionResult = "ok" | "cancelled" | "error";
@@ -1916,6 +2157,7 @@ Instructions:
 		const state = getReviewState(ctx);
 		if (state?.active && state.originId) {
 			reviewOriginId = state.originId;
+			reviewActiveKind = state.kind ?? "code";
 			return reviewOriginId;
 		}
 
@@ -1928,9 +2170,15 @@ Instructions:
 		return undefined;
 	}
 
+	function getActiveReviewKind(ctx: ExtensionContext): "code" | "plan" {
+		const state = getReviewState(ctx);
+		return state?.kind ?? reviewActiveKind;
+	}
+
 	function clearReviewState(ctx: ExtensionContext) {
 		setReviewWidget(ctx, false);
 		reviewOriginId = undefined;
+		reviewActiveKind = "code";
 		pi.appendEntry(REVIEW_STATE_TYPE, { active: false });
 	}
 
@@ -1939,6 +2187,7 @@ Instructions:
 		originId: string,
 		showLoader: boolean,
 	): Promise<{ cancelled: boolean; error?: string } | null> {
+		const summaryPrompt = getActiveReviewKind(ctx) === "plan" ? PLAN_REVIEW_SUMMARY_PROMPT : REVIEW_SUMMARY_PROMPT;
 		if (showLoader && ctx.hasUI) {
 			return ctx.ui.custom<{ cancelled: boolean; error?: string } | null>((tui, theme, _kb, done) => {
 				const loader = new BorderedLoader(tui, theme, "Returning and summarizing review branch...");
@@ -1946,7 +2195,7 @@ Instructions:
 
 				ctx.navigateTree(originId, {
 					summarize: true,
-					customInstructions: REVIEW_SUMMARY_PROMPT,
+					customInstructions: summaryPrompt,
 					replaceInstructions: true,
 				})
 					.then(done)
@@ -1959,7 +2208,7 @@ Instructions:
 		try {
 			return await ctx.navigateTree(originId, {
 				summarize: true,
-				customInstructions: REVIEW_SUMMARY_PROMPT,
+				customInstructions: summaryPrompt,
 				replaceInstructions: true,
 			});
 		} catch (error) {
@@ -1981,12 +2230,13 @@ Instructions:
 		}
 
 		const notifySuccess = options.notifySuccess ?? true;
+		const activeKind = getActiveReviewKind(ctx);
 
 		if (action === "returnOnly") {
 			try {
 				const result = await ctx.navigateTree(originId, { summarize: false });
 				if (result.cancelled) {
-					ctx.ui.notify("Navigation cancelled. Use /end-review to try again.", "info");
+					ctx.ui.notify("Navigation cancelled. Run /review to reopen the finish menu.", "info");
 					return "cancelled";
 				}
 			} catch (error) {
@@ -2003,7 +2253,7 @@ Instructions:
 
 		const summaryResult = await navigateWithSummary(ctx, originId, options.showSummaryLoader ?? false);
 		if (summaryResult === null) {
-			ctx.ui.notify("Summarization cancelled. Use /end-review to try again.", "info");
+			ctx.ui.notify("Summarization cancelled. Run /review to reopen the finish menu.", "info");
 			return "cancelled";
 		}
 
@@ -2013,7 +2263,7 @@ Instructions:
 		}
 
 		if (summaryResult.cancelled) {
-			ctx.ui.notify("Navigation cancelled. Use /end-review to try again.", "info");
+			ctx.ui.notify("Navigation cancelled. Run /review to reopen the finish menu.", "info");
 			return "cancelled";
 		}
 
@@ -2021,7 +2271,7 @@ Instructions:
 
 		if (action === "returnAndSummarize") {
 			if (!ctx.ui.getEditorText().trim()) {
-				ctx.ui.setEditorText("Act on the review findings");
+				ctx.ui.setEditorText(activeKind === "plan" ? "Act on the plan review findings" : "Act on the review findings");
 			}
 			if (notifySuccess) {
 				ctx.ui.notify("Review complete! Returned and summarized.", "info");
@@ -2029,7 +2279,10 @@ Instructions:
 			return "ok";
 		}
 
-		pi.sendUserMessage(REVIEW_FIX_FINDINGS_PROMPT, { deliverAs: "followUp" });
+		pi.sendUserMessage(
+			activeKind === "plan" ? PLAN_REVIEW_FIX_FINDINGS_PROMPT : REVIEW_FIX_FINDINGS_PROMPT,
+			{ deliverAs: "followUp" },
+		);
 		if (notifySuccess) {
 			ctx.ui.notify("Review complete! Returned and queued a follow-up to fix findings.", "info");
 		}
@@ -2038,7 +2291,7 @@ Instructions:
 
 	async function runEndReview(ctx: ExtensionCommandContext): Promise<void> {
 		if (!ctx.hasUI) {
-			ctx.ui.notify("End-review requires interactive mode", "error");
+			ctx.ui.notify("Review finish requires interactive mode", "error");
 			return;
 		}
 
@@ -2048,7 +2301,7 @@ Instructions:
 		}
 
 		if (endReviewInProgress) {
-			ctx.ui.notify("/end-review is already running", "info");
+			ctx.ui.notify("Review finish is already running", "info");
 			return;
 		}
 
@@ -2061,7 +2314,7 @@ Instructions:
 			]);
 
 			if (choice === undefined) {
-				ctx.ui.notify("Cancelled. Use /end-review to try again.", "info");
+				ctx.ui.notify("Cancelled. Run /review to reopen the finish menu.", "info");
 				return;
 			}
 
@@ -2081,11 +2334,4 @@ Instructions:
 		}
 	}
 
-	// Register the /end-review command
-	pi.registerCommand("end-review", {
-		description: "Complete review and return to original position",
-		handler: async (_args, ctx) => {
-			await runEndReview(ctx);
-		},
-	});
 }
