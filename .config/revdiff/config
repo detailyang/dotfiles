@@ -3,10 +3,10 @@
 ; staged = false
 
 ; file tree panel width in units (1-10, default 2 of 10)
-; tree-width = 2
+tree-width = 2
 
 ; number of spaces per tab character
-; tab-width = 4
+tab-width = 2
 
 ; disable all colors including syntax highlighting
 ; no-colors = false
