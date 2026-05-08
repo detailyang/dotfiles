@@ -71,6 +71,7 @@ type ReviewSessionState = {
 	active: boolean;
 	originId?: string;
 	kind?: "code" | "plan";
+	autoFinish?: boolean;
 };
 
 type ReviewSettingsState = {
@@ -115,19 +116,30 @@ function getReviewState(ctx: ExtensionContext): ReviewSessionState | undefined {
 	return state;
 }
 
-function applyReviewState(ctx: ExtensionContext) {
+function applyReviewState(
+	ctx: ExtensionContext,
+	options: { clearAutoFinish?: boolean } = {},
+): { clearedStaleAutoFinish: boolean } {
 	const state = getReviewState(ctx);
+
+	if (state?.active && options.clearAutoFinish && state.autoFinish !== false) {
+		reviewOriginId = undefined;
+		reviewActiveKind = "code";
+		setReviewWidget(ctx, false);
+		return { clearedStaleAutoFinish: true };
+	}
 
 	if (state?.active && state.originId) {
 		reviewOriginId = state.originId;
 		reviewActiveKind = state.kind ?? "code";
 		setReviewWidget(ctx, true);
-		return;
+		return { clearedStaleAutoFinish: false };
 	}
 
 	reviewOriginId = undefined;
 	reviewActiveKind = "code";
 	setReviewWidget(ctx, false);
+	return { clearedStaleAutoFinish: false };
 }
 
 function getReviewSettings(ctx: ExtensionContext): ReviewSettingsState {
@@ -882,17 +894,21 @@ export default function reviewExtension(pi: ExtensionAPI) {
 		persistReviewSettings();
 	}
 
-	function applyAllReviewState(ctx: ExtensionContext) {
+	function applyAllReviewState(ctx: ExtensionContext, options: { clearAutoFinish?: boolean } = {}) {
 		applyReviewSettings(ctx);
-		applyReviewState(ctx);
+		const result = applyReviewState(ctx, options);
+		if (result.clearedStaleAutoFinish) {
+			pi.appendEntry(REVIEW_STATE_TYPE, { active: false });
+			ctx.ui.notify("Cleared stale auto review status.", "info");
+		}
 	}
 
 	pi.on("session_start", (_event, ctx) => {
-		applyAllReviewState(ctx);
+		applyAllReviewState(ctx, { clearAutoFinish: true });
 	});
 
 	pi.on("session_switch", (_event, ctx) => {
-		applyAllReviewState(ctx);
+		applyAllReviewState(ctx, { clearAutoFinish: true });
 	});
 
 	pi.on("session_tree", (_event, ctx) => {
@@ -1457,7 +1473,7 @@ export default function reviewExtension(pi: ExtensionAPI) {
 		reviewOriginId = lockedOriginId;
 		reviewActiveKind = kind;
 		setReviewWidget(ctx, true);
-		pi.appendEntry(REVIEW_STATE_TYPE, { active: true, originId: lockedOriginId, kind });
+		pi.appendEntry(REVIEW_STATE_TYPE, { active: true, originId: lockedOriginId, kind, autoFinish: true });
 		return true;
 	}
 
@@ -1475,7 +1491,7 @@ export default function reviewExtension(pi: ExtensionAPI) {
 		reviewOriginId = originId;
 		reviewActiveKind = kind;
 		setReviewWidget(ctx, true);
-		pi.appendEntry(REVIEW_STATE_TYPE, { active: true, originId, kind });
+		pi.appendEntry(REVIEW_STATE_TYPE, { active: true, originId, kind, autoFinish: true });
 		return true;
 	}
 
@@ -2314,7 +2330,8 @@ Instructions:
 			]);
 
 			if (choice === undefined) {
-				ctx.ui.notify("Cancelled. Run /review to reopen the finish menu.", "info");
+				clearReviewState(ctx);
+				ctx.ui.notify("Finish review cancelled; cleared review status.", "info");
 				return;
 			}
 
