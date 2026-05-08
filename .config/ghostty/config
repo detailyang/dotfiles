@@ -1,5 +1,5 @@
 shell-integration = fish
-command = /usr/local/bin/fish -l -c "tmux attach || tmux"
+command = /usr/local/bin/fish -l -c "tmux attach -t main || tmux new-session -s main"
 font-family = "JetBrains Mono"
 font-size = 14
 macos-titlebar-style = tabs
