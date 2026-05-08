@@ -11,12 +11,12 @@
  *   /commit src/auth.ts fix auth bug - file + guidance
  */
 
-import type { ExtensionAPI, Theme } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI, Theme } from "@earendil-works/pi-coding-agent";
 import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type Component, type TUI, visibleWidth } from "@mariozechner/pi-tui";
+import { type Component, type TUI, visibleWidth } from "@earendil-works/pi-tui";
 
 const SPINNER_FRAMES = ["|", "/", "-", "\\"];
 const SPINNER_INTERVAL_MS = 100;

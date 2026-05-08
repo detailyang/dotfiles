@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 function signalExitCode(signal: NodeJS.Signals): number {
   const codes: Record<string, number> = {

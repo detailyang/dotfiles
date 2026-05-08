@@ -10,14 +10,14 @@
  *   5. 评审完成后立即以 steer + triggerTurn 触发主模型反思并给出改进方案
  */
 
-import type { ExtensionAPI } from "@mariozechner/pi-coding-agent";
-import { DynamicBorder } from "@mariozechner/pi-coding-agent";
-import { Container, type SelectItem, Text, Spacer } from "@mariozechner/pi-tui";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { DynamicBorder } from "@earendil-works/pi-coding-agent";
+import { Container, type SelectItem, Text, Spacer } from "@earendil-works/pi-tui";
 import { spawn } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
-import { matchesKey, Key, truncateToWidth } from "@mariozechner/pi-tui";
+import { matchesKey, Key, truncateToWidth } from "@earendil-works/pi-tui";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
