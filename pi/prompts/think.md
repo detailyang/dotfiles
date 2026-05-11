@@ -1,6 +1,5 @@
 ---
-description: Structured design workflow — clarify constraints, challenge assumptions, compare options, then produce a design document before writing code.
-argument-hint: "[topic or feature]"
+description: Structured design workflow — clarify constraints, challenge assumptions, compare options, then produce a design document before writing code. Language mirrors user input (Chinese ↔ English).
 ---
 
 # Think: Clarify First, Design Once

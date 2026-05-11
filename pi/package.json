@@ -18,6 +18,9 @@
     ],
     "themes": [
       "./themes"
+    ],
+    "prompts": [
+      "./prompts"
     ]
   },
   "dependencies": {
