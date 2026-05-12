@@ -1,4 +1,7 @@
 {
+  "$schema": "https://agent-browser.dev/schema.json",
+  "profile": "~/.agent-browser/default",
   "headed": true,
   "ignoreHttpsErrors": true
 }
+
