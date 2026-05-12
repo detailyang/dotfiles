@@ -1,0 +1,75 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 240" width="900" height="240">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1b26"/>
+      <stop offset="100%" stop-color="#24283b"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7aa2f7"/>
+      <stop offset="50%" stop-color="#bb9af7"/>
+      <stop offset="100%" stop-color="#f7768e"/>
+    </linearGradient>
+    <linearGradient id="sub" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#9ece6a"/>
+      <stop offset="100%" stop-color="#73daca"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="240" rx="12" fill="url(#bg)"/>
+
+  <!-- Window buttons -->
+  <circle cx="28" cy="28" r="7" fill="#f7768e"/>
+  <circle cx="50" cy="28" r="7" fill="#e0af68"/>
+  <circle cx="72" cy="28" r="7" fill="#9ece6a"/>
+
+  <!-- Prompt -->
+  <text x="42" y="72" font-family="'SF Mono','Fira Code','Cascadia Code',Menlo,monospace" font-size="16" fill="#565f89">
+    <tspan fill="#9ece6a">❯</tspan> <tspan fill="#7aa2f7">~/dotfiles</tspan> <tspan fill="#e0af68">git:(master)</tspan>
+  </text>
+
+  <!-- ASCII fish -->
+  <text x="42" y="108" font-family="'SF Mono','Fira Code',Menlo,monospace" font-size="14" fill="#565f89">
+    <tspan fill="#7aa2f7">   &gt;&lt;&gt;</tspan>
+    <tspan fill="#bb9af7">   _/|</tspan>
+  </text>
+
+  <!-- Main typing area — cat README.md output -->
+  <text x="42" y="150" font-family="'SF Mono','Fira Code','Cascadia Code',Menlo,monospace" font-size="15" fill="#c0caf5" font-weight="bold">
+    dotfiles
+  </text>
+
+  <text x="42" y="176" font-family="'SF Mono','Fira Code','Cascadia Code',Menlo,monospace" font-size="13" fill="#a9b1d6">
+    <tspan fill="#565f89">#!/usr/bin/env sh</tspan>
+    <tspan fill="#9ece6a"> my </tspan>
+    <tspan fill="#c0caf5">shell · terminal · automation · life</tspan>
+  </text>
+
+  <!-- Bottom line with status -->
+  <rect x="24" y="204" width="852" height="1" fill="#3b4261" opacity="0.5"/>
+
+  <text x="42" y="226" font-family="'SF Mono','Fira Code',Menlo,monospace" font-size="11" fill="#565f89">
+    <tspan>macOS</tspan>
+    <tspan fill="#3b4261">  ⎸  </tspan>
+    <tspan>Linux</tspan>
+    <tspan fill="#3b4261">  ⎸  </tspan>
+    <tspan>WSL</tspan>
+    <tspan fill="#3b4261">  ⎸  </tspan>
+    <tspan>Fish</tspan>
+    <tspan fill="#3b4261">  ⎸  </tspan>
+    <tspan>Bash</tspan>
+    <tspan fill="#3b4261">  ⎸  </tspan>
+    <tspan>Alacritty</tspan>
+    <tspan fill="#3b4261">  ⎸  </tspan>
+    <tspan>tmux</tspan>
+    <tspan fill="#3b4261">  ⎸  </tspan>
+    <tspan>Neovim</tspan>
+  </text>
+</svg>
