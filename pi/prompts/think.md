@@ -115,7 +115,7 @@ Once an option is approved, produce the full document and write it to disk.
 **Filename:** `design-[feature-name]-[YYYY-MM-DD].md`
 - Derive `[feature-name]` from `$@` if arguments were provided; otherwise infer from the approved option name.
 - kebab-case only, lowercase, no spaces or special characters (e.g., `auth-service`, `api-gateway`)
-**Location:** project root, or `docs/` if that directory exists.
+**Location:** `<git-root>/spec/` — always use the git repository root (via `git rev-parse --show-toplevel`) and write to its `spec/` subdirectory. Create `spec/` if it does not exist. If not inside a git repo, fall back to current working directory.
 
 ---
 
@@ -189,7 +189,7 @@ If restart: ask what specifically broke down before resetting.
 
 ## Gotchas
 
-- **Wrong path assumed.** Always run `pwd` or `git rev-parse --show-toplevel` before writing the file.
+- **Wrong path assumed.** Always run `git rev-parse --show-toplevel` to locate the git root, then write to `<git-root>/spec/`. Create the directory if missing. If not in a git repo, fall back to `pwd`.
 - **Designed around unavailable tools.** If the plan depends on an MCP server, external API, or CLI tool, verify it's reachable before Phase 3.
 - **Approved design restarted from scratch on rejection.** Ask what specifically failed. Re-enter Phase 3 with narrowed constraints. Never blank-slate.
 - **Placeholders survived into the final document.** Scan before presenting. Any TBD/TODO is a blocker — resolve or explicitly defer with a named owner.
