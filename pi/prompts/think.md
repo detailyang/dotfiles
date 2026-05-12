@@ -1,10 +1,11 @@
 ---
 description: Structured design workflow — clarify constraints, challenge assumptions, compare options, then produce a design document before writing code. Language mirrors user input (Chinese ↔ English).
+argument-hint: "<task-description>"
 ---
 
 # Think: Clarify First, Design Once
 
-Collect just enough context to produce a reliable plan for **$@**. No implementation until the design is approved.
+Produce a reliable plan for **$@** — if no task is specified above, ask the user to describe it before proceeding. No implementation until the design is approved.
 
 **Hard rules:**
 - No code, no scaffolding, no pseudo-code until Phase 3 is approved.
@@ -59,7 +60,9 @@ If the user hasn't thought about this, that's the answer — note it as a risk.
 **Q5 — Success signal (ask for Deep or when Q1 is ambiguous)**
 How will you know this worked? Measurable, not "it feels better".
 
-**Fast-track:** If the user provides a complete plan upfront and depth is Lightweight, skip to Phase 2 directly. For Standard or Deep tasks, you must still confirm Q2 (Constraints) before proceeding, even if the user provided a plan. Always run assumption challenges and options.
+**Fast-track:** If the user provides a complete plan upfront and depth is Lightweight, skip to Phase 2 directly. For Standard or Deep, still confirm Q2 (Constraints) even if the user provided a plan. Always run assumption challenges and options.
+
+**Task from arguments:** If `$@` is non-empty, treat it as the initial task description. You may still ask clarifying questions in Phase 1, but do not re-ask "what is the goal" — the arguments already establish it. If `$@` is empty, begin Phase 1 from Q1.
 
 ---
 
@@ -110,7 +113,8 @@ If rejected: ask what specifically failed, incorporate those constraints, re-ent
 Once an option is approved, produce the full document and write it to disk.
 
 **Filename:** `design-[feature-name]-[YYYY-MM-DD].md`
-- `[feature-name]`: kebab-case only, lowercase, no spaces or special characters (e.g., `auth-service`, `api-gateway`)
+- Derive `[feature-name]` from `$@` if arguments were provided; otherwise infer from the approved option name.
+- kebab-case only, lowercase, no spaces or special characters (e.g., `auth-service`, `api-gateway`)
 **Location:** project root, or `docs/` if that directory exists.
 
 ---
@@ -185,14 +189,11 @@ If restart: ask what specifically broke down before resetting.
 
 ## Gotchas
 
-Real failure patterns, in order of frequency:
-
-- **Wrong path assumed.** Always run `pwd` or `git rev-parse --show-toplevel` before writing the file. Never assume `~/project` and `~/www/project` are the same.
-- **Constraint surfaced mid-implementation.** If Q2 was skipped or shallow, blockers appear after code is written. Q2 is not optional.
+- **Wrong path assumed.** Always run `pwd` or `git rev-parse --show-toplevel` before writing the file.
 - **Designed around unavailable tools.** If the plan depends on an MCP server, external API, or CLI tool, verify it's reachable before Phase 3.
 - **Approved design restarted from scratch on rejection.** Ask what specifically failed. Re-enter Phase 3 with narrowed constraints. Never blank-slate.
-- **Placeholders survived into the final document.** Scan the document before presenting it. Any TBD, TODO, or "to be determined" is a blocker — resolve or explicitly defer with a named owner.
-- **Executed when design was requested.** "帮我做", "do it", "just build it" after the skill is invoked = still run Phase 1–2 fast, then produce the document. Don't skip to code.
+- **Placeholders survived into the final document.** Scan before presenting. Any TBD/TODO is a blocker — resolve or explicitly defer with a named owner.
+- **Executed when design was requested.** "帮我做", "do it", "just build it" = still run Phase 1–2 fast, then produce the document. Don't skip to code.
 
 ---
 
