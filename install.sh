@@ -19,6 +19,7 @@ readonly BREW_CLI_PACKAGES=(
     "fish"
     "brightness"
     "loop"
+    "im-select"
 )
 
 # Brew cask packages
@@ -31,6 +32,7 @@ readonly BREW_CASK_PACKAGES=(
 # Brew taps
 readonly BREW_TAPS=(
     "wxtsky/tap"
+    "daipeihust/tap"
 )
 
 # Brew tap casks
