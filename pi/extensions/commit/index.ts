@@ -109,7 +109,7 @@ class CommitProgressComponent implements Component {
 
   render(width: number): string[] {
     const frame = SPINNER_FRAMES[this.frameIndex] ?? SPINNER_FRAMES[0];
-    const text = this.theme.fg("accent", `committing ${frame}`);
+    const text = this.theme.fg("accent", `thinking ${frame}`);
     const padding = Math.max(0, Math.floor((width - visibleWidth(text)) / 2));
     return ["", `${" ".repeat(padding)}${text}`, ""];
   }
