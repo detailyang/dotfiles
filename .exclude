@@ -9,4 +9,4 @@ Makefile
 .sisyphus/
 /*.md
 pi
-
+/AGENTS.md
