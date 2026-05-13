@@ -5,6 +5,8 @@ argument-hint: "<task-description>"
 
 # Think: Clarify First, Design Once
 
+**语言偏好：推理与回答默认使用中文。代码、注释、标识符保持英文。**
+
 Produce a reliable plan for **$@** — if no task is specified above, ask the user to describe it before proceeding. No implementation until the design is approved.
 
 **Hard rules:**
@@ -189,7 +191,7 @@ If restart: ask what specifically broke down before resetting.
 
 ## Gotchas
 
-- **Wrong path assumed.** Always run `git rev-parse --show-toplevel` to locate the git root, then write to `<git-root>/spec/`. Create the directory if missing. If not in a git repo, fall back to `pwd`.
+- **Wrong path assumed.** Always run `git rev-parse --show-toplevel` to locate the git root, then write to `<git-root>/specs/`. Create the directory if missing. If not in a git repo, fall back to `pwd`.
 - **Designed around unavailable tools.** If the plan depends on an MCP server, external API, or CLI tool, verify it's reachable before Phase 3.
 - **Approved design restarted from scratch on rejection.** Ask what specifically failed. Re-enter Phase 3 with narrowed constraints. Never blank-slate.
 - **Placeholders survived into the final document.** Scan before presenting. Any TBD/TODO is a blocker — resolve or explicitly defer with a named owner.
