@@ -1,5 +1,5 @@
 ---
-description: Safe code refactoring workflow with test guarantees. Covers the full cycle: ensure tests → mutation test → commit → refactor. Includes common code smells and fixes.
+description: "Safe code refactoring workflow with test guarantees. Covers the full cycle: ensure tests → mutation test → commit → refactor. Includes common code smells and fixes."
 ---
 
 # Refactor
