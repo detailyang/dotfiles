@@ -5,7 +5,7 @@ argument-hint: "<task-description>"
 
 # Think: Clarify First, Design Once
 
-**语言偏好：推理与回答默认使用中文。代码、注释、标识符保持英文。**
+**Language: Respond in the same language the user writes in. Code, comments, and identifiers are always in English.**
 
 Produce a reliable plan for **$@** — if no task is specified above, ask the user to describe it before proceeding. No implementation until the design is approved.
 
@@ -152,9 +152,38 @@ Format: "We chose X over Y because Z. This holds as long as [condition]."}
 ## Failure Modes & Mitigations
 {From Phase 1 Q4. Each failure mode paired with its mitigation or explicit acceptance.}
 
-## Test Coverage
-{List: happy path, error branches, edge cases.
-Flag any path without a test plan as a gap.}
+## Acceptance Scenarios
+
+Each scenario is a self-contained description unit that the project's own test framework parses and executes directly. The test framework is responsible for interpreting assertion semantics and driving execution — no specific tooling is assumed.
+
+Coverage requirements:
+- At least one happy path
+- At least one scenario per Failure Mode listed above
+- Edge cases listed separately, never merged into the happy path
+
+Format:
+
+```yaml
+scenarios:
+  - id: AC-001
+    description: "{One sentence stating what this scenario verifies}"
+    preconditions:
+      - "{Precondition 1}"
+      - "{Precondition 2}"
+    steps:
+      - "{Action step 1}"
+      - "{Action step 2}"
+    expected:
+      - "{Expected result 1}"
+      - "{Expected result 2}"
+    tags: [happy-path | error | edge | regression]
+
+  - id: AC-002
+    ...
+```
+
+**Coverage gaps:** List any Failure Mode or edge case without a corresponding scenario.
+No Failure Mode may be left uncovered — either add a scenario or explicitly declare: `Accepted, not tested — reason: {reason}`.
 
 ## Rollback Plan
 {How to undo this if it goes wrong. If rollback is impossible, say so explicitly.}
@@ -178,24 +207,41 @@ Forbidden: "implement X", "add logic for Y", "handle edge cases". Use specific f
 Present the document, then ask:
 
 ```
-A) Approve — ready for implementation
-B) Revise — specify which sections need changes (maps to: Approved with concerns)
-C) Restart — return to Phase 1 (maps to: Needs more information)
+A) Approve all      — all scenarios pass, proceed to implementation
+B) Partial approve  — specify passing scenario IDs (e.g. AC-001, AC-003); remainder returns for revision
+C) Revise document  — specify which sections need changes; no scenario execution involved
+D) Restart          — return to Phase 1 (state what specifically broke down first)
 ```
 
-If approved: confirm the file is written and state its path.
-If revised: update only the named sections, re-present, repeat gate.
-If restart: ask what specifically broke down before resetting.
+**Gate handling rules:**
+
+- **A)** Confirm the file is written, output the file path, enter implementation.
+- **B)** Record approved scenario IDs. For each failing scenario: ask why it failed → revise only that scenario → re-submit gate. Do not reset the entire document.
+- **C)** Update only the named sections, re-present the full document, repeat the gate.
+- **D)** Ask what specifically broke down before resetting. No reason = no restart.
+
+**Scenario status tracking:** When partial approval exists, maintain a status table at the top of the document:
+
+```
+| Scenario | Status         |
+|----------|----------------|
+| AC-001   | ✅ Approved    |
+| AC-002   | 🔄 Pending     |
+| AC-003   | ❌ Rejected    |
+```
+
+Do not enter implementation until every scenario reaches ✅.
 
 ---
 
 ## Gotchas
 
-- **Wrong path assumed.** Always run `git rev-parse --show-toplevel` to locate the git root, then write to `<git-root>/specs/`. Create the directory if missing. If not in a git repo, fall back to `pwd`.
+- **Wrong path assumed.** Always run `git rev-parse --show-toplevel` to locate the git root, then write to `<git-root>/spec/`. Create the directory if missing. If not in a git repo, fall back to `pwd`.
 - **Designed around unavailable tools.** If the plan depends on an MCP server, external API, or CLI tool, verify it's reachable before Phase 3.
 - **Approved design restarted from scratch on rejection.** Ask what specifically failed. Re-enter Phase 3 with narrowed constraints. Never blank-slate.
 - **Placeholders survived into the final document.** Scan before presenting. Any TBD/TODO is a blocker — resolve or explicitly defer with a named owner.
-- **Executed when design was requested.** "帮我做", "do it", "just build it" = still run Phase 1–2 fast, then produce the document. Don't skip to code.
+- **Executed when design was requested.** "just do it", "do it", "just build it" = still run Phase 1–2 fast, then produce the document. Don't skip to code.
+- **Incomplete scenario coverage passed the gate.** Before entering Phase 5, scan every Failure Mode and confirm each has a scenario or an explicit exemption. An incomplete scenario list must not enter the gate.
 
 ---
 
@@ -207,6 +253,7 @@ At the end of every session:
 Depth:        [Lightweight / Standard / Deep]
 Option:       [Chosen option name]
 Document:     [File path]
+Scenarios:    [total] — [✅ N approved / 🔄 N pending / ❌ N rejected]
 Open items:   [Count] — [list if any]
 Status:       Approved / Approved with concerns / Needs more information
 ```
