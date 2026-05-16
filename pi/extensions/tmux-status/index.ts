@@ -10,12 +10,16 @@ const run = (cmd: string) => {
 const dir = () => basename(process.cwd());
 
 export default function (pi: ExtensionAPI) {
+  pi.on("session_start", async () => {
+    run(`tmux rename-window "○ π(${dir()})"`);
+  });
+
   pi.on("agent_start", async () => {
-    run(`tmux rename-window "π●${dir()}"`);
+    run(`tmux rename-window "● π(${dir()})"`);
   });
 
   pi.on("agent_end", async () => {
-    run(`tmux rename-window "π○${dir()}"`);
+    run(`tmux rename-window "○ π(${dir()})"`);
   });
 
   pi.on("session_shutdown", async () => {
