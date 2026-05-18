@@ -24,15 +24,15 @@ export default function (pi: ExtensionAPI) {
         .toString()
         .trim();
     } catch {}
-    rename(`○ π(${dir()})`);
+    rename(`○(${dir()})`);
   });
 
   pi.on("agent_start", async () => {
-    rename(`● π(${dir()})`);
+    rename(`●(${dir()})`);
   });
 
   pi.on("agent_end", async () => {
-    rename(`○ π(${dir()})`);
+    rename(`○(${dir()})`);
   });
 
   pi.on("session_shutdown", async () => {
