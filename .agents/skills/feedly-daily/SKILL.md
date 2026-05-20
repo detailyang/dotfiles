@@ -67,7 +67,11 @@ JS
 生成时间：HH:MM
 ```
 
-摘要部分：逐篇用 `agent-browser open <url>` 打开，再用 `agent-browser snapshot` 提取正文并用中文概括要点。如果内容获取失败（登录墙、paywall、Cloudflare 验证），跳过并标注"内容不可访问"。
+摘要部分：
+1. 预生成的文章列表已带原始链接，**必须保留** `[标题](url)` 格式
+2. 逐篇用 `agent-browser open <url>` 打开，再用 `agent-browser snapshot` 提取正文
+3. 如果内容获取失败（登录墙、paywall、Cloudflare 验证）：**标题链接必须保留**，在链接下方标注 `> ⚠️ 内容不可访问（Cloudflare/登录墙），请手动点击上方链接查看`
+4. 成功获取内容的，在链接下方用一两句话中文概括核心要点
 
 ## 边界情况
 

@@ -89,8 +89,8 @@ echo "==> Writing report: $REPORT"
   echo ""
   echo "## 中文摘要"
   echo ""
-  echo "<!-- 由 AI 填写：逐篇打开文章，提取正文并生成中文摘要 -->"
-  echo ""
+  # 预生成带链接的文章骨架，AI 只需填充摘要
+  echo "$ARTICLES" | jq -r '.[] | "### \(.index). [\(.title)](\(.url))\n\n<!-- AI 填充：获取成功则写中文摘要，失败则标注 ⚠️ 内容不可访问 -->\n"'
   echo "---"
   echo "生成时间：$(date '+%H:%M')"
 } > "$REPORT"
