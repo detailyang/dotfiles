@@ -1,0 +1,1 @@
+adb disconnect 127.0.0.1:5555; adb -s 03avs1bcnkd1bce4 forward tcp:15555 tcp:5555; adb forward --list
