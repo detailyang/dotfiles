@@ -20,4 +20,7 @@ One paragraph. The precise point of failure — the exact error, contradiction, 
 
 ---
 
-Rules: distill don't dump — no raw stack traces, no full file contents. One problem per letter. After saving, print the full file path.
+Rules:
+- Distill don't dump — no raw stack traces, no full file contents.
+- One problem per letter.
+- After saving, print the full file path and suggest sharing it with a human or pasting into a new session.

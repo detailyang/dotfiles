@@ -40,9 +40,14 @@ State depth in one line: `Depth: Lightweight / Standard / Deep — reason.`
 
 Ask **3–5 questions max**, one at a time. Stop when you have enough to write the document.
 
+**Entry rules:**
+- If `$@` is non-empty, treat it as the task description — do not re-ask Q1. Start from Q2.
+- If the user provides a complete plan upfront and depth is Lightweight, skip to Phase 2 directly.
+- For Standard or Deep with a user-provided plan, still confirm Q2 (Constraints).
+
 Always cover, in this order:
 
-**Q1 — Goal (always ask)**
+**Q1 — Goal (always ask, unless task provided via `$@`)**
 What outcome does this need to produce? Not the feature — the result the user cares about.
 Push back if the answer describes implementation instead of outcome.
 
@@ -53,7 +58,6 @@ A constraint not named here will appear as a blocker mid-implementation.
 **Q3 — Existing landscape (ask unless codebase has no relevant source files)**
 What already exists that's relevant? Related modules, prior attempts, patterns in use.
 If the user mentions files, read them before continuing.
-"No relevant source files" means: no code files in the working tree that relate to the task domain.
 
 **Q4 — Failure modes (ask for Standard or Deep)**
 What would cause this to fail? Nil input, upstream timeout, partial failure, concurrent writes.
@@ -61,10 +65,6 @@ If the user hasn't thought about this, that's the answer — note it as a risk.
 
 **Q5 — Success signal (ask for Deep or when Q1 is ambiguous)**
 How will you know this worked? Measurable, not "it feels better".
-
-**Fast-track:** If the user provides a complete plan upfront and depth is Lightweight, skip to Phase 2 directly. For Standard or Deep, still confirm Q2 (Constraints) even if the user provided a plan. Always run assumption challenges and options.
-
-**Task from arguments:** If `$@` is non-empty, treat it as the initial task description. You may still ask clarifying questions in Phase 1, but do not re-ask "what is the goal" — the arguments already establish it. If `$@` is empty, begin Phase 1 from Q1.
 
 ---
 
@@ -123,13 +123,15 @@ Once an option is approved, produce the full document and write it to disk.
 ```
 
 **Naming rules:**
-- `<feature-name>`: derived from `$@` if arguments were provided; otherwise inferred from the approved option name. kebab-case only, lowercase, no spaces or special characters (e.g., `auth-service`, `api-gateway`).
+- `<feature-name>`: derived from `$@` if arguments were provided; otherwise inferred from the approved option name. kebab-case only, lowercase, no spaces or special characters.
 - `<YYYY-MM-DD>`: the current date.
-- **Location:** Always use the git repository root (via `git rev-parse --show-toplevel`) and write to its `spec/` subdirectory. Create `spec/` and the feature directory if they do not exist. If not inside a git repo, fall back to current working directory.
+- **Location:** Always use `git rev-parse --show-toplevel` to find the git root and write to its `spec/` subdirectory. Create `spec/` and the feature directory if they do not exist. If not inside a git repo, fall back to `pwd`.
 
 **At the end of Phase 4, create both files:**
 1. `design.md` — full design document (template below)
 2. `notes.md` — empty skeleton (template below); do not fill it in yet
+
+**Implementation rule:** Before closing any implementation session, update `notes.md`. A session is complete only when `notes.md` reflects what actually happened. If nothing diverged from the spec, write that explicitly. `design.md` is frozen after Phase 5 approval — implementation discoveries go to `notes.md` only.
 
 ---
 
@@ -166,7 +168,7 @@ Format: "We chose X over Y because Z. This holds as long as [condition]."}
 
 ## Acceptance Scenarios
 
-Each scenario is a self-contained description unit that the project's own test framework parses and executes directly. The test framework is responsible for interpreting assertion semantics and driving execution — no specific tooling is assumed.
+Each scenario is a self-contained description unit that the project's own test framework parses and executes directly.
 
 Coverage requirements:
 - At least one happy path
@@ -181,17 +183,11 @@ scenarios:
     description: "{One sentence stating what this scenario verifies}"
     preconditions:
       - "{Precondition 1}"
-      - "{Precondition 2}"
     steps:
       - "{Action step 1}"
-      - "{Action step 2}"
     expected:
       - "{Expected result 1}"
-      - "{Expected result 2}"
     tags: [happy-path | error | edge | regression]
-
-  - id: AC-002
-    ...
 ```
 
 **Coverage gaps:** List any Failure Mode or edge case without a corresponding scenario.
@@ -202,7 +198,7 @@ No Failure Mode may be left uncovered — either add a scenario or explicitly de
 
 ## Open Questions
 {Anything unresolved that must be resolved before implementation starts, or explicitly deferred with a reason.
-Do not carry implementation discoveries here — those go in notes.md.}
+Implementation discoveries go in notes.md, not here.}
 
 ## Success Criteria
 {From Phase 1 Q5. Measurable. "It works" is not a criterion.}
@@ -227,44 +223,23 @@ Design: ./design.md
 Started: {date}
 Status: In progress
 
-> This file is written during implementation, not during design.
 > design.md records what was planned. notes.md records what actually happened.
 
 ---
 
-## Design Decisions
+## Decisions & Deviations
 
-Choices made during implementation where the spec was silent or ambiguous.
+Choices made during implementation where the spec was silent, ambiguous, or intentionally departed from.
 
-| # | Decision | Reasoning | Alternatives rejected |
-|---|----------|-----------|----------------------|
-| — | *(none yet)* | | |
-
----
-
-## Deviations from Spec
-
-Places where the implementation intentionally departed from design.md, and why.
-
-| # | Section in design.md | What changed | Why |
-|---|----------------------|--------------|-----|
-| — | *(none yet)* | | |
-
----
-
-## Tradeoffs
-
-Alternatives considered during implementation and why the chosen path was taken.
-
-| # | Option A (chosen) | Option B | Reason for choice |
-|---|-------------------|----------|-------------------|
+| # | Decision / Deviation | Reasoning | Alternatives rejected |
+|---|----------------------|-----------|-----------------------|
 | — | *(none yet)* | | |
 
 ---
 
 ## Discoveries
 
-Anything found during implementation that was not anticipated in design.md —
+Anything found during implementation not anticipated in design.md —
 unexpected dependencies, undocumented behaviors, performance characteristics, etc.
 
 - *(none yet)*
@@ -273,12 +248,9 @@ unexpected dependencies, undocumented behaviors, performance characteristics, et
 
 ## Open Questions
 
-Anything requiring follow-up from the implementer, reviewer, or spec author.
-Questions resolved during design belong in design.md — put only runtime/implementation discoveries here.
-
-| # | Question | Raised by | Status |
-|---|----------|-----------|--------|
-| — | *(none yet)* | | Open |
+| # | Question | Status |
+|---|----------|--------|
+| — | *(none yet)* | Open |
 
 ---
 
@@ -292,11 +264,6 @@ One entry per implementation session. Append, never edit past entries.
 - Blocked on: {anything blocking, or "nothing"}
 - Next: {what comes next}
 ```
-
----
-
-**Reminder to agent during implementation:**
-Before closing any implementation session, update notes.md. A session is complete only when notes.md reflects what actually happened. If nothing diverged from the spec, write that explicitly — do not leave the file as skeleton placeholders.
 
 ---
 
@@ -334,14 +301,12 @@ Do not enter implementation until every scenario reaches ✅.
 
 ## Gotchas
 
-- **Wrong path assumed.** Always run `git rev-parse --show-toplevel` to locate the git root, then write to `<git-root>/spec/<feature-name>-<YYYY-MM-DD>/`. Create the directory if missing. If not in a git repo, fall back to `pwd`.
+- **Wrong path assumed.** Always run `git rev-parse --show-toplevel` before writing files. Fall back to `pwd` if not in a git repo.
 - **Designed around unavailable tools.** If the plan depends on an MCP server, external API, or CLI tool, verify it's reachable before Phase 3.
 - **Approved design restarted from scratch on rejection.** Ask what specifically failed. Re-enter Phase 3 with narrowed constraints. Never blank-slate.
 - **Placeholders survived into the final document.** Scan before presenting. Any TBD/TODO is a blocker — resolve or explicitly defer with a named owner.
-- **Executed when design was requested.** "just do it", "do it", "just build it" = still run Phase 1–2 fast, then produce the document. Don't skip to code.
-- **Incomplete scenario coverage passed the gate.** Before entering Phase 5, scan every Failure Mode and confirm each has a scenario or an explicit exemption. An incomplete scenario list must not enter the gate.
-- **notes.md left as skeleton after implementation.** Before closing any implementation session, update notes.md. If nothing diverged, write that explicitly — do not leave placeholder rows.
-- **Implementation discoveries written to design.md.** design.md is frozen after Phase 5 approval. Anything discovered during implementation goes to notes.md only.
+- **Executed when design was requested.** "just do it", "just build it" = still run Phase 1–2 fast, then produce the document. Don't skip to code.
+- **Incomplete scenario coverage passed the gate.** Before entering Phase 5, scan every Failure Mode and confirm each has a scenario or an explicit exemption.
 
 ---
 
