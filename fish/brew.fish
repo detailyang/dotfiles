@@ -13,18 +13,14 @@ if test (uname) = "Darwin"
         return 1
     end
 
-    cd $homebrew_path
-    set origin_url (git remote get-url origin)
-
+    # Use `git -C` to avoid changing $PWD of the interactive session
+    set origin_url (git -C $homebrew_path remote get-url origin 2>/dev/null)
     if test "$origin_url" != "git://mirrors.ustc.edu.cn/brew.git"
-        cd $homebrew_path
-        git remote set-url origin git://mirrors.ustc.edu.cn/brew.git
+        git -C $homebrew_path remote set-url origin git://mirrors.ustc.edu.cn/brew.git
 
         if test -d $homebrew_core_path
-            cd $homebrew_core_path
-            git remote set-url origin git://mirrors.ustc.edu.cn/brew.git
+            git -C $homebrew_core_path remote set-url origin git://mirrors.ustc.edu.cn/brew.git
         end
     end
-    cd ~
-    export HOMEBREW_BOTTLE_DOMAIN=https://mirrors.ustc.edu.cn/homebrew-bottles
+    set -x HOMEBREW_BOTTLE_DOMAIN https://mirrors.ustc.edu.cn/homebrew-bottles
 end
