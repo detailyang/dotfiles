@@ -1,2 +1,2 @@
 index-url = "https://mirrors.cloud.tencent.com/pypi/simple/"
-exclude-newer = "7d"
+#exclude-newer = "7d"
