@@ -105,6 +105,7 @@ function Install-Apps {
     $apps = @(
         "WingetPathUpdater",
         "wez.wezterm",
+        "Microsoft.Coreutils",
         "Microsoft.PowerToys",
         "vim.vim",
         "Git.Git",
