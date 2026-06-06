@@ -1,3 +1,8 @@
+if [[ ! -o interactive ]]; then
+    return
+fi
+
+
 if command -v "starship" > /dev/null; then
     eval "$(starship init zsh)"
 fi
