@@ -1,25 +1,28 @@
 ---
-description: Structured design workflow — clarify constraints, challenge assumptions, compare options, then produce a design document before writing code. Language mirrors user input (Chinese ↔ English).
-argument-hint: "<task-description>"
+name: think
+description: "Turns rough ideas into approved, decision-complete plans with validated structure before coding. Use when users ask 出方案/给方案/深入分析/怎么设计/有没有必要/值不值得/plan this/how should I/should we keep this for features, architecture, or value judgments. Not for bug fixes or small edits."
+when_to_use: "出方案, 给方案, 深入分析, 怎么设计, 用什么方案, 判断一下, 有没有必要, 值不值得, what's the best approach, plan this, how should I, should we keep this"
+dispatch_intent: "New feature, architecture, how should I design this, value judgment, executable plan, handoff"
 ---
 
-# Think: Clarify First, Design Once
+# Think: Design and Validate Before You Build
 
-**Language: Respond in the same language the user writes in. Code, comments, and identifiers are always in English.**
+Turn a rough idea into an approved plan. No code, no scaffolding, no pseudo-code until the user approves.
 
-Produce a reliable plan for **$@** — if no task is specified above, ask the user to describe it before proceeding. No implementation until the design is approved.
+Respond in Chinese by default. Switch to English only if the user writes in English. Code, comments, and identifiers are always in English.
 
-**Hard rules:**
-- No code, no scaffolding, no pseudo-code until Phase 3 is approved.
-- One question at a time in Phase 1. Never bundle questions.
-- No TBD, TODO, or "details to be determined" in the final document. A plan with placeholders is not a plan.
-- Give opinions directly. Avoid "you might consider" or "one approach could be". Take a position and state what evidence would change it.
+Give opinions directly. Take a position and state what evidence would change it. Avoid "That's interesting," "There are many ways to think about this," "You might want to consider."
 
----
+## Outcome Contract
 
-## Phase 0: Scope Assessment
+- Outcome: a rough idea becomes a decision-complete recommendation or implementation plan.
+- Done when: the goal, success criteria, constraints, chosen approach, rejected tradeoffs, tests, and handoff steps are concrete enough to execute without re-deciding.
+- Evidence: current repo state, project docs, live external docs when relevant, prior decisions, constraints, and explicit user preferences.
+- Output: one recommended direction or a handoff plan with assumptions and verification steps.
 
-Before asking anything, assess the task from the user's description.
+## Scope Assessment
+
+Before asking anything, assess the task from the user's description. State depth in one line: `Depth: Lightweight / Standard / Deep — reason.`
 
 | Depth | Characteristics |
 |-------|----------------|
@@ -27,155 +30,114 @@ Before asking anything, assess the task from the user's description.
 | **Standard** | Multi-file feature, integration, moderate complexity. |
 | **Deep** | New system, cross-cutting change, unfamiliar domain, or high risk. |
 
-State depth in one line: `Depth: Lightweight / Standard / Deep — reason.`
+**Auto-escalate to Deep** if you discover: external API contract, shared type exported to callers, or irreversible data migration. Require explicit user confirmation and document the escalation reason before proceeding.
 
-**Auto-escalate** if Phase 1 reveals: external API contract, shared type exported to callers, or irreversible data migration.
-- Increase depth to **Deep**
-- Require explicit user confirmation before proceeding to Phase 3
-- Document the escalation reason in the design document
+## Lightweight Mode
 
----
+Activate when the user wants to fix something rather than build something, the problem is already defined, and the only open question is "how to fix it."
 
-## Phase 1: Targeted Questions
+Give one recommended fix in 2–3 sentences: what changes, where (file:line if known), and why. Name the brute-force version in one line first; default to it unless the user wants elegance. List involved files, flag explicitly if more than 5. State one risk. Wait for approval before implementing.
 
-Ask **3–5 questions max**, one at a time. Stop when you have enough to write the document.
+Upgrade to full mode if you find 3 or more genuinely different approaches with meaningful tradeoffs.
 
-**Entry rules:**
-- If `$@` is non-empty, treat it as the task description — do not re-ask Q1. Start from Q2.
-- If the user provides a complete plan upfront and depth is Lightweight, skip to Phase 2 directly.
-- For Standard or Deep with a user-provided plan, still confirm Q2 (Constraints).
+## Evaluation Mode
 
-Always cover, in this order:
+Activate when the user wants to judge whether something should exist, be kept, exposed, or removed. Typical triggers: "判断一下", "有没有必要", "值不值得", "should we keep this", "is this worth it", "我不想做", "商业前景", "有没有必要继续".
 
-**Q1 — Goal (always ask, unless task provided via `$@`)**
-What outcome does this need to produce? Not the feature — the result the user cares about.
-Push back if the answer describes implementation instead of outcome.
+State the evaluation target and what kind of judgment is needed (value, risk, or tradeoff). Take a current-state snapshot: what it does, who uses it, what depends on it; grep and read before opining.
 
-**Q2 — Constraints (always ask)**
-What cannot change? Existing interfaces, performance requirements, team conventions, deadlines.
-A constraint not named here will appear as a blocker mid-implementation.
+For product pivot, commercialization, or business-direction requests, frame the market, user, distribution, willingness-to-pay, and maintenance burden before proposing technology. Do not assume open source, do not assume implementation comes first, and do not hide a business judgment inside a technical plan.
 
-**Q3 — Existing landscape (ask unless codebase has no relevant source files)**
-What already exists that's relevant? Related modules, prior attempts, patterns in use.
-If the user mentions files, read them before continuing.
+**Output format (Kill/Keep/Pivot):**
 
-**Q4 — Failure modes (ask for Standard or Deep)**
-What would cause this to fail? Nil input, upstream timeout, partial failure, concurrent writes.
-If the user hasn't thought about this, that's the answer — note it as a risk.
+Line 1: one of **Kill** / **Keep** / **Pivot** as the verdict. No preamble.
 
-**Q5 — Success signal (ask for Deep or when Q1 is ambiguous)**
-How will you know this worked? Measurable, not "it feels better".
+Then three reasons, based on the user's actual constraints (time, motivation, business model, maintenance cost). Not generic tradeoffs.
 
----
+If verdict is **Pivot**: list specific directions on separate lines, one per line, each actionable.
 
-## Phase 2: Pre-Design Challenges
+If verdict is **Kill** or major rework: list impact scope (files, dependents, migration cost) before asking for confirmation.
 
-Before writing anything, challenge three things:
+Do not use a build-plan template here. Do not list options. Give one verdict.
+
+Distinction from Lightweight Mode: Lightweight answers "how to fix it" (method). Evaluation answers "should it exist" (value judgment).
+
+## Before Reading Any Code
+
+- Confirm the working path: `pwd` or `git rev-parse --show-toplevel`. Never assume `~/project` and `~/www/project` are the same.
+- If the project tracks prior decisions (ADRs, design docs, issue threads), skim the ones matching the problem before proposing. Skip if none exist.
+- If the plan involves a default value, env var, or config field, open the project's actual config file and lift the live value. Never quote a default from memory or docs.
+
+## Before Proposing
+
+Scan the project's `AGENTS.md` and `CLAUDE.md` before outputting any plan. If the proposed plan contradicts a "hard rule", "never X", "must Y", or "prefer Z" stated in those files, surface the contradiction in one sentence: which rule, which step contradicts it, recommended resolution. Do not silently override the rule. If the rule blocks the plan, stop and ask before continuing.
+
+## Check for Official Solutions First
+
+Before proposing custom implementations, search for framework built-ins, official patterns, and ecosystem standards. If an official solution exists, it is the default recommendation unless you can articulate why it is insufficient for this specific case.
+
+## Targeted Questions
+
+Ask **3–5 questions max**, one at a time. Stop when you have enough to write the plan.
+
+- **Q1 — Goal**: What outcome does this need to produce? Not the feature — the result the user cares about. Push back if the answer describes implementation instead of outcome. Skip if task is already clear from context.
+- **Q2 — Constraints**: What cannot change? Existing interfaces, performance requirements, team conventions, deadlines.
+- **Q3 — Existing landscape**: What already exists that's relevant? If the user mentions files, read them before continuing. Skip if codebase has no relevant source files.
+- **Q4 — Failure modes** (Standard or Deep): What would cause this to fail? Nil input, upstream timeout, partial failure, concurrent writes.
+- **Q5 — Success signal** (Deep or ambiguous goal): How will you know this worked? Measurable, not "it feels better".
+
+## Pre-Design Challenges
+
+Before proposing options, challenge three things explicitly:
 
 1. **Is this the right problem?** Could a different framing produce a dramatically simpler solution?
 2. **What's the cheapest path?** Is there an existing tool, pattern, or 10-line function that gets 80% of the way there?
 3. **What's hard to undo?** Schema changes, public API contracts, data migrations — slow down on these.
 
-State challenges explicitly. If all three checks pass cleanly, say so in one sentence and continue.
+**Attack the obvious approach:** Ask what would make the most natural solution fail. If the attack holds, start with the hardened version. If it shatters the approach entirely, say so and explain why.
 
-**Attack the obvious approach:** Before proposing options, ask what would make the most natural solution fail. If the attack holds, start with the hardened version. If it shatters the approach entirely, say so and explain why.
+## Propose Approaches
 
----
+Give one recommended approach with rationale. Include effort, risk, and what existing code it builds on. Mention one alternative only if the tradeoff is genuinely close (>40% chance the user would prefer it). Always include one minimal option.
 
-## Phase 3: Design Options
+For the recommendation, identify the most fragile assumption (premise collapse) and state it explicitly: "This plan assumes X. If X does not hold, Y happens." If the assumption is load-bearing and fragile, deform the design to survive its failure.
 
-Present **2–3 options** with tradeoffs. Always include:
-- One **minimal** option: fewest changes, fastest to ship
-- One **complete** option: best long-term architecture
-- One **lateral** option (optional): unexpected framing, different abstraction
+**Blocking ambiguities**: if requirements have a conflict the user must resolve, name the specific conflict in one sentence and ask which takes precedence. Do not silently pick.
 
-For each option:
+**Additional attack angles** (run only when the plan involves external dependencies, high concurrency, or data migration):
 
-```
-Option A: [Name]
-  Summary:   [1 sentence]
-  Effort:    [S / M / L / XL]
-  Risk:      [Low / Medium / High]
-  For:       [2 strongest reasons]
-  Against:   [2 strongest reasons]
-  Reuses:    [existing code, patterns, or tools it builds on]
-```
+| Attack angle | Question |
+|---|---|
+| Dependency failure | If an external API, service, or tool goes down, can the plan degrade gracefully? |
+| Scale explosion | At 10x data volume or user load, which step breaks first? |
+| Rollback cost | If the direction is wrong after launch, what state can we return to and how hard is it? |
 
-**Recommendation:** Choose [X] because [one-line reason].
+If an attack holds, deform the design to survive it. If it shatters the approach entirely, discard it and tell the user why. Do not present a plan that failed an attack without disclosing the failure.
 
-State what evidence would change this recommendation.
+Get approval before proceeding. If the user rejects, ask specifically what did not work. Do not restart from scratch.
 
-**Do not continue until the user approves an option.**
-If rejected: ask what specifically failed, incorporate those constraints, re-enter Phase 3 with a narrowed set. Do not restart from scratch.
+## Validate Before Handing Off
 
----
+- More than 8 files or 1 new service? Acknowledge it explicitly.
+- More than 3 components exchanging data? Draw an ASCII diagram. Look for cycles.
+- Every meaningful test path listed: happy path, errors, edge cases.
+- Can this be rolled back without touching data?
+- Every API key, token, and third-party account the plan requires listed with one-line explanations. No credential requests mid-implementation.
+- Every MCP server, external API, and third-party CLI the plan depends on verified as reachable before approval.
 
-## Phase 4: Design Document
+**No placeholders in approved plans.** Every step must be concrete before approval. Forbidden patterns: TBD, TODO, "implement later," "similar to step N," "details to be determined."
 
-Once an option is approved, produce the full document and write it to disk.
+**Phase independence.** If the plan has multiple phases, each phase must be independently mergeable: after Phase N ships, the system is in a usable state, even if N+1 never lands. If the work cannot be cut into mergeable phases, say so and ship it as one phase.
 
-**Directory structure:**
-```
-<git-root>/spec/
-  <feature-name>-<YYYY-MM-DD>/
-    design.md     ← produced in Phase 4
-    notes.md      ← created as an empty skeleton now; filled during implementation
-```
+**Plan red flags (self-check before handoff):**
+- A phase depends on the next phase to be useful (cannot ship alone).
+- A "Phase 0: investigate / spike" exists. Investigation belongs before the plan, not inside it.
 
-**Naming rules:**
-- `<feature-name>`: derived from `$@` if arguments were provided; otherwise inferred from the approved option name. kebab-case only, lowercase, no spaces or special characters.
-- `<YYYY-MM-DD>`: the current date.
-- **Location:** Always use `git rev-parse --show-toplevel` to find the git root and write to its `spec/` subdirectory. Create `spec/` and the feature directory if they do not exist. If not inside a git repo, fall back to `pwd`.
-
-**At the end of Phase 4, create both files:**
-1. `design.md` — full design document (template below)
-2. `notes.md` — empty skeleton (template below); do not fill it in yet
-
-**Implementation rule:** Before closing any implementation session, update `notes.md`. A session is complete only when `notes.md` reflects what actually happened. If nothing diverged from the spec, write that explicitly. `design.md` is frozen after Phase 5 approval — implementation discoveries go to `notes.md` only.
-
----
-
-### design.md Template
-
-```markdown
-# Design: {Title}
-
-Generated by /think on {date}
-Status: Draft
-
-## Problem
-{One paragraph. What needs to change and why. Written so a new team member understands it.}
-
-## Out of Scope
-{Explicit list of what this design does NOT cover.}
-
-## Constraints
-{From Phase 1 Q2. Hard limits that cannot be violated.}
-
-## Assumptions
-{Things believed to be true but not verified. Each assumption is a potential blocker.}
-
-## Approach
-{The approved option, explained in full. Include data flow, component boundaries, key interfaces.
-If more than 3 components exchange data, include an ASCII diagram.}
-
-## Key Decisions
-{3–5 decisions with explicit reasoning.
-Format: "We chose X over Y because Z. This holds as long as [condition]."}
-
-## Failure Modes & Mitigations
-{From Phase 1 Q4. Each failure mode paired with its mitigation or explicit acceptance.}
+Either red flag means the plan is not ready. Resolve it before handing off.
 
 ## Acceptance Scenarios
 
-Each scenario is a self-contained description unit that the project's own test framework parses and executes directly.
-
-Coverage requirements:
-- At least one happy path
-- At least one scenario per Failure Mode listed above
-- Edge cases listed separately, never merged into the happy path
-
-Format:
+Cover at minimum: at least one happy path, at least one scenario per stated failure mode, and edge cases listed separately. No failure mode left uncovered — either add a scenario or explicitly declare `Accepted, not tested — reason: {reason}`.
 
 ```yaml
 scenarios:
@@ -190,8 +152,73 @@ scenarios:
     tags: [happy-path | error | edge | regression]
 ```
 
-**Coverage gaps:** List any Failure Mode or edge case without a corresponding scenario.
-No Failure Mode may be left uncovered — either add a scenario or explicitly declare: `Accepted, not tested — reason: {reason}`.
+## Implementation Handoff
+
+A finished plan must be executable by another engineer or agent without re-deciding the direction. Include:
+
+- Scope and non-scope.
+- The chosen approach and the one rejected alternative, if the tradeoff was close.
+- Public API, schema, command, config, or file-interface changes, if any.
+- Verification commands and manual acceptance checks.
+- Release, publish, migration, or issue/PR follow-through steps, if the task naturally continues there.
+- Rollback or failure handling for any step that can leave external state changed.
+
+When the user asks to export a handoff, or when the environment prevents further execution, make the handoff execution-ready instead of explaining the limitation.
+
+When the user later says "Implement the plan", "可以干", "直接改", "整", or equivalent, treat that as approval of the written plan. Do not re-litigate the design. State which plan is being executed, check for obvious drift in the repo, and proceed. If the environment has changed enough that the plan is unsafe, name the specific drift and stop before editing.
+
+## Spec Files
+
+Once the plan is approved, write two files to disk before implementation begins.
+
+**Directory structure:**
+```
+<git-root>/specs/
+  <feature-name>-<YYYY-MM-DD>/
+    design.md     ← full design document
+    notes.md      ← empty skeleton; filled during implementation
+```
+
+**Naming rules:**
+- `<feature-name>`: inferred from the approved option or task description. kebab-case, lowercase, no spaces or special characters.
+- `<YYYY-MM-DD>`: current date.
+- **Location:** Always use `git rev-parse --show-toplevel` to find the git root. Fall back to `pwd` if not in a git repo. Create `specs/` and the feature directory if they do not exist.
+
+**Implementation rule:** Before closing any implementation session, update `notes.md`. A session is complete only when `notes.md` reflects what actually happened. If nothing diverged from the spec, write that explicitly. `design.md` is frozen after approval — implementation discoveries go to `notes.md` only.
+
+### design.md template
+
+```markdown
+# Design: {Title}
+
+Date: {YYYY-MM-DD}
+Status: Draft
+
+## Problem
+{One paragraph. What needs to change and why.}
+
+## Out of Scope
+{Explicit list of what this design does NOT cover.}
+
+## Constraints
+{Hard limits that cannot be violated.}
+
+## Assumptions
+{Things believed to be true but not verified. Each is a potential blocker.}
+
+## Approach
+{The approved option, explained in full. Include data flow, component boundaries, key interfaces.
+If more than 3 components exchange data, include an ASCII diagram.}
+
+## Key Decisions
+{3–5 decisions with explicit reasoning.
+Format: "We chose X over Y because Z. This holds as long as [condition]."}
+
+## Failure Modes & Mitigations
+{Each failure mode paired with its mitigation or explicit acceptance.}
+
+## Acceptance Scenarios
+{YAML scenarios as defined above.}
 
 ## Rollback Plan
 {How to undo this if it goes wrong. If rollback is impossible, say so explicitly.}
@@ -201,19 +228,18 @@ No Failure Mode may be left uncovered — either add a scenario or explicitly de
 Implementation discoveries go in notes.md, not here.}
 
 ## Success Criteria
-{From Phase 1 Q5. Measurable. "It works" is not a criterion.}
+{Measurable. "It works" is not a criterion.}
 
 ## Implementation Steps
 {Ordered steps. Each step must be concrete — no placeholders.
 Each step produces a testable result.
-Forbidden: "implement X", "add logic for Y", "handle edge cases". Use specific file names, function signatures, and expected behaviors.}
+Forbidden: "implement X", "add logic for Y", "handle edge cases".
+Use specific file names, function signatures, and expected behaviors.}
 ```
 
----
+### notes.md template
 
-### notes.md Template
-
-Create this file as a skeleton at the end of Phase 4. Do not fill in content — that happens during implementation.
+Create as a skeleton only. Do not fill in content.
 
 ```markdown
 # Implementation Notes: {Title}
@@ -229,8 +255,6 @@ Status: In progress
 
 ## Decisions & Deviations
 
-Choices made during implementation where the spec was silent, ambiguous, or intentionally departed from.
-
 | # | Decision / Deviation | Reasoning | Alternatives rejected |
 |---|----------------------|-----------|-----------------------|
 | — | *(none yet)* | | |
@@ -238,9 +262,6 @@ Choices made during implementation where the spec was silent, ambiguous, or inte
 ---
 
 ## Discoveries
-
-Anything found during implementation not anticipated in design.md —
-unexpected dependencies, undocumented behaviors, performance characteristics, etc.
 
 - *(none yet)*
 
@@ -256,8 +277,6 @@ unexpected dependencies, undocumented behaviors, performance characteristics, et
 
 ## Session Log
 
-One entry per implementation session. Append, never edit past entries.
-
 ### {YYYY-MM-DD}
 - Started: {what was begun}
 - Completed: {what was finished}
@@ -265,61 +284,39 @@ One entry per implementation session. Append, never edit past entries.
 - Next: {what comes next}
 ```
 
----
-
-## Phase 5: Approval Gate
-
-Present the document, then ask:
-
-```
-A) Approve all      — all scenarios pass, proceed to implementation
-B) Partial approve  — specify passing scenario IDs (e.g. AC-001, AC-003); remainder returns for revision
-C) Revise document  — specify which sections need changes; no scenario execution involved
-D) Restart          — return to Phase 1 (state what specifically broke down first)
-```
-
-**Gate handling rules:**
-
-- **A)** Confirm both files are written, output the directory path, enter implementation.
-- **B)** Record approved scenario IDs. For each failing scenario: ask why it failed → revise only that scenario → re-submit gate. Do not reset the entire document.
-- **C)** Update only the named sections, re-present the full document, repeat the gate.
-- **D)** Ask what specifically broke down before resetting. No reason = no restart.
-
-**Scenario status tracking:** When partial approval exists, maintain a status table at the top of the document:
-
-```
-| Scenario | Status         |
-|----------|----------------|
-| AC-001   | ✅ Approved    |
-| AC-002   | 🔄 Pending     |
-| AC-003   | ❌ Rejected    |
-```
-
-Do not enter implementation until every scenario reaches ✅.
-
----
-
 ## Gotchas
 
-- **Wrong path assumed.** Always run `git rev-parse --show-toplevel` before writing files. Fall back to `pwd` if not in a git repo.
-- **Designed around unavailable tools.** If the plan depends on an MCP server, external API, or CLI tool, verify it's reachable before Phase 3.
-- **Approved design restarted from scratch on rejection.** Ask what specifically failed. Re-enter Phase 3 with narrowed constraints. Never blank-slate.
-- **Placeholders survived into the final document.** Scan before presenting. Any TBD/TODO is a blocker — resolve or explicitly defer with a named owner.
-- **Executed when design was requested.** "just do it", "just build it" = still run Phase 1–2 fast, then produce the document. Don't skip to code.
-- **Incomplete scenario coverage passed the gate.** Before entering Phase 5, scan every Failure Mode and confirm each has a scenario or an explicit exemption.
+| What happened | Rule |
+|---------------|------|
+| Moved files to `~/project`, repo was at `~/www/project` | Run `pwd` before the first filesystem operation |
+| Asked for API key after 3 implementation steps | List every dependency before handing off |
+| User said "just do it" or equivalent approval | Treat as approval of the recommended option. State which option was selected, finish the plan. Do not implement inside `/think`. |
+| Planned MCP workflow without checking if MCP was loaded | Verify tool availability before handing off, not mid-implementation |
+| Rejected design restarted from scratch | Ask what specifically failed, re-enter with narrowed constraints |
+| User said "just fix X" and skipped /think | If the fix touches 3+ files or needs a method choice, pause and run Lightweight Mode |
+| User approved a concrete plan and the agent debated the plan again | Execute the approved plan. Only stop for repo drift, missing permissions, or unsafe external state |
+| Picked a regional or locale-specific API variant without checking | List all regional or locale differences before writing integration code |
+| Introduced a second language or runtime into a single-stack project | Never add a new language or runtime without explicit approval |
+| User said "判断一下这个报错" and got Evaluation Mode | "判断一下" + error/bug context = debugging, not Evaluation Mode. Evaluation Mode is for value/existence judgments only |
 
----
+## Output
 
-## Output Summary
+**Approved design summary:**
+- **Building**: what this is (1 paragraph)
+- **Not building**: explicit out-of-scope list
+- **Approach**: chosen option with rationale
+- **Key decisions**: 3–5 with reasoning
+- **Unknowns**: only items that are explicitly deferred with a stated reason and a clear owner. Not vague gaps. If an unknown blocks a decision, loop back before approval.
 
-At the end of every session:
+After the user approves the design, write the spec files (see **Spec Files** section), then stop. Implementation starts only when requested.
+
+## After Approval
+
+When the plan is approved and spec files are written, output:
 
 ```
-Depth:        [Lightweight / Standard / Deep]
-Option:       [Chosen option name]
-Directory:    [spec/<feature-name>-<YYYY-MM-DD>/]
-Files:        design.md ✅  |  notes.md ✅ (skeleton)
-Scenarios:    [total] — [✅ N approved / 🔄 N pending / ❌ N rejected]
-Open items:   [Count] — [list if any]
-Status:       Approved / Approved with concerns / Needs more information
+Spec written to specs/<feature-name>-<YYYY-MM-DD>/
+  design.md ✅  |  notes.md ✅ (skeleton)
+
+To implement: say "implement this plan".
 ```
