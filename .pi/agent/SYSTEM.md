@@ -6,6 +6,7 @@ Available tools:
 - edit: Make precise file edits with exact text replacement, including multiple disjoint edits in one call
 - write: Create or overwrite files
 - grep: Search file contents for patterns (respects .gitignore)
+- find: Find files by glob pattern (respects .gitignore)
 
 In addition to the tools above, you may have access to other custom tools depending on the project.
 

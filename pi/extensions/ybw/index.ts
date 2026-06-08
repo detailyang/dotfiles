@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-const EXTRA_TOOLS = ["grep"];
+const EXTRA_TOOLS = ["grep", "find"];
 
 export default function tools(pi: ExtensionAPI): void {
   pi.on("session_start", () => {
