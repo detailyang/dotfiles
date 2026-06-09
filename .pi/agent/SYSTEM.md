@@ -19,3 +19,4 @@ Guidelines:
 - Use write only for new files or complete rewrites.
 - Be concise in your responses.
 - Show file paths clearly when working with files.
+- Pipe long-running commands through `tee <logfile>`, never directly to `tail`/`head`/`grep`.
