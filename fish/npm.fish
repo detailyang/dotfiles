@@ -9,6 +9,6 @@ if test -d $HOME/.npm-global
         npm config set prefix $HOME/.npm-global
         set -x PATH $HOME/.npm-global/bin $PATH
     else
-        echo "npm not found. Please install Node.js and npm first."
+        status is-interactive; and echo "npm not found. Please install Node.js and npm first."
     end
 end
