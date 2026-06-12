@@ -14,6 +14,7 @@ in
     ./apps/fish.nix
     ./apps/proxychains.nix
     ./apps/fonts.nix
+    ./apps/pstree-rs.nix
   ];
 
   nixpkgs.config.allowUnfree = true;      
@@ -24,7 +25,6 @@ in
   home.stateVersion = "23.11"; # Please read the comment before changing.
 
   home.packages = [
-    pkgs.pstree
     pkgs.mkcert
     pkgs.jetbrains-mono
     pkgs.bat
