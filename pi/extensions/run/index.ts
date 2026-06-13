@@ -30,7 +30,7 @@ export default function (pi: ExtensionAPI) {
   pi.registerCommand("t", {
     description: "Run a TUI program (e.g., /t lazygit, /t vim file.ts, /t htop)",
     handler: async (args, ctx) => {
-      if (!ctx.hasUI) {
+      if (ctx.mode !== "tui") {
         ctx.ui.notify("This command needs an interactive terminal", "error");
         return;
       }

@@ -22,7 +22,7 @@
  */
 
 import { complete } from "@earendil-works/pi-ai";
-import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionCommandContext, SessionEntry } from "@earendil-works/pi-coding-agent";
 import { DynamicBorder, getMarkdownTheme } from "@earendil-works/pi-coding-agent";
 import { Container, Markdown, matchesKey, Text } from "@earendil-works/pi-tui";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -36,16 +36,10 @@ type ContentBlock = {
 	arguments?: Record<string, unknown>;
 };
 
-type SessionEntry = {
-	type: string;
-	message?: {
-		role?: string;
-		content?: unknown;
-		toolName?: string;
-		details?: unknown;
-	};
-	timestamp?: number;
-	customType?: string;
+type NoteMessage = {
+	role?: string;
+	content?: unknown;
+	toolName?: string;
 };
 
 const NOTES_BASE_DIR = `${homedir()}/notes`;
@@ -126,6 +120,11 @@ const extractToolResultLines = (content: unknown, toolName?: string): string[] =
 	return results;
 };
 
+const asNoteMessage = (message: unknown): NoteMessage | null => {
+	if (!message || typeof message !== "object") return null;
+	return message as NoteMessage;
+};
+
 /**
  * 构建会话文本
  */
@@ -133,11 +132,16 @@ const buildConversationText = (entries: SessionEntry[]): string => {
 	const sections: string[] = [];
 
 	for (const entry of entries) {
-		if (entry.type !== "message" || !entry.message?.role) {
+		if (entry.type !== "message") {
 			continue;
 		}
 
-		const role = entry.message.role;
+		const message = asNoteMessage(entry.message);
+		if (!message?.role) {
+			continue;
+		}
+
+		const role = message.role;
 		const isUser = role === "user";
 		const isAssistant = role === "assistant";
 		const isToolResult = role === "toolResult";
@@ -149,7 +153,7 @@ const buildConversationText = (entries: SessionEntry[]): string => {
 		const entryLines: string[] = [];
 
 		if (isUser || isAssistant) {
-			const textParts = extractTextParts(entry.message.content);
+			const textParts = extractTextParts(message.content);
 			if (textParts.length > 0) {
 				const roleLabel = isUser ? "用户" : "助手";
 				const messageText = textParts.join("\n").trim();
@@ -160,11 +164,11 @@ const buildConversationText = (entries: SessionEntry[]): string => {
 		}
 
 		if (isAssistant) {
-			entryLines.push(...extractToolCallLines(entry.message.content));
+			entryLines.push(...extractToolCallLines(message.content));
 		}
 
 		if (isToolResult) {
-			entryLines.push(...extractToolResultLines(entry.message.content, entry.message.toolName));
+			entryLines.push(...extractToolResultLines(message.content, message.toolName));
 		}
 
 		if (entryLines.length > 0) {
@@ -297,7 +301,7 @@ const saveNotes = async (content: string, title?: string): Promise<{ filePath: s
  * 显示笔记预览 UI
  */
 const showNotesPreview = async (content: string, filePath: string, ctx: ExtensionCommandContext) => {
-	if (!ctx.hasUI) {
+	if (ctx.mode !== "tui") {
 		console.log(`笔记已保存到: ${filePath}`);
 		console.log("\n--- 笔记内容预览 ---\n");
 		console.log(content.slice(0, 1000) + (content.length > 1000 ? "\n..." : ""));
@@ -366,7 +370,7 @@ export default function (pi: ExtensionAPI) {
 			// 获取当前模型的 API key
 			const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
 			if (!auth?.ok || !auth.apiKey) {
-				const errorMsg = auth?.error || `未配置 ${ctx.model.provider}/${ctx.model.id} 的 API Key`;
+				const errorMsg = auth?.ok === false ? auth.error : `未配置 ${ctx.model.provider}/${ctx.model.id} 的 API Key`;
 				if (ctx.hasUI) {
 					ctx.ui.notify(errorMsg, "error");
 				} else {
@@ -391,8 +395,8 @@ export default function (pi: ExtensionAPI) {
 					{
 						apiKey: auth.apiKey,
 						headers: auth.headers,
+						signal: ctx.signal,
 					},
-					ctx.signal,
 				);
 
 				// 提取生成的笔记内容
@@ -434,7 +438,7 @@ export default function (pi: ExtensionAPI) {
 				await showNotesPreview(notesContent, filePath, ctx);
 
 				if (ctx.hasUI) {
-					ctx.ui.notify(`笔记已保存: ${fileName}`, "success");
+					ctx.ui.notify(`笔记已保存: ${fileName}`, "info");
 				}
 			} catch (error) {
 				const errorMsg = error instanceof Error ? error.message : String(error);

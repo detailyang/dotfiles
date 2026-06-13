@@ -84,6 +84,11 @@ export default function helpExtension(pi: ExtensionAPI) {
   pi.registerCommand("help", {
     description: "Show all pi commands and usage",
     handler: async (_args, ctx) => {
+      if (ctx.mode !== "tui") {
+        ctx.ui.notify("/help requires interactive TUI mode.", "info");
+        return;
+      }
+
       const allCommands = collectCommands(pi);
       const groups = groupBySource(allCommands);
 

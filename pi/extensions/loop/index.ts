@@ -8,7 +8,7 @@
 
 import { Type } from "@sinclair/typebox";
 import { complete, type Api, type Model, type UserMessage } from "@earendil-works/pi-ai";
-import type { ExtensionAPI, ExtensionContext, SessionSwitchEvent } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { compact } from "@earendil-works/pi-coding-agent";
 import { Container, type SelectItem, SelectList, Text } from "@earendil-works/pi-tui";
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
@@ -209,7 +209,8 @@ export default function loopExtension(pi: ExtensionAPI): void {
 	}
 
 	function triggerLoopPrompt(ctx: ExtensionContext): void {
-		if (!loopState.active || !loopState.mode || !loopState.prompt) return;
+		const prompt = loopState.prompt;
+		if (!loopState.active || !loopState.mode || !prompt) return;
 		if (ctx.hasPendingMessages()) return;
 
 		const loopCount = (loopState.loopCount ?? 0) + 1;
@@ -219,7 +220,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 
 		pi.sendMessage({
 			customType: "loop",
-			content: loopState.prompt,
+			content: prompt,
 			display: true
 		}, {
 			deliverAs: "followUp",
@@ -342,7 +343,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		handler: async (args, ctx) => {
 			let nextState = parseArgs(args);
 			if (!nextState) {
-				if (!ctx.hasUI) {
+				if (ctx.mode !== "tui") {
 					ctx.ui.notify("Usage: /loop tests | /loop custom <condition> | /loop self", "warning");
 					return;
 				}
@@ -447,7 +448,4 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		await restoreLoopState(ctx);
 	});
 
-	pi.on("session_switch", async (_event: SessionSwitchEvent, ctx) => {
-		await restoreLoopState(ctx);
-	});
 }

@@ -1995,8 +1995,8 @@ export default function reviewExtension(pi: ExtensionAPI) {
 	pi.registerCommand("review", {
 		description: "Review a plan or code changes",
 		handler: async (args, ctx) => {
-			if (!ctx.hasUI) {
-				ctx.ui.notify("Review requires interactive mode", "error");
+			if (ctx.mode !== "tui") {
+				ctx.ui.notify("Review requires interactive TUI mode", "error");
 				return;
 			}
 
@@ -2386,8 +2386,8 @@ Instructions:
 	}
 
 	async function runEndReview(ctx: ExtensionCommandContext): Promise<void> {
-		if (!ctx.hasUI) {
-			ctx.ui.notify("Review finish requires interactive mode", "error");
+		if (ctx.mode !== "tui") {
+			ctx.ui.notify("Review finish requires interactive TUI mode", "error");
 			return;
 		}
 

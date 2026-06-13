@@ -389,8 +389,8 @@ export default function (pi: ExtensionAPI) {
     description: "Resume a Codex session in pi",
 
     handler: async (_args, ctx) => {
-      if (!ctx.hasUI) {
-        ctx.ui.notify("codex requires interactive mode", "error");
+      if (ctx.mode !== "tui") {
+        ctx.ui.notify("codex requires interactive TUI mode", "error");
         return;
       }
 
@@ -444,7 +444,7 @@ export default function (pi: ExtensionAPI) {
 
       const newSessionResult = await ctx.newSession({
         parentSession: currentSessionFile,
-        setup: (sm) => {
+        setup: async (sm) => {
           // Inject full conversation as a single user message
           // This preserves all context without lossy summarization
           const cwdInfo = parsed.cwd ? `\nWorking directory: ${parsed.cwd}` : "";

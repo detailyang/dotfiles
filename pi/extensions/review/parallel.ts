@@ -790,8 +790,8 @@ export async function runParallelReviewDashboard(
 }
 
 export async function runPlanReview(pi: ExtensionAPI, ctx: ExtensionCommandContext): Promise<boolean> {
-      if (!ctx.hasUI) {
-        ctx.ui.notify("Plan review requires an interactive terminal", "error");
+      if (ctx.mode !== "tui") {
+        ctx.ui.notify("Plan review requires interactive TUI mode", "error");
         return false;
       }
 

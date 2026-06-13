@@ -1,9 +1,9 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { basename } from "node:path";
 
-const run = (cmd: string) => {
-  try { execSync(cmd); } catch {}
+const runTmux = (args: string[]): string => {
+  try { return execFileSync("tmux", args, { encoding: "utf8" }).trim(); } catch { return ""; }
 };
 
 const dir = () => basename(process.cwd());
@@ -13,17 +13,13 @@ export default function (pi: ExtensionAPI) {
 
   const rename = (name: string) => {
     if (windowId) {
-      run(`tmux rename-window -t ${windowId} "${name}"`);
+      runTmux(["rename-window", "-t", windowId, name]);
     }
   };
 
   pi.on("session_start", async () => {
     // 启动时立刻捕获当前窗口 ID
-    try {
-      windowId = execSync("tmux display-message -p '#{window_id}'")
-        .toString()
-        .trim();
-    } catch {}
+    windowId = runTmux(["display-message", "-p", "#{window_id}"]) || null;
     rename(`○(${dir()})`);
   });
 
@@ -38,7 +34,7 @@ export default function (pi: ExtensionAPI) {
   pi.on("session_shutdown", async () => {
     rename(`${dir()}`);
     if (windowId) {
-      run(`tmux set-option -w -t ${windowId} -q automatic-rename on`);
+      runTmux(["set-option", "-w", "-t", windowId, "-q", "automatic-rename", "on"]);
     }
     windowId = null;
   });

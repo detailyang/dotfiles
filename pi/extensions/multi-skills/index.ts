@@ -9,7 +9,7 @@
  * and the user's input, then sends it via pi.sendUserMessage().
  */
 
-import type { ExtensionAPI, SlashCommandInfo } from "@earendil-works/pi-coding-agent";
+import type { ExtensionAPI, SlashCommandInfo, ThemeColor } from "@earendil-works/pi-coding-agent";
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
 import {
   Container,
@@ -76,7 +76,7 @@ const CURSOR_PREFIX = "▸ ";
 const INDENT_PREFIX = "  ";
 
 interface ThemeLike {
-  fg: (color: string, text: string) => string;
+  fg: (color: ThemeColor, text: string) => string;
   bold: (text: string) => string;
 }
 
@@ -203,6 +203,11 @@ export default function multiSkillsExtension(pi: ExtensionAPI) {
   pi.registerCommand("multi-skills", {
     description: "Select multiple skills and compose a prompt",
     handler: async (_args, ctx) => {
+      if (ctx.mode !== "tui") {
+        ctx.ui.notify("/multi-skills requires interactive TUI mode", "error");
+        return;
+      }
+
       const items = getSkillItems(pi);
       if (items.length === 0) {
         ctx.ui.notify("No skills available", "warning");

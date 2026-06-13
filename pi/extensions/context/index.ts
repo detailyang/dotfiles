@@ -14,7 +14,7 @@ export default function contextExtension(pi: ExtensionAPI): void {
       return filtered.length > 0 ? filtered : items;
     },
     handler: async (_args, ctx) => {
-      if (!ctx.hasUI) {
+      if (ctx.mode !== "tui") {
         ctx.ui.notify("/context requires interactive TUI mode.", "info");
         return;
       }

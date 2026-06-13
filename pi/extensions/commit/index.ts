@@ -131,7 +131,7 @@ export default function (pi: ExtensionAPI) {
 
       const piArgs = ["--mode", "json", "-p", "--no-session", "--append-system-prompt", promptFile, task];
       let closeProgress: (() => void) | undefined;
-      const progressPromise = ctx.hasUI
+      const progressPromise = ctx.mode === "tui"
         ? ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
             closeProgress = done;
             return new CommitProgressComponent(tui, theme);
@@ -203,7 +203,7 @@ export default function (pi: ExtensionAPI) {
         if (exitCode !== 0) {
           ctx.ui.notify(failureMessage || "Commit failed", "error");
         } else {
-          ctx.ui.notify(finalText.trim() || "Commit completed", "success");
+          ctx.ui.notify(finalText.trim() || "Commit completed", "info");
         }
       } finally {
         closeProgress?.();
