@@ -1,9 +1,14 @@
 ---
 name: write-a-skill
 description: Create new agent skills with proper structure, progressive disclosure, and bundled resources. Use when user wants to create, write, or build a new skill.
+argument-hint: "[skill purpose or name]"
 ---
 
 # Writing Skills
+
+Skill purpose/name: $ARGUMENTS
+
+If arguments are present, treat them as the intended skill purpose or name. If no arguments are present, gather requirements first.
 
 ## Process
 

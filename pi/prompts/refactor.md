@@ -1,9 +1,14 @@
 ---
 name: refactor
 description: "Safe code refactoring workflow with test guarantees. Covers the full cycle: ensure tests → mutation test → checkpoint → refactor."
+argument-hint: "[code area, smell, or refactoring goal]"
 ---
 
 # Refactor
+
+Refactoring target: $ARGUMENTS
+
+If arguments are present, treat them as the target area or refactoring goal. If no arguments are present, ask for the intended scope before changing code.
 
 **The golden rule: without tests, you're not refactoring — you're editing dangerously.**
 

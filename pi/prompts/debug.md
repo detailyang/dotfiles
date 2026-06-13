@@ -1,11 +1,16 @@
 ---
-name: diagnose
+name: debug
 description: Disciplined diagnosis loop for hard bugs and performance regressions. Reproduce → minimise → hypothesise → instrument → fix → regression-test. Use when user says "diagnose this" / "debug this", reports a bug, says something is broken/throwing/failing, or describes a performance regression.
+argument-hint: "[bug report, failing command, or desired debug focus]"
 ---
 
 # Diagnose
 
 A discipline for hard bugs. Skip phases only when explicitly justified.
+
+User-supplied debug focus: $ARGUMENTS
+
+If arguments are present, treat them as the initial bug report or requested focus. If no arguments are present, infer the focus from the conversation or ask for the missing repro detail.
 
 When exploring the codebase, use the project's domain glossary to get a clear mental model of the relevant modules, and check ADRs in the area you're touching.
 

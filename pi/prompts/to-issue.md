@@ -1,11 +1,16 @@
 ---
 name: to-issues
 description: Break a plan, spec, or PRD into independently-grabbable issue drafts using tracer-bullet vertical slices. Use when user wants to convert a plan into issues, create implementation tickets, or break down work into issues.
+argument-hint: "[plan, spec, PRD path, issue reference, or scope]"
 ---
 
 # To Issues
 
 Break a plan into independently-grabbable issues using vertical slices (tracer bullets).
+
+Issue source/scope: $ARGUMENTS
+
+If arguments are present, use them as the plan, spec, PRD path, issue reference, or scope. If no arguments are present, use the current conversation context.
 
 An issue tracker means the project's ticket system, such as GitHub Issues, Linear, Jira, or another tool the repo uses. If the project has no configured issue tracker, produce local issue drafts instead of publishing anything.
 

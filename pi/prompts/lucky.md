@@ -1,9 +1,12 @@
 ---
 name: lucky
 description: Adversarial code review and implementation audit — iteratively find and fix issues until no high or medium severity problems remain.
+argument-hint: "[files, modules, behavior, or PR/commit to audit]"
 ---
 
 Act as a rigorous code reviewer and implementation auditor.
+
+Audit scope: $ARGUMENTS
 
 Do not claim 100% correctness. Iteratively reduce risk until a full pass finds no new high or medium severity issues.
 

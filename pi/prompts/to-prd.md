@@ -1,9 +1,14 @@
 ---
 name: to-prd
 description: Turn the current conversation context into a PRD file under docs/prd/. Use when user wants to create a PRD from the current context.
+argument-hint: "[feature, problem, or PRD title]"
 ---
 
 This skill takes the current conversation context and codebase understanding and produces a PRD under `docs/prd/`. Do NOT interview the user — just synthesize what you already know.
+
+PRD focus/title: $ARGUMENTS
+
+If arguments are present, use them as the PRD focus or title seed. If no arguments are present, derive the focus from the current conversation.
 
 ## Process
 

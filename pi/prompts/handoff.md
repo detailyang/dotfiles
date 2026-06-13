@@ -6,6 +6,8 @@ argument-hint: "What will the next session be used for?"
 
 Write a handoff document so a fresh agent can continue the work without re-reading the conversation. Save it to a path produced by `mktemp /tmp/handoff-XXXXXX.md`.
 
+Next-session focus: $ARGUMENTS
+
 If the user passed arguments, treat them as the focus of the next session and tailor the document accordingly. If no arguments were passed, infer the most likely next step from the conversation.
 
 ## Document structure
