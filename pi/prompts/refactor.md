@@ -1,5 +1,6 @@
 ---
-description: "Safe code refactoring workflow with test guarantees. Covers the full cycle: ensure tests → mutation test → commit → refactor."
+name: refactor
+description: "Safe code refactoring workflow with test guarantees. Covers the full cycle: ensure tests → mutation test → checkpoint → refactor."
 ---
 
 # Refactor
@@ -14,12 +15,12 @@ description: "Safe code refactoring workflow with test guarantees. Covers the fu
 1. GREEN    → All tests pass
 2. MUTATE   → Run mutation testing to verify test strength
 3. KILL     → Strengthen tests for surviving mutants
-4. COMMIT   → Save working state ← critical safety net
+4. CHECKPOINT → Save or record working state ← critical safety net
 5. REFACTOR → Improve structure in small steps
-6. COMMIT   → Save refactored code separately
+6. CHECKPOINT → Save or record refactored state separately
 ```
 
-Never mix refactoring commits with feature commits.
+Never mix refactoring changes with feature changes. Do not create commits unless the user explicitly asks.
 
 ---
 
@@ -94,9 +95,9 @@ Kill surviving mutants by adding boundary tests before any refactoring.
 **Before refactoring:**
 - [ ] All tests pass
 - [ ] Mutation score > 80%; surviving mutants killed
-- [ ] Working state committed
+- [ ] Working state saved, recorded, or explicitly acknowledged
 
 **After refactoring:**
 - [ ] All tests still pass without modification
 - [ ] No behavior changed, no speculative code added
-- [ ] Committed separately from feature work
+- [ ] Refactoring changes kept separate from feature work

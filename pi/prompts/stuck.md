@@ -1,5 +1,6 @@
 ---
-description: Write a structured expert consultation letter to /tmp/ when stuck on a problem
+name: stuck
+description: Write a structured, self-contained expert consultation letter to /tmp/ when stuck on a problem.
 ---
 
 Distill the current situation into an expert consultation letter. Save it to `/tmp/help-{2-5-word-kebab-description}.md`.

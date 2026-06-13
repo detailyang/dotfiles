@@ -1,19 +1,19 @@
 ---
 name: to-issues
-description: Break a plan, spec, or PRD into independently-grabbable issues on the project issue tracker using tracer-bullet vertical slices. Use when user wants to convert a plan into issues, create implementation tickets, or break down work into issues.
+description: Break a plan, spec, or PRD into independently-grabbable issue drafts using tracer-bullet vertical slices. Use when user wants to convert a plan into issues, create implementation tickets, or break down work into issues.
 ---
 
 # To Issues
 
 Break a plan into independently-grabbable issues using vertical slices (tracer bullets).
 
-The issue tracker and triage label vocabulary should have been provided to you — run `/setup-matt-pocock-skills` if not.
+An issue tracker means the project's ticket system, such as GitHub Issues, Linear, Jira, or another tool the repo uses. If the project has no configured issue tracker, produce local issue drafts instead of publishing anything.
 
 ## Process
 
 ### 1. Gather context
 
-Work from whatever is already in the conversation context. If the user passes an issue reference (issue number, URL, or path) as an argument, fetch it from the issue tracker and read its full body and comments.
+Work from whatever is already in the conversation context. If the user passes an issue reference (issue number, URL, or path) as an argument, fetch it when possible and read its full body and comments. If it cannot be fetched, ask for the missing content.
 
 ### 2. Explore the codebase (optional)
 
@@ -49,16 +49,16 @@ Ask the user:
 
 Iterate until the user approves the breakdown.
 
-### 5. Publish the issues to the issue tracker
+### 5. Create the issue drafts
 
-For each approved slice, publish a new issue to the issue tracker. Use the issue body template below. These issues are considered ready for AFK agents, so publish them with the correct triage label unless instructed otherwise.
+For each approved slice, create an issue using the issue body template below. If the project has a configured issue tracker and the user has asked you to publish, publish the issues there. Otherwise, save the drafts under `docs/issues/<short-kebab-title>.md` in the current repo. Create `docs/issues/` if it does not exist.
 
-Publish issues in dependency order (blockers first) so you can reference real issue identifiers in the "Blocked by" field.
+Create issues in dependency order (blockers first) so you can reference real issue identifiers, URLs, or local draft filenames in the "Blocked by" field.
 
 <issue-template>
 ## Parent
 
-A reference to the parent issue on the issue tracker (if the source was an existing issue, otherwise omit this section).
+A reference to the parent issue, PRD, or source document (if there is one, otherwise omit this section).
 
 ## What to build
 

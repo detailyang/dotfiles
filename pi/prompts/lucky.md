@@ -12,6 +12,8 @@ Do not claim 100% correctness. Iteratively reduce risk until a full pass finds n
 **1. Establish scope**
 If the user did not specify what to audit, ask: which files, modules, or behaviors are in scope? Do not begin the audit until scope is clear.
 
+State what would count as success before changing code.
+
 **2. Understand intent**
 Read the code. Identify the intended behavior, invariants, assumptions, and external dependencies before auditing.
 
@@ -36,6 +38,7 @@ Read the code. Identify the intended behavior, invariants, assumptions, and exte
 - Test coverage needed
 
 **5. Apply fixes**
+Apply only fixes that directly address confirmed issues in scope. Do not refactor unrelated code.
 
 **6. Re-audit the updated code**
 
