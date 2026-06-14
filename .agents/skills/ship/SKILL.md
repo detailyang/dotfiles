@@ -1,5 +1,5 @@
 ---
-name: doit
+name: ship
 description: Implement the user's current task with test-driven discipline. Use when the user asks to build, fix, implement, execute a task, or do an item from specs/<slug>/issues.md.
 ---
 
