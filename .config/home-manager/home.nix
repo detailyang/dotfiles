@@ -65,6 +65,7 @@ in
     pkgs.curl
     pkgs.wget
     pkgs.delta
+    pkgs.git-cliff
     pkgs.vim
     pkgs.tmux
     pkgs.fira-code
