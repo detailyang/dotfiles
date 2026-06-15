@@ -3,7 +3,7 @@ name: ship
 description: Implement the user's current task with test-driven discipline. Use when the user asks to build, fix, implement, execute a task, or do an item from specs/<slug>/issues.md.
 ---
 
-# Do It
+# Ship
 
 Execute the current task with the smallest safe change. This skill merges implementation with TDD discipline for adhoc development.
 
@@ -16,6 +16,15 @@ Execute the current task with the smallest safe change. This skill merges implem
 5. Identify the highest useful test seam before writing code.
 
 Do not guess when the implementation boundary is unclear. Ask the minimum necessary question.
+
+## Issue execution scope
+
+When working from `specs/<slug>/issues.md`, the default scope is all incomplete issues unless the user explicitly names a narrower issue or range.
+
+- Do not stop after completing a single issue.
+- Continue selecting the next incomplete issue, implementing it, and verifying it.
+- Stop only when all applicable issues are complete, a hard blocker is reached, or the user-defined scope is finished.
+- If a blocker prevents further progress, record the blocker, completed issues, remaining issues, and the smallest user decision needed.
 
 ## TDD is mandatory for behavior changes
 
