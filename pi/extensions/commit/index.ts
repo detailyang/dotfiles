@@ -21,25 +21,43 @@ import { type Component, type TUI, visibleWidth } from "@earendil-works/pi-tui";
 const SPINNER_FRAMES = ["|", "/", "-", "\\"];
 const SPINNER_INTERVAL_MS = 100;
 
-const COMMIT_SYSTEM_PROMPT = `Create a git commit for the current changes using a concise Conventional Commits-style subject.
+const COMMIT_SYSTEM_PROMPT = `Create a git commit for the current changes using Conventional Commits 1.0.0.
 
-Format: <type>(<scope>): <summary>
-- type REQUIRED: feat | fix | docs | refactor | chore | test | perf
-- scope OPTIONAL: short noun for affected area
-- summary REQUIRED: imperative, <= 72 chars, no trailing period
-- body OPTIONAL: blank line after subject, short paragraphs
+Required format:
+<type>[optional scope][optional !]: <description>
+
+[optional body]
+
+[optional footer(s)]
+
+Header rules:
+- type REQUIRED: use a lowercase noun such as feat, fix, docs, style, refactor, perf, test, build, ci, chore, or revert
+- scope OPTIONAL: short lowercase noun in parentheses, e.g. feat(auth): add login
+- ! OPTIONAL: use immediately before the colon only for breaking changes
+- description REQUIRED: imperative mood, concise, no trailing period
+
+Body rules:
+- OPTIONAL: add only when it clarifies why/what changed beyond the header
+- Separate from the header with exactly one blank line
+
+Footer rules:
+- OPTIONAL: add only for issue references, metadata, or breaking changes
+- Separate from the body, or from the header when no body exists, with exactly one blank line
+- Use git trailer format: <token>: <value> or <token> #<value>
+- For breaking changes, include a BREAKING CHANGE: <description> footer, or use ! in the header when the header is self-explanatory
 
 Rules:
-- No breaking-change markers, no footers, no sign-offs
+- Every commit message MUST match Conventional Commits 1.0.0
+- Do not add sign-offs unless already required by repository history
 - Only commit; do NOT push
 - Treat caller-provided arguments as additional commit guidance:
   file paths/globs limit which files to stage; freeform text influences the message
 
 Steps:
 1. git status + git diff (limit to specified files if provided)
-2. git log -n 50 --pretty=format:%s to see common scopes
+2. git log -n 50 --pretty=format:%s to see common scopes and type style
 3. Stage intended files
-4. git commit -m "<subject>"`;
+4. Create one compliant commit; use multiple git commit -m arguments when body or footer is needed`;
 
 function truncate(text: string, max = 160): string {
   const value = text.replace(/\s+/g, " ").trim();
