@@ -1,110 +1,105 @@
 ---
 name: debug
-description: Reproduce and diagnose bugs, failures, flaky behavior, or performance regressions before fixing them. Use when the user says something is broken, failing, throwing, slow, or asks to debug.
+description: Reproduce and diagnose bugs, test failures, flaky behavior, regressions, crashes, wrong outputs, or performance problems before fixing them. Use when the user says something is broken, failing, throwing, slow, flaky, regressed, or asks to debug, investigate, reproduce, find root cause, or verify a suspected fix.
 ---
 
 # Debug
 
-Debugging starts with reproduction. Skip phases only when explicitly justified. Do not confirm a root cause before you can reproduce the symptom or build a strong evidence chain.
+Start by turning the report into evidence. Do not claim a root cause until the symptom is reproduced or the evidence chain is strong enough to explain why reproduction is impossible.
 
-When exploring code, read applicable repo instructions and use existing domain vocabulary. Check ADRs or specs in the area before changing behavior.
+## Operating rules
 
-## Phase 1 — Build a feedback loop
+- State assumptions, unknowns, and the exact symptom being debugged.
+- Prefer a fast pass/fail loop over broad code reading.
+- Test one hypothesis at a time; do not silently switch theories.
+- Fix only the proven cause, with the smallest change that addresses it.
+- Preserve the repro as a regression test, script, fixture, or documented check when practical.
+- Remove temporary probes unless the user explicitly wants durable observability.
 
-This is the core of debugging. A fast, deterministic, agent-runnable pass/fail signal makes diagnosis mechanical. Without one, code reading becomes guesswork.
+## Workflow
 
-Spend disproportionate effort here.
+### 1. Define success
 
-Ways to construct a loop, roughly in order:
-
-1. failing test at the seam that reaches the bug: unit, integration, e2e
-2. focused command or CLI invocation with fixture input
-3. HTTP/curl script against a dev server
-4. browser automation or manual browser steps with assertions
-5. replayed request, fixture, trace, HAR, event log, or payload
-6. throwaway harness around the suspected module
-7. property/fuzz loop for wrong-output bugs
-8. bisection harness for regressions across commits/configs/data
-9. differential loop comparing old vs new behavior
-10. human-in-the-loop script as last resort when manual steps are unavoidable
-
-Once a loop exists, improve it:
-
-- faster: skip unrelated setup, cache expensive work, narrow scope
-- sharper: assert the exact symptom, not just "did not crash"
-- more deterministic: pin time, seed randomness, isolate filesystem/network
-
-For nondeterministic bugs, aim to raise reproduction rate. Loop the trigger, add stress, parallelize, narrow timing windows, inject sleeps, or increase event volume.
-
-If no loop can be built, stop. List what was tried and what artifact/access is needed next.
-
-## Phase 2 — Reproduce
-
-Run the loop and confirm:
-
-- the failure matches the user's exact symptom
-- the symptom is repeatable enough to debug
-- the relevant output, error, timing, or wrong state is captured
-
-Wrong bug means wrong fix. Do not proceed to root cause claims until this is satisfied.
-
-## Phase 3 — Hypothesize
-
-Generate 3-5 ranked hypotheses before testing any of them.
-
-Rank by:
-
-- likelihood
-- verification cost
-- impact/risk if true
-
-Each hypothesis must be falsifiable:
+Restate the bug as observable behavior:
 
 ```text
-If <cause> is true, then <specific observation or change> should happen.
+Given <setup>, when <trigger>, expected <correct behavior>, actual <symptom>.
 ```
 
-If no prediction can be stated, sharpen or discard the hypothesis.
+If the report lacks a trigger, environment, input, log, or expected behavior, ask for the minimum missing artifact unless it can be discovered locally.
 
-Show the ranked list before deep instrumentation when useful; proceed if the user is unavailable.
+### 2. Build the feedback loop
 
-## Phase 4 — Instrument
+Create the cheapest loop that reaches the symptom:
 
-Each probe maps to one hypothesis. Change one variable at a time.
+1. failing automated test at the highest useful seam
+2. focused command or CLI invocation with fixture input
+3. HTTP/curl script against a dev server
+4. browser automation or precise manual steps with assertions
+5. replayed request, trace, HAR, event log, fixture, or payload
+6. throwaway harness around the suspected module
+7. stress loop for flaky, race, or performance bugs
+8. bisection or differential loop for regressions
 
-Prefer:
+Improve the loop until it is sharp enough to fail for the user's symptom, not just any failure. For more options, read `references/reproduce.md`.
 
-1. debugger / REPL inspection
-2. targeted logs or counters
-3. assertions around invariants
-4. binary search through code/data/config
-5. trace comparison between good and bad runs
-6. temporary feature flags or narrowed harnesses
+If no loop can be built, stop and report what was tried, what was observed, and the smallest artifact or access needed next.
 
-Keep probes removable. Do not leave noisy instrumentation behind.
+### 3. Reproduce and capture evidence
 
-## Phase 5 — Fix and regression test
+Run the loop and record:
 
-Fix only after evidence supports the cause.
+- command or steps used
+- relevant output, error, timing, state, screenshot, or logs
+- whether the symptom matches the user report
+- how repeatable it is
 
-For code fixes:
+Wrong reproduction means wrong fix. Do not proceed to root-cause claims until the observed failure matches the reported symptom.
 
-- first preserve the repro as a regression test, script, or documented check
-- make the smallest change that addresses the cause
-- run the repro again
-- run related tests to catch collateral damage
+### 4. Rank falsifiable hypotheses
 
-If the fix changes behavior beyond the bug, call that out as a separate decision.
+Before deep instrumentation, list 3-5 hypotheses when the cause is not obvious:
 
-## Phase 6 — Cleanup and result
+```text
+Hypothesis: <cause>
+Prediction: if true, <specific observation/change> will happen
+Probe: <specific action>
+```
 
-Remove temporary probes and throwaway artifacts unless the user wants to keep them.
+Rank by likelihood, verification cost, and impact. For detailed probing rules, read `references/diagnosis-loop.md`.
 
-Final answer should classify the outcome:
+### 5. Probe narrowly
+
+Map every probe to one hypothesis. Prefer direct observations:
+
+- debugger or REPL inspection
+- invariant assertions near suspicious boundaries
+- focused logs with request/id context
+- before/after state snapshots
+- timing measurements for performance regressions
+- good-vs-bad trace comparison
+- binary search through input, data, config, or commits
+
+Mark each result as confirmed, excluded, or still uncertain. Update the hypothesis list when evidence changes.
+
+### 6. Fix and verify
+
+When evidence supports a cause:
+
+1. Add or preserve a regression check when practical.
+2. Make the smallest code change that addresses the cause.
+3. Run the repro loop again.
+4. Run adjacent tests or checks likely to catch collateral damage.
+
+If the fix intentionally changes behavior beyond the bug, call that out as a separate decision.
+
+### 7. Report the outcome
+
+Classify the final state as one of:
 
 - single root cause
 - causal chain
-- multiple contributing causes
+- concurrent contributing causes
 - missing observation
 
 Include:
@@ -112,12 +107,5 @@ Include:
 - reproduction path
 - evidence for the cause
 - fix summary, if applied
-- tests/commands run and results
-- remaining risks
-
-## References
-
-Use as needed:
-
-- `references/reproduce.md`
-- `references/diagnosis-loop.md`
+- tests or commands run, with results
+- remaining risks or missing observations

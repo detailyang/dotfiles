@@ -1,21 +1,29 @@
 ---
 name: ship
-description: Implement the user's current task with test-driven discipline. Use when the user asks to build, fix, implement, execute a task, or do an item from specs/<slug>/issues.md.
+description: Implement the user's current engineering task with minimal, verified changes and test-driven discipline. Use when the user asks Codex to build, fix, implement, modify code, execute a concrete task, or complete items from a specs issues.md file.
 ---
 
 # Ship
 
-Execute the current task with the smallest safe change. This skill merges implementation with TDD discipline for adhoc development.
+Execute the current task with the smallest safe, verified change. Prefer a vertical slice through the real system over broad setup work.
+
+## Operating contract
+
+- State assumptions, intended behavior, and success criteria before editing.
+- If the boundary is unclear, list the plausible interpretations and ask the minimum necessary question.
+- Keep every changed line traceable to the user's request.
+- Do not clean up, rename, reformat, or refactor unrelated code.
+- Do not claim tests passed unless they were run in this turn.
 
 ## Before editing
 
-1. State the intended behavior and success criteria.
-2. Read applicable `AGENTS.md` instructions.
-3. Inspect relevant exports, callers, shared utilities, tests, and existing style.
-4. If the task references `specs/<slug>/`, read relevant `thinking.md`, `product.md`, `tech.md`, and `issues.md`.
-5. Identify the highest useful test seam before writing code.
+1. Read applicable `AGENTS.md` instructions.
+2. Inspect relevant exports, direct callers, shared utilities, tests, and existing style.
+3. If the task references `specs/<slug>/`, read relevant `thinking.md`, `product.md`, `tech.md`, and `issues.md`.
+4. Identify the highest useful test seam before writing behavior code.
+5. Choose the smallest implementation path and the validation command that proves it.
 
-Do not guess when the implementation boundary is unclear. Ask the minimum necessary question.
+For multi-step work, use a short plan where each step has a verification checkpoint.
 
 ## Issue execution scope
 
@@ -24,7 +32,7 @@ When working from `specs/<slug>/issues.md`, the default scope is all incomplete 
 - Do not stop after completing a single issue.
 - Continue selecting the next incomplete issue, implementing it, and verifying it.
 - Stop only when all applicable issues are complete, a hard blocker is reached, or the user-defined scope is finished.
-- If a blocker prevents further progress, record the blocker, completed issues, remaining issues, and the smallest user decision needed.
+- If blocked, record completed issues, remaining issues, the blocking observation, and the smallest user decision needed.
 
 ## TDD is mandatory for behavior changes
 
@@ -37,11 +45,11 @@ For behavior changes, bug fixes, business logic, data transforms, API behavior, 
 5. **Refactor** — improve structure only after green.
 6. Run tests again after refactor.
 
-If no reasonable test seam exists, stop and ask before coding.
+If no reasonable test seam exists, stop and ask before coding. Do not replace deterministic logic, routing, retry, data transform, or state-machine behavior with LLM judgment.
 
-For docs, comments, pure formatting, static config, or tiny no-test-infrastructure edits, TDD may not apply. Say why and perform an alternative verification.
+For docs, comments, pure formatting, static config, generated snapshots, or tiny edits in a repo with no usable test infrastructure, TDD may not apply. Say why and perform the cheapest meaningful alternative verification, such as rendering, parsing, typechecking, linting, or diff inspection.
 
-## Avoid horizontal slices
+## Implementation shape
 
 Do not build isolated layers that cannot be verified independently. Prefer tracer bullets and vertical slices:
 
@@ -50,9 +58,7 @@ Do not build isolated layers that cannot be verified independently. Prefer trace
 - tests through public interfaces
 - internal design evolves under green tests
 
-## Tracer bullet
-
-When scope is uncertain, build the thinnest working slice through the real system:
+When scope is uncertain, build the thinnest production-shaped tracer bullet through the real system:
 
 - real entry point
 - real validation path if relevant
@@ -61,6 +67,8 @@ When scope is uncertain, build the thinnest working slice through the real syste
 - enough test coverage to lock the behavior
 
 The tracer bullet should be production-shaped, not throwaway architecture.
+
+Read `references/tdd.md` when choosing or running a TDD cycle. Read `references/testing.md` when selecting a seam or deciding what to mock. Read `references/refactoring.md` before any structural cleanup.
 
 ## Operation log
 
@@ -77,11 +85,3 @@ Record:
 - tests/commands run and results
 - deviations from specs
 - follow-ups
-
-## References
-
-Use as needed:
-
-- `references/tdd.md`
-- `references/testing.md`
-- `references/refactoring.md`
