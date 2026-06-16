@@ -24,7 +24,7 @@ export default function (pi: ExtensionAPI) {
   const startSpinner = () => {
     frameIdx = 0;
     spinner = setInterval(() => {
-      rename(`${FRAMES[frameIdx++ % FRAMES.length]}(${dir()})`);
+      rename(`${FRAMES[frameIdx++ % FRAMES.length]}${dir()}`);
     }, 100);
   };
 
