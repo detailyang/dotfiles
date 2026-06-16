@@ -7,31 +7,47 @@ const runTmux = (args: string[]): string => {
 };
 
 const dir = () => basename(process.cwd());
+const FRAMES = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
 
 export default function (pi: ExtensionAPI) {
+  // Skip if not running inside tmux
+  if (!process.env.TMUX) return;
+
   let windowId: string | null = null;
+  let spinner: NodeJS.Timeout | null = null;
+  let frameIdx = 0;
 
   const rename = (name: string) => {
-    if (windowId) {
-      runTmux(["rename-window", "-t", windowId, name]);
-    }
+    if (windowId) runTmux(["rename-window", "-t", windowId, name]);
+  };
+
+  const startSpinner = () => {
+    frameIdx = 0;
+    spinner = setInterval(() => {
+      rename(`${FRAMES[frameIdx++ % FRAMES.length]}(${dir()})`);
+    }, 100);
+  };
+
+  const stopSpinner = () => {
+    if (spinner) { clearInterval(spinner); spinner = null; }
   };
 
   pi.on("session_start", async () => {
-    // 启动时立刻捕获当前窗口 ID
     windowId = runTmux(["display-message", "-p", "#{window_id}"]) || null;
-    rename(`○(${dir()})`);
+    rename(`${dir()}`);
   });
 
   pi.on("agent_start", async () => {
-    rename(`●(${dir()})`);
+    startSpinner();
   });
 
   pi.on("agent_end", async () => {
-    rename(`○(${dir()})`);
+    stopSpinner();
+    rename(`${dir()}`);
   });
 
   pi.on("session_shutdown", async () => {
+    stopSpinner();
     rename(`${dir()}`);
     if (windowId) {
       runTmux(["set-option", "-w", "-t", windowId, "-q", "automatic-rename", "on"]);
