@@ -1,0 +1,9 @@
+[
+{
+    "bindings": {
+        "cmd-[": "pane::GoBack",
+            "cmd-]": "pane::GoForward"
+    }
+}
+]
+
