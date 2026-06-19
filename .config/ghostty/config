@@ -8,6 +8,7 @@ theme = Alabaster
 term = xterm-256color
 keybind = performable:ctrl+v=paste_from_clipboard
 keybind = performable:ctrl+c=copy_to_clipboard
+macos-secure-input-indication = false
 clipboard-paste-bracketed-safe = false
 unfocused-split-opacity = 0.55
 shell-integration-features = ssh-terminfo,ssh-env

@@ -28,6 +28,7 @@ in
     pkgs.mkcert
     pkgs.jetbrains-mono
     pkgs.bat
+    pkgs.tree
     pkgs.tokei
     pkgs.lazygit
     pkgs.xclip
