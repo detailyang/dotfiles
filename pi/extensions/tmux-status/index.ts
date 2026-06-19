@@ -9,6 +9,15 @@ const runTmux = (args: string[]): string => {
 const dir = () => basename(process.cwd());
 const FRAMES = ['⠋','⠙','⠹','⠸','⠼','⠴','⠦','⠧','⠇','⠏'];
 
+const getCurrentWindowId = () => {
+  const paneId = process.env.TMUX_PANE;
+  const args = paneId
+    ? ["display-message", "-p", "-t", paneId, "#{window_id}"]
+    : ["display-message", "-p", "#{window_id}"];
+
+  return runTmux(args) || null;
+};
+
 export default function (pi: ExtensionAPI) {
   // Skip if not running inside tmux
   if (!process.env.TMUX) return;
@@ -33,7 +42,7 @@ export default function (pi: ExtensionAPI) {
   };
 
   pi.on("session_start", async () => {
-    windowId = runTmux(["display-message", "-p", "#{window_id}"]) || null;
+    windowId = getCurrentWindowId();
     rename(`${dir()}`);
   });
 

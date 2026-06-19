@@ -6,7 +6,7 @@ let
   srcs = {
     aarch64-darwin = pkgs.fetchurl {
       url    = "https://github.com/detailyang/pstree-rs/releases/download/v${version}/pstree-rs-v${version}-aarch64-apple-darwin.tar.gz";
-      hash   = "sha256-YiOsbzdfMPqeUGUUT17G/VUeJHsrC0th4VXqGj+2Fg8=";
+      hash   = "sha256-74DX5VFWycEfjs1C1jiHybsepux3p6t2Vwu4K25ASf8=";
     };
     x86_64-darwin = pkgs.fetchurl {
       url    = "https://github.com/detailyang/pstree-rs/releases/download/v${version}/pstree-rs-v${version}-x86_64-apple-darwin.tar.gz";
