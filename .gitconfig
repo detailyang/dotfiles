@@ -4,6 +4,13 @@
 [log]
     date = iso
 
+[http "https://github.com"]
+    proxy = http://127.0.0.1:7890
+
+[https "https://github.com"]
+    proxy = http://127.0.0.1:7890
+
+
 [user]
 	email = detailyang@gmail.com
 	name = detailyang

@@ -32,6 +32,7 @@ in
     pkgs.tokei
     pkgs.lazygit
     pkgs.xclip
+    pkgs.socat
     pkgs.btop
     pkgs.yazi
     pkgs.protobuf
