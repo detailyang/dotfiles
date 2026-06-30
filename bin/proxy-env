@@ -1,0 +1,238 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+usage() {
+    cat >&2 <<'EOF'
+Usage: proxy-env <bash|fish> <proxy|unproxy|autoproxy|wslproxy> [interface]
+
+Print shell statements that apply the requested proxy env change.
+Shell adapters eval this output; proxy-env owns the shared proxy rules.
+EOF
+}
+
+shell_quote_bash() {
+    printf '%q' "$1"
+}
+
+shell_quote_fish() {
+    local value="$1"
+    value=${value//\\/\\\\}
+    value=${value//\'/\\\'}
+    printf "'%s'" "$value"
+}
+
+quote_for_shell() {
+    local shell="$1"
+    local value="$2"
+
+    case "$shell" in
+        bash) shell_quote_bash "$value" ;;
+        fish) shell_quote_fish "$value" ;;
+        *) echo "unsupported shell: $shell" >&2; return 1 ;;
+    esac
+}
+
+emit_set() {
+    local shell="$1"
+    local name="$2"
+    local value="$3"
+    local quoted
+    quoted=$(quote_for_shell "$shell" "$value")
+
+    case "$shell" in
+        bash) printf 'export %s=%s\n' "$name" "$quoted" ;;
+        fish) printf 'set -gx %s %s\n' "$name" "$quoted" ;;
+    esac
+}
+
+emit_unset() {
+    local shell="$1"
+    local name="$2"
+
+    case "$shell" in
+        bash) printf 'unset %s\n' "$name" ;;
+        fish) printf 'set -e %s\n' "$name" ;;
+    esac
+}
+
+emit_echo() {
+    local shell="$1"
+    local message="$2"
+    local quoted
+    quoted=$(quote_for_shell "$shell" "$message")
+    printf 'echo %s\n' "$quoted"
+}
+
+no_proxy_value() {
+    local values=("127.0.0.1" "localhost")
+    local i
+
+    for i in $(seq 0 40); do
+        values+=("192.168.44.$i")
+    done
+
+    for i in $(seq 0 254); do
+        values+=("192.168.0.$i")
+    done
+
+    local IFS=,
+    printf '%s' "${values[*]}"
+}
+
+ip_for_interface() {
+    local interface="$1"
+
+    if [[ -z "$interface" ]]; then
+        printf '192.168.33.1'
+        return 0
+    fi
+
+    if ! command -v ifconfig >/dev/null 2>&1; then
+        echo "ifconfig is required when selecting a proxy interface" >&2
+        return 1
+    fi
+
+    local ip
+    ip=$(ifconfig "$interface" 2>/dev/null | awk '/inet / {print $2; exit}')
+    if [[ -z "$ip" ]]; then
+        echo "no IPv4 address found for interface: $interface" >&2
+        return 1
+    fi
+
+    printf '%s' "$ip"
+}
+
+emit_proxy_vars() {
+    local shell="$1"
+    local http_proxy="$2"
+    local https_proxy="$3"
+    local socks_proxy="$4"
+    local all_proxy="$5"
+    local no_proxy="$6"
+
+    emit_set "$shell" HTTPS_PROXY "$https_proxy"
+    emit_set "$shell" HTTP_PROXY "$http_proxy"
+    emit_set "$shell" https_proxy "$https_proxy"
+    emit_set "$shell" http_proxy "$http_proxy"
+    emit_set "$shell" ALL_PROXY "$all_proxy"
+    emit_set "$shell" all_proxy "$all_proxy"
+    emit_set "$shell" SOCKS_PROXY "$socks_proxy"
+    emit_set "$shell" socks_proxy "$socks_proxy"
+    emit_set "$shell" NO_PROXY "$no_proxy"
+    emit_set "$shell" no_proxy "$no_proxy"
+}
+
+emit_unproxy_vars() {
+    local shell="$1"
+    local names=(
+        HTTPS_PROXY HTTP_PROXY https_proxy http_proxy
+        ALL_PROXY all_proxy SOCKS_PROXY socks_proxy
+        NO_PROXY no_proxy GOPROXY
+    )
+    local name
+
+    for name in "${names[@]}"; do
+        emit_unset "$shell" "$name"
+    done
+    emit_echo "$shell" "Proxy disabled"
+}
+
+emit_fixed_proxy() {
+    local shell="$1"
+    local ip="$2"
+    local interface_label="$3"
+    local no_proxy
+    no_proxy=$(no_proxy_value)
+
+    emit_proxy_vars \
+        "$shell" \
+        "http://$ip:7890" \
+        "http://$ip:7890" \
+        "http://$ip:7890" \
+        "http://$ip:7890" \
+        "$no_proxy"
+
+    emit_echo "$shell" "socks5: $ip:7890 interface:$interface_label"
+    emit_echo "$shell" "HTTP_PROXY:http://$ip:7890"
+    emit_echo "$shell" "HTTPS_PROXY:http://$ip:7890"
+    emit_echo "$shell" "ALL_PROXY:http://$ip:7890"
+    emit_echo "$shell" "SOCKS_PROXY:http://$ip:7890"
+}
+
+scutil_value() {
+    local key="$1"
+    scutil --proxy | awk -v key="$key" '$1 == key {print $3; exit}'
+}
+
+emit_auto_proxy() {
+    local shell="$1"
+
+    if ! command -v scutil >/dev/null 2>&1; then
+        echo "autoproxy requires macOS scutil" >&2
+        return 1
+    fi
+
+    local http_port http_proxy https_port https_proxy socks_port socks_proxy no_proxy
+    http_port=$(scutil_value HTTPPort)
+    http_proxy=$(scutil_value HTTPProxy)
+    https_port=$(scutil_value HTTPSPort)
+    https_proxy=$(scutil_value HTTPSProxy)
+    socks_port=$(scutil_value SOCKSPort)
+    socks_proxy=$(scutil_value SOCKSProxy)
+    no_proxy=$(no_proxy_value)
+
+    emit_proxy_vars \
+        "$shell" \
+        "http://$http_proxy:$http_port" \
+        "http://$https_proxy:$https_port" \
+        "$socks_proxy:$socks_port" \
+        "http://$socks_proxy:$socks_port" \
+        "$no_proxy"
+
+    emit_echo "$shell" "HTTP_PROXY:http://$http_proxy:$http_port"
+    emit_echo "$shell" "HTTPS_PROXY:http://$https_proxy:$https_port"
+    emit_echo "$shell" "SOCKS_PROXY:$socks_proxy:$socks_port"
+    emit_echo "$shell" "NO_PROXY:$no_proxy"
+}
+
+main() {
+    if [[ $# -lt 2 ]]; then
+        usage
+        return 1
+    fi
+
+    local shell="$1"
+    local mode="$2"
+    shift 2
+
+    case "$shell" in
+        bash|fish) ;;
+        *) echo "unsupported shell: $shell" >&2; usage; return 1 ;;
+    esac
+
+    case "$mode" in
+        proxy)
+            local interface="${1:-}"
+            local ip
+            ip=$(ip_for_interface "$interface")
+            emit_fixed_proxy "$shell" "$ip" "$interface"
+            ;;
+        wslproxy)
+            emit_fixed_proxy "$shell" "127.0.0.1" "wsl"
+            ;;
+        autoproxy)
+            emit_auto_proxy "$shell"
+            ;;
+        unproxy)
+            emit_unproxy_vars "$shell"
+            ;;
+        *)
+            echo "unsupported mode: $mode" >&2
+            usage
+            return 1
+            ;;
+    esac
+}
+
+main "$@"

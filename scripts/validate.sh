@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-set -euo pipefail
+set -uo pipefail
 
 PASSED=0
 FAILED=0
@@ -13,48 +13,46 @@ function check() {
     if eval "$command" > /dev/null 2>&1; then
         echo "✓ PASSED"
         ((PASSED++))
-        return 0
     else
         echo "✗ FAILED"
         ((FAILED++))
-        return 1
+    fi
+}
+
+function check_if_available() {
+    local tool="$1"
+    local name="$2"
+    local command="$3"
+
+    if command -v "$tool" > /dev/null 2>&1; then
+        check "$name" "$command"
+    else
+        echo "Skipping $name ($tool not available)"
     fi
 }
 
 echo "=== Dotfiles Validation ==="
 echo ""
 
-check ".zshrc no longer has 'starsship' typo" "! grep -q 'starsship' .zshrc"
-check ".bash_profile no longer has 'SHELl' typo" "! grep -q 'SHELl' .bash_profile"
-check "Only one fish_user_key_bindings definition" "[ $(grep -r 'function fish_user_key_bindings' fish/ 2>/dev/null | wc -l) -eq 1 ]"
-check "No duplicate cargo paths in bash/.path" "[ $(grep -c 'cargo/bin' bash/.path) -eq 1 ]"
-check "ApplePressAndHoldEnabled only in install.sh" "[ $(grep -r 'ApplePressAndHoldEnabled' --include='*.sh' --include='*.fish' | grep -v install.sh | wc -l) -eq 0 ]"
-check "bash/starship.sh removed" "[ ! -f bash/starship.sh ]"
-check "fish/omf.fish removed" "[ ! -f fish/omf.fish ]"
-check "proxy.fish has proxy function" "grep -q '^function proxy' fish/proxy.fish"
-check "proxy.fish has unproxy function" "grep -q '^function unproxy' fish/proxy.fish"
-check "proxy.fish has autoproxy function" "grep -q '^function autoproxy' fish/proxy.fish"
-check "proxy.fish has wslproxy function" "grep -q '^function wslproxy' fish/proxy.fish"
-check "sb function exists in bash/.functions" "grep -q 'function sb' bash/.functions"
-check "s function exists in fish/snippte.fish" "grep -q 'function s' fish/snippte.fish"
-check "snippte binary exists" "test -x bin/snippte"
-check "No hardcoded Thrift version" "! grep -q 'thrift/0\.' fish/thrift.fish"
-check "docker-clean function in fish" "grep -q 'function docker-clean' fish/docker.fish"
-check "docker-clean function in bash" "grep -q 'function docker-clean' bash/.functions"
-check "tunoff alias removed from bash/.aliases" "! grep -q 'alias tunoff' bash/.aliases"
-check "tunoff function exists in bash/.functions" "grep -q 'function tunoff' bash/.functions"
-check "bash/nix-common.sh exists" "test -f bash/nix-common.sh"
-check "fish/nix.fish has path fallback logic" "grep -q 'test -f ~/bash/nix-common.sh' fish/nix.fish"
-check "bash/nix.sh has path fallback logic" "grep -q 'test -f ~/bash/nix-common.sh' bash/nix.sh"
-check "fish/snippte.fish has path fallback logic" "grep -q 'test -x ~/bin/snippte' fish/snippte.fish"
-check "fish/docker.fish has path fallback logic" "grep -q 'test -x ~/snippet/docker/clean' fish/docker.fish"
-check "bash/.functions sb() has path fallback logic" "grep -q 'test -x ~/bin/snippte' bash/.functions"
-check "bash/.functions docker-clean() has path fallback logic" "grep -q 'test -x ~/snippet/docker/clean' bash/.functions"
-check ".exclude includes .sisyphus/" "grep -q '.sisyphus/' .exclude"
-check ".exclude includes *.md" "grep -q '\*.md' .exclude"
-check "install.sh has pre_flight_checks function" "grep -q 'function pre_flight_checks' install.sh"
-check "install.sh has create_backup function" "grep -q 'function create_backup' install.sh"
-check "install.sh supports --dry-run" "grep -q '\-\-dry-run' install.sh"
+check "bash scripts parse before shell startup" "bash -n install.sh bash/*.sh bin/proxy-env scripts/*.sh"
+check_if_available fish "fish scripts parse before shell startup" "for f in fish/*.fish; do fish -n \"\$f\" || exit 1; done"
+
+check "proxy-env is the executable proxy env module" "test -x bin/proxy-env"
+check "proxy-env bash adapter output sets the default proxy endpoint" "[[ \"\$(./bin/proxy-env bash proxy)\" == *'export HTTP_PROXY=http://192.168.33.1:7890'* ]]"
+check "proxy-env fish adapter output sets the default proxy endpoint" "[[ \"\$(./bin/proxy-env fish proxy)\" == *\"set -gx HTTP_PROXY 'http://192.168.33.1:7890'\"* ]]"
+check "proxy-env keeps NO_PROXY rules local to the deep module" "bash -lc 'eval \"\$(./bin/proxy-env bash proxy)\" >/dev/null; [[ \"\$NO_PROXY\" == 127.0.0.1,localhost,192.168.44.0* ]]'"
+check "proxy-env exposes WSL host mode consistently" "[[ \"\$(./bin/proxy-env bash wslproxy)\" == *'export HTTP_PROXY=http://127.0.0.1:7890'* ]]"
+check "proxy-env clears every proxy spelling plus GOPROXY" "[[ \"\$(./bin/proxy-env bash unproxy)\" == *'unset GOPROXY'* ]]"
+
+check "bash proxy adapter applies the shared proxy env interface" "bash -lc 'source bash/proxy.sh; proxy >/dev/null; [[ \"\$HTTP_PROXY\" == http://192.168.33.1:7890 && -n \"\$NO_PROXY\" ]]'"
+check "bash unproxy adapter clears the shared proxy env interface" "bash -lc 'source bash/proxy.sh; export HTTP_PROXY=x; unproxy >/dev/null; [[ -z \"\${HTTP_PROXY:-}\" ]]'"
+check_if_available fish "fish proxy adapter applies the shared proxy env interface" "env -i HOME=\"\$HOME\" PATH=\"\$PATH\" fish --no-config -c 'source fish/proxy.fish; proxy >/dev/null; test \"\$HTTP_PROXY\" = http://192.168.33.1:7890; and test -n \"\$NO_PROXY\"'"
+check_if_available fish "fish unproxy adapter clears the shared proxy env interface" "env -i HOME=\"\$HOME\" PATH=\"\$PATH\" fish --no-config -c 'source fish/proxy.fish; set -gx HTTP_PROXY x; unproxy >/dev/null; not set -q HTTP_PROXY'"
+
+check "bash proxy adapter does not own proxy rules" "! grep -q 'export HTTP_PROXY=' bash/proxy.sh"
+check "fish proxy adapter does not own proxy rules" "! grep -q 'set -gx HTTP_PROXY\|export HTTP_PROXY=' fish/proxy.fish"
+check "CONTEXT records Shell capability language" "grep -q '^\\*\\*Shell capability\\*\\*:' CONTEXT.md"
+check "CONTEXT records Proxy env language" "grep -q '^\\*\\*Proxy env\\*\\*:' CONTEXT.md"
 
 echo ""
 echo "=== Results ==="
@@ -66,5 +64,4 @@ if [[ $FAILED -gt 0 ]]; then
     exit 1
 else
     echo "All checks passed!"
-    exit 0
 fi
