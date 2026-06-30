@@ -40,6 +40,10 @@ function proxy() {
     _proxy_env_eval proxy "$@"
 }
 
+function p() {
+    HTTPS_PROXY=http://127.0.0.1:7890 HTTP_PROXY=http://127.0.0.1:7890 pi "$@"
+}
+
 function unproxy() {
     _proxy_env_eval unproxy
 }

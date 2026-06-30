@@ -38,6 +38,10 @@ function proxy -d "set proxy to socks5 7890"
     __proxy_env_eval proxy $argv
 end
 
+function p -d "run pi through local HTTP proxy"
+	env HTTPS_PROXY=http://127.0.0.1:7890 HTTP_PROXY=http://127.0.0.1:7890 pi $argv
+end
+
 function unproxy -d "disable proxy to socks5 7890"
     __proxy_env_eval unproxy
 end
