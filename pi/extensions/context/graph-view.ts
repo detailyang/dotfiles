@@ -2,52 +2,10 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import type { AssistantUsageMetric, CacheSessionMetrics } from "./types.js";
 import { formatInt, formatPercent, formatTotalsLine } from "./format-utils.js";
 import { computeCumulativeSeries, type CumulativeSeries } from "./cumulative.js";
-
-export type GraphView = "per-turn" | "cumulative-percent" | "cumulative-total";
-
-export const GRAPH_VIEWS: GraphView[] = ["per-turn", "cumulative-percent", "cumulative-total"];
-
-export function graphViewLabel(view: GraphView): string {
-  switch (view) {
-    case "per-turn":
-      return "Per-turn (%)";
-    case "cumulative-percent":
-      return "Cumulative (aggregate) %";
-    case "cumulative-total":
-      return "Cumulative (aggregate) total";
-  }
-}
+import { graphViewLabel, type GraphView } from "./view-state.js";
+import { bucketCumulativeSeries, bucketItems } from "./chart-data.js";
 
 // ─── Bucketing helpers ────────────────────────────────────────────────────────
-
-export function bucketMessages(messages: AssistantUsageMetric[], bucketCount: number): AssistantUsageMetric[][] {
-  if (messages.length <= bucketCount) {
-    return messages.map((message) => [message]);
-  }
-  const buckets: AssistantUsageMetric[][] = [];
-  for (let i = 0; i < bucketCount; i += 1) {
-    const start = Math.floor((i * messages.length) / bucketCount);
-    const end = Math.floor(((i + 1) * messages.length) / bucketCount);
-    buckets.push(messages.slice(start, Math.max(start + 1, end)));
-  }
-  return buckets;
-}
-
-/**
- * Buckets a flat numeric array using max — correct for monotonic cumulative series
- * because max == last sample in each bucket.
- */
-function bucketMax(values: number[], bucketCount: number): number[] {
-  if (values.length <= bucketCount) return [...values];
-  const result: number[] = [];
-  for (let i = 0; i < bucketCount; i += 1) {
-    const start = Math.floor((i * values.length) / bucketCount);
-    const end = Math.floor(((i + 1) * values.length) / bucketCount);
-    const slice = values.slice(start, Math.max(start + 1, end));
-    result.push(Math.max(...slice));
-  }
-  return result;
-}
 
 export function averageHitPercent(messages: AssistantUsageMetric[]): number {
   if (messages.length === 0) return 0;
@@ -143,7 +101,7 @@ function renderPerTurnPercent(
 ): string[] {
   const lines: string[] = [];
   const chartHeight = 10;
-  const buckets = bucketMessages(messages, chartWidth);
+  const buckets = bucketItems(messages, chartWidth);
   const values = buckets.map((bucket) => averageHitPercent(bucket));
 
   lines.push(...renderBarChart(theme, values, chartHeight));
@@ -174,7 +132,7 @@ function renderCumulativePercent(
 ): string[] {
   const lines: string[] = [];
   const chartHeight = 10;
-  const bucketed = bucketMax(cumSeries.cumHitPercent, chartHeight);
+  const bucketed = bucketCumulativeSeries(cumSeries, chartWidth).cumHitPercent;
 
   lines.push(...renderBarChart(theme, bucketed, chartHeight));
   lines.push(...xAxisFooter(theme, bucketed.length, messages.length, "   "));
@@ -209,19 +167,17 @@ function renderCumulativeTotal(
 ): string[] {
   const lines: string[] = [];
   const chartHeight = 10;
-  const bucketedInput = bucketMax(cumSeries.cumInput, chartHeight);
-  const bucketedRead = bucketMax(cumSeries.cumCacheRead, chartHeight);
-  const bucketedWrite = bucketMax(cumSeries.cumCacheWrite, chartHeight);
+  const bucketedSeries = bucketCumulativeSeries(cumSeries, chartWidth);
 
   const { lines: chartLines, unitTokens } = renderStackedSeriesChart(
     theme,
-    bucketedInput,
-    bucketedRead,
-    bucketedWrite,
+    bucketedSeries.cumInput,
+    bucketedSeries.cumCacheRead,
+    bucketedSeries.cumCacheWrite,
     chartHeight,
   );
   lines.push(...chartLines);
-  lines.push(...xAxisFooter(theme, bucketedInput.length, messages.length, "     "));
+  lines.push(...xAxisFooter(theme, bucketedSeries.cumInput.length, messages.length, "     "));
   lines.push("");
 
   // Legend

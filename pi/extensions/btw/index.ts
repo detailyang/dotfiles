@@ -10,7 +10,7 @@ import {
   type ExtensionContext,
   type ResourceLoader,
 } from "@earendil-works/pi-coding-agent";
-import { type AssistantMessage, type Message, type ThinkingLevel as AiThinkingLevel, type UserMessage } from "@earendil-works/pi-ai";
+import { type AssistantMessage, type Message, type UserMessage } from "@earendil-works/pi-ai";
 import {
   Box,
   Container,
@@ -26,12 +26,62 @@ import {
   type OverlayHandle,
   type TUI,
 } from "@earendil-works/pi-tui";
+import {
+  parseBtwArgs,
+  parseBtwModelArgs,
+  parseBtwThinkingArgs,
+  parseOverlayBtwCommand,
+  type SessionThinkingLevel,
+} from "./command.js";
+import {
+  buildResolvedBtwSettings,
+  describeResolvedBtwModel as describeResolvedModel,
+  describeResolvedBtwThinking as describeResolvedThinking,
+  formatModelRef,
+  resolveBtwModelWithCredentialStatus,
+  type ResolvedBtwModel,
+  type ResolvedBtwSettings,
+} from "./settings.js";
+import {
+  appendPersistedBtwTranscriptTurn,
+  applyBtwTranscriptEvent,
+  createEmptyBtwTranscriptState,
+  extractBtwAssistantAnswer,
+  extractBtwAssistantThinking,
+  findLatestBtwTranscriptEntry,
+  getCompletedBtwExchangeCount,
+  hasStreamingBtwTranscriptEntry,
+  removeBtwTranscriptTurn,
+  setBtwTranscriptFailure,
+  type BtwTranscript,
+  type BtwTranscriptEntry,
+  type BtwTranscriptEvent,
+  type BtwTranscriptState,
+} from "./transcript.js";
+import {
+  buildBtwDetailsFromResponse,
+  getBtwAuthFailureMessage,
+  getLastAssistantMessage,
+} from "./session-run.js";
+import {
+  BTW_ENTRY_TYPE,
+  BTW_MODEL_OVERRIDE_TYPE,
+  BTW_MESSAGE_TYPE,
+  BTW_RESET_TYPE,
+  BTW_THINKING_OVERRIDE_TYPE,
+  buildBtwMessageContent,
+  buildBtwSeedThreadMessages,
+  extractBtwHandoffThread,
+  formatBtwThread,
+  isVisibleBtwMessage,
+  pendingThreadToHandoff,
+  restoreBtwThreadState,
+  type BtwModelOverrideDetails,
+  type BtwResetDetails,
+  type BtwThinkingOverrideDetails,
+  type BtwHandoffExchange,
+} from "./thread.js";
 
-const BTW_MESSAGE_TYPE = "btw-note";
-const BTW_ENTRY_TYPE = "btw-thread-entry";
-const BTW_RESET_TYPE = "btw-thread-reset";
-const BTW_MODEL_OVERRIDE_TYPE = "btw-model-override";
-const BTW_THINKING_OVERRIDE_TYPE = "btw-thinking-override";
 const BTW_FOCUS_SHORTCUTS = [Key.alt("/"), Key.ctrlAlt("w")] as const;
 
 function matchesBtwFocusShortcut(data: string): boolean {
@@ -49,17 +99,8 @@ const BTW_SYSTEM_PROMPT = [
 const BTW_SUMMARIZE_SYSTEM_PROMPT =
   "Summarize the side conversation concisely. Preserve key decisions, plans, insights, risks, and action items. Output only the summary.";
 
-const BTW_CONTINUE_THREAD_USER_TEXT = "[The following is a separate side conversation. Continue this thread.]";
-const BTW_CONTINUE_THREAD_ASSISTANT_TEXT = "Understood, continuing our side conversation.";
-
-type SessionThinkingLevel = "off" | AiThinkingLevel;
 type BtwThreadMode = "contextual" | "tangent";
 type SessionModel = NonNullable<ExtensionCommandContext["model"]>;
-/**
- * Loose model reference parsed from `/btw:model <provider> <id> <api>` and persisted to
- * session entries. Resolved to a full SessionModel via ctx.modelRegistry.find(...).
- */
-type BtwModelRef = Pick<SessionModel, "provider" | "id" | "api">;
 
 type BtwDetails = {
   question: string;
@@ -73,70 +114,7 @@ type BtwDetails = {
   usage?: AssistantMessage["usage"];
 };
 
-type ParsedBtwArgs = {
-  question: string;
-  save: boolean;
-};
-
 type SaveState = "not-saved" | "saved" | "queued";
-
-type BtwResetDetails = {
-  timestamp: number;
-  mode?: BtwThreadMode;
-};
-
-type BtwModelOverrideDetails =
-  | ({ timestamp: number; action: "set" } & Pick<SessionModel, "provider" | "id" | "api">)
-  | { timestamp: number; action: "clear" };
-
-type BtwThinkingOverrideDetails =
-  | { timestamp: number; action: "set"; thinkingLevel: SessionThinkingLevel }
-  | { timestamp: number; action: "clear" };
-
-type ResolvedBtwModel = {
-  model: SessionModel | null;
-  source: "override" | "main" | "none";
-  configuredOverride: SessionModel | null;
-  fallbackReason?: string;
-};
-
-type ResolvedBtwSettings = {
-  model: SessionModel | null;
-  modelSource: "override" | "main" | "none";
-  configuredModelOverride: SessionModel | null;
-  thinkingLevel: SessionThinkingLevel;
-  thinkingSource: "override" | "main";
-  fallbackReason?: string;
-};
-
-type BtwTranscriptEntry =
-  | { id: number; turnId: number; type: "turn-boundary"; phase: "start" | "end" }
-  | { id: number; turnId: number; type: "user-message"; text: string }
-  | { id: number; turnId: number; type: "thinking"; text: string; streaming: boolean }
-  | { id: number; turnId: number; type: "assistant-text"; text: string; streaming: boolean }
-  | { id: number; turnId: number; type: "tool-call"; toolCallId: string; toolName: string; args: string }
-  | {
-      id: number;
-      turnId: number;
-      type: "tool-result";
-      toolCallId: string;
-      toolName: string;
-      content: string;
-      truncated: boolean;
-      isError: boolean;
-      streaming: boolean;
-    };
-
-type BtwTranscript = BtwTranscriptEntry[];
-
-type BtwTranscriptState = {
-  entries: BtwTranscript;
-  nextEntryId: number;
-  nextTurnId: number;
-  currentTurnId: number | null;
-  lastTurnId: number | null;
-  toolCalls: Map<string, { turnId: number; callEntryId: number; resultEntryId?: number }>;
-};
 
 type BtwSessionRuntime = {
   session: AgentSession;
@@ -153,14 +131,6 @@ type OverlayRuntime = {
   setDraft?: (value: string) => void;
   closed?: boolean;
 };
-
-function isVisibleBtwMessage(message: { role: string; customType?: string }): boolean {
-  return message.role === "custom" && message.customType === BTW_MESSAGE_TYPE;
-}
-
-function isCustomEntry(entry: unknown, customType: string): entry is { type: "custom"; customType: string; data?: unknown } {
-  return !!entry && typeof entry === "object" && (entry as { type?: string }).type === "custom" && (entry as { customType?: string }).customType === customType;
-}
 
 function stripDynamicSystemPromptFooter(systemPrompt: string): string {
   return systemPrompt
@@ -189,88 +159,6 @@ function createBtwResourceLoader(
   };
 }
 
-function extractText(parts: AssistantMessage["content"], type: "text" | "thinking"): string {
-  const chunks: string[] = [];
-
-  for (const part of parts) {
-    if (type === "text" && part.type === "text") {
-      chunks.push(part.text);
-    } else if (type === "thinking" && part.type === "thinking") {
-      chunks.push(part.thinking);
-    }
-  }
-
-  return chunks.join("\n").trim();
-}
-
-function extractAnswer(message: AssistantMessage): string {
-  return extractText(message.content, "text") || "(No text response)";
-}
-
-function extractThinking(message: AssistantMessage): string {
-  return extractText(message.content, "thinking");
-}
-
-function parseBtwArgs(args: string): ParsedBtwArgs {
-  const save = /(?:^|\s)(?:--save|-s)(?=\s|$)/.test(args);
-  const question = args.replace(/(?:^|\s)(?:--save|-s)(?=\s|$)/g, " ").trim();
-  return { question, save };
-}
-
-function parseBtwModelArgs(args: string):
-  | { action: "show" }
-  | { action: "clear" }
-  | { action: "set"; model: BtwModelRef }
-  | { action: "invalid"; message: string } {
-  const trimmed = args.trim();
-  if (!trimmed) {
-    return { action: "show" };
-  }
-
-  if (trimmed === "clear") {
-    return { action: "clear" };
-  }
-
-  const parts = trimmed.split(/\s+/);
-  if (parts.length !== 3) {
-    return { action: "invalid", message: "Usage: /btw:model <provider> <model> <api> | clear" };
-  }
-
-  const [provider, id, api] = parts;
-  return { action: "set", model: { provider, id, api } as BtwModelRef };
-}
-
-const VALID_THINKING_LEVELS: readonly SessionThinkingLevel[] = ["off", "minimal", "low", "medium", "high", "xhigh"];
-
-function isValidThinkingLevel(value: string): value is SessionThinkingLevel {
-  return (VALID_THINKING_LEVELS as readonly string[]).includes(value);
-}
-
-function parseBtwThinkingArgs(args: string):
-  | { action: "show" }
-  | { action: "clear" }
-  | { action: "set"; thinkingLevel: SessionThinkingLevel }
-  | { action: "invalid"; message: string } {
-  const trimmed = args.trim();
-  if (!trimmed) {
-    return { action: "show" };
-  }
-
-  if (trimmed === "clear") {
-    return { action: "clear" };
-  }
-
-  if (!isValidThinkingLevel(trimmed)) {
-    return { action: "invalid", message: `Invalid thinking level "${trimmed}". Valid values: ${VALID_THINKING_LEVELS.join(", ")}.` };
-  }
-
-  return { action: "set", thinkingLevel: trimmed };
-}
-
-function formatModelRef(model: Pick<SessionModel, "provider" | "id" | "api">): string {
-  return `${model.provider}/${model.id} (${model.api})`;
-}
-
 function buildBtwSeedState(
   ctx: ExtensionCommandContext,
   thread: BtwDetails[],
@@ -290,491 +178,13 @@ function buildBtwSeedState(
   const sideThreadStartIndex = messages.length;
 
   if (thread.length > 0) {
-    messages.push(
-      {
-        role: "user",
-        content: [{ type: "text", text: BTW_CONTINUE_THREAD_USER_TEXT }],
-        timestamp: Date.now(),
-      },
-      {
-        role: "assistant",
-        content: [{ type: "text", text: BTW_CONTINUE_THREAD_ASSISTANT_TEXT }],
-        provider: sessionModel?.provider ?? "unknown",
-        model: sessionModel?.id ?? "unknown",
-        api: sessionModel?.api ?? "openai-responses",
-        usage: {
-          input: 0,
-          output: 0,
-          cacheRead: 0,
-          cacheWrite: 0,
-          totalTokens: 0,
-          cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-        },
-        stopReason: "stop",
-        timestamp: Date.now(),
-      },
-    );
-
-    for (const entry of thread) {
-      messages.push(
-        {
-          role: "user",
-          content: [{ type: "text", text: entry.question }],
-          timestamp: entry.timestamp,
-        },
-        {
-          role: "assistant",
-          content: [{ type: "text", text: entry.answer }],
-          provider: entry.provider,
-          model: entry.model,
-          api: entry.api || sessionModel?.api || ctx.model?.api || "openai-responses",
-          usage:
-            entry.usage ?? {
-              input: 0,
-              output: 0,
-              cacheRead: 0,
-              cacheWrite: 0,
-              totalTokens: 0,
-              cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 },
-            },
-          stopReason: "stop",
-          timestamp: entry.timestamp,
-        },
-      );
-    }
+    messages.push(...(buildBtwSeedThreadMessages(thread, sessionModel, ctx.model?.api || "openai-responses", Date.now()) as Message[]));
   }
 
   return {
     messages,
     sideThreadStartIndex,
   };
-}
-
-function formatToolPreview(value: unknown): string {
-  if (value === undefined) {
-    return "";
-  }
-
-  if (typeof value === "string") {
-    return value;
-  }
-
-  if (value && typeof value === "object") {
-    const path = (value as { path?: unknown }).path;
-    if (typeof path === "string") {
-      return path;
-    }
-  }
-
-  try {
-    const preview = JSON.stringify(value);
-    if (!preview || preview === "{}") {
-      return "";
-    }
-    return preview.length > 120 ? `${preview.slice(0, 117)}...` : preview;
-  } catch (error) {
-    console.warn("[btw] formatToolPreview: JSON.stringify failed (circular reference?):", error);
-    return "";
-  }
-}
-
-function createEmptyTranscriptState(): BtwTranscriptState {
-  return {
-    entries: [],
-    nextEntryId: 1,
-    nextTurnId: 1,
-    currentTurnId: null,
-    lastTurnId: null,
-    toolCalls: new Map(),
-  };
-}
-
-function appendTranscriptEntry<T extends BtwTranscriptEntry>(
-  state: BtwTranscriptState,
-  entry: Omit<T, "id">,
-): T {
-  const nextEntry = { ...entry, id: state.nextEntryId++ } as T;
-  state.entries.push(nextEntry);
-  return nextEntry;
-}
-
-function ensureTranscriptTurn(state: BtwTranscriptState): number {
-  if (state.currentTurnId !== null) {
-    return state.currentTurnId;
-  }
-
-  const turnId = state.nextTurnId++;
-  state.currentTurnId = turnId;
-  state.lastTurnId = turnId;
-  appendTranscriptEntry(state, { type: "turn-boundary", turnId, phase: "start" } as Omit<Extract<BtwTranscriptEntry, { type: "turn-boundary" }>, "id">);
-  return turnId;
-}
-
-function finishTranscriptTurn(state: BtwTranscriptState, turnId?: number | null): void {
-  const resolvedTurnId = turnId ?? state.currentTurnId;
-  if (resolvedTurnId === null || resolvedTurnId === undefined) {
-    return;
-  }
-
-  const hasEndBoundary = state.entries.some(
-    (entry) => entry.turnId === resolvedTurnId && entry.type === "turn-boundary" && entry.phase === "end",
-  );
-  if (!hasEndBoundary) {
-    appendTranscriptEntry(state, { type: "turn-boundary", turnId: resolvedTurnId, phase: "end" } as Omit<Extract<BtwTranscriptEntry, { type: "turn-boundary" }>, "id">);
-  }
-
-  for (const entry of state.entries) {
-    if (entry.turnId !== resolvedTurnId) {
-      continue;
-    }
-
-    if (entry.type === "thinking" || entry.type === "assistant-text" || entry.type === "tool-result") {
-      entry.streaming = false;
-    }
-  }
-
-  state.lastTurnId = resolvedTurnId;
-  if (state.currentTurnId === resolvedTurnId) {
-    state.currentTurnId = null;
-  }
-}
-
-function removeTranscriptTurn(state: BtwTranscriptState, turnId: number | null): void {
-  if (turnId === null) {
-    return;
-  }
-
-  state.entries = state.entries.filter((entry) => entry.turnId !== turnId);
-  for (const [toolCallId, toolCall] of state.toolCalls.entries()) {
-    if (toolCall.turnId === turnId) {
-      state.toolCalls.delete(toolCallId);
-    }
-  }
-
-  if (state.currentTurnId === turnId) {
-    state.currentTurnId = null;
-  }
-  if (state.lastTurnId === turnId) {
-    state.lastTurnId = null;
-  }
-}
-
-function findLatestTranscriptEntry<TType extends BtwTranscriptEntry["type"]>(
-  state: BtwTranscriptState,
-  turnId: number,
-  type: TType,
-): Extract<BtwTranscriptEntry, { type: TType }> | undefined {
-  for (let i = state.entries.length - 1; i >= 0; i--) {
-    const entry = state.entries[i];
-    if (entry.turnId === turnId && entry.type === type) {
-      return entry as Extract<BtwTranscriptEntry, { type: TType }>;
-    }
-  }
-
-  return undefined;
-}
-
-function ensureTranscriptTurnForUserMessage(state: BtwTranscriptState): number {
-  if (state.currentTurnId !== null) {
-    const currentAssistant = findLatestTranscriptEntry(state, state.currentTurnId, "assistant-text");
-    if (currentAssistant && !currentAssistant.streaming) {
-      finishTranscriptTurn(state, state.currentTurnId);
-    }
-  }
-
-  return ensureTranscriptTurn(state);
-}
-
-function extractMessageText(message: { content?: string | AssistantMessage["content"] | UserMessage["content"] }): string {
-  if (typeof message.content === "string") {
-    return message.content;
-  }
-  if (!Array.isArray(message.content)) {
-    return "";
-  }
-  return message.content
-    .filter((part): part is { type: "text"; text: string } => part.type === "text" && typeof part.text === "string")
-    .map((part) => part.text)
-    .join("\n")
-    .trim();
-}
-
-function upsertUserMessageEntry(state: BtwTranscriptState, turnId: number, text: string): void {
-  if (!text) {
-    return;
-  }
-
-  const existing = findLatestTranscriptEntry(state, turnId, "user-message");
-  if (existing) {
-    existing.text = text;
-    return;
-  }
-
-  appendTranscriptEntry(state, { type: "user-message", turnId, text } as Omit<Extract<BtwTranscriptEntry, { type: "user-message" }>, "id">);
-}
-
-function upsertTranscriptTextEntry(
-  state: BtwTranscriptState,
-  turnId: number,
-  type: "thinking" | "assistant-text",
-  text: string,
-  streaming: boolean,
-): void {
-  if (!text) {
-    return;
-  }
-
-  const existing = findLatestTranscriptEntry(state, turnId, type);
-  if (existing) {
-    existing.text = text;
-    existing.streaming = streaming;
-    return;
-  }
-
-  appendTranscriptEntry(state, { type, turnId, text, streaming } as Omit<Extract<BtwTranscriptEntry, { type: "thinking" | "assistant-text" }>, "id">);
-}
-
-function summarizeToolResult(value: unknown, maxLength = 400): { content: string; truncated: boolean } {
-  let content = "";
-
-  if (value && typeof value === "object") {
-    const toolValue = value as {
-      content?: Array<{ type?: string; text?: string }>;
-      error?: unknown;
-      message?: unknown;
-    };
-
-    if (Array.isArray(toolValue.content)) {
-      content = toolValue.content
-        .filter((part) => part.type === "text" && typeof part.text === "string")
-        .map((part) => part.text ?? "")
-        .join("\n")
-        .trim();
-    }
-
-    if (!content && typeof toolValue.error === "string") {
-      content = toolValue.error;
-    }
-
-    if (!content && typeof toolValue.message === "string") {
-      content = toolValue.message;
-    }
-  }
-
-  if (!content) {
-    if (typeof value === "string") {
-      content = value;
-    } else if (value !== undefined) {
-      try {
-        content = JSON.stringify(value, null, 2);
-      } catch {
-        content = String(value);
-      }
-    }
-  }
-
-  if (!content) {
-    content = "(no tool output)";
-  }
-
-  const truncated = content.length > maxLength;
-  return {
-    content: truncated ? `${content.slice(0, maxLength - 3)}...` : content,
-    truncated,
-  };
-}
-
-function ensureToolCallEntry(
-  state: BtwTranscriptState,
-  turnId: number,
-  toolCallId: string,
-  toolName: string,
-  args: string,
-): { turnId: number; callEntryId: number; resultEntryId?: number } {
-  const existing = state.toolCalls.get(toolCallId);
-  if (existing) {
-    return existing;
-  }
-
-  const callEntry = appendTranscriptEntry(state, {
-    type: "tool-call",
-    turnId,
-    toolCallId,
-    toolName,
-    args,
-  } as Omit<Extract<BtwTranscriptEntry, { type: "tool-call" }>, "id">);
-  const record = { turnId, callEntryId: callEntry.id };
-  state.toolCalls.set(toolCallId, record);
-  return record;
-}
-
-function upsertToolResultEntry(
-  state: BtwTranscriptState,
-  turnId: number,
-  toolCallId: string,
-  toolName: string,
-  content: string,
-  truncated: boolean,
-  isError: boolean,
-  streaming: boolean,
-): void {
-  const toolCall = ensureToolCallEntry(state, turnId, toolCallId, toolName, "");
-  const existing =
-    toolCall.resultEntryId !== undefined
-      ? state.entries.find((entry) => entry.id === toolCall.resultEntryId && entry.type === "tool-result")
-      : undefined;
-
-  if (existing && existing.type === "tool-result") {
-    existing.content = content;
-    existing.truncated = truncated;
-    existing.isError = isError;
-    existing.streaming = streaming;
-    return;
-  }
-
-  const resultEntry = appendTranscriptEntry(state, {
-    type: "tool-result",
-    turnId,
-    toolCallId,
-    toolName,
-    content,
-    truncated,
-    isError,
-    streaming,
-  } as Omit<Extract<BtwTranscriptEntry, { type: "tool-result" }>, "id">);
-  toolCall.resultEntryId = resultEntry.id;
-}
-
-function applyAssistantMessageToTranscript(
-  state: BtwTranscriptState,
-  turnId: number,
-  message: AssistantMessage,
-  streaming: boolean,
-): void {
-  const assistantMessage = message;
-  const thinking = extractThinking(assistantMessage);
-  const answer = extractMessageText(assistantMessage);
-
-  if (thinking) {
-    upsertTranscriptTextEntry(state, turnId, "thinking", thinking, streaming);
-  }
-
-  if (answer) {
-    upsertTranscriptTextEntry(state, turnId, "assistant-text", answer, streaming);
-  }
-}
-
-function applyTranscriptEvent(state: BtwTranscriptState, event: AgentSessionEvent): void {
-  switch (event.type) {
-    case "turn_start": {
-      ensureTranscriptTurn(state);
-      return;
-    }
-    case "message_start": {
-      if (event.message.role === "user") {
-        const turnId = ensureTranscriptTurnForUserMessage(state);
-        upsertUserMessageEntry(state, turnId, extractMessageText(event.message));
-        return;
-      }
-
-      if (event.message.role === "assistant") {
-        const turnId = ensureTranscriptTurn(state);
-        applyAssistantMessageToTranscript(state, turnId, event.message, true);
-      }
-      return;
-    }
-    case "message_update": {
-      if (event.message.role !== "assistant") {
-        return;
-      }
-
-      const turnId = ensureTranscriptTurn(state);
-      applyAssistantMessageToTranscript(state, turnId, event.message, true);
-      return;
-    }
-    case "message_end": {
-      if (event.message.role === "user") {
-        const turnId = ensureTranscriptTurnForUserMessage(state);
-        upsertUserMessageEntry(state, turnId, extractMessageText(event.message));
-        return;
-      }
-
-      if (event.message.role === "assistant") {
-        const turnId = ensureTranscriptTurn(state);
-        applyAssistantMessageToTranscript(state, turnId, event.message, false);
-      }
-      return;
-    }
-    case "tool_execution_start": {
-      const turnId = ensureTranscriptTurn(state);
-      ensureToolCallEntry(state, turnId, event.toolCallId, event.toolName, formatToolPreview(event.args));
-      return;
-    }
-    case "tool_execution_update": {
-      const turnId = state.toolCalls.get(event.toolCallId)?.turnId ?? ensureTranscriptTurn(state);
-      const result = summarizeToolResult(event.partialResult);
-      upsertToolResultEntry(
-        state,
-        turnId,
-        event.toolCallId,
-        event.toolName,
-        result.content,
-        result.truncated,
-        false,
-        true,
-      );
-      return;
-    }
-    case "tool_execution_end": {
-      const turnId = state.toolCalls.get(event.toolCallId)?.turnId ?? ensureTranscriptTurn(state);
-      const result = summarizeToolResult(event.result);
-      upsertToolResultEntry(
-        state,
-        turnId,
-        event.toolCallId,
-        event.toolName,
-        result.content,
-        result.truncated,
-        event.isError,
-        false,
-      );
-      return;
-    }
-    case "turn_end": {
-      finishTranscriptTurn(state);
-      return;
-    }
-    default:
-      return;
-  }
-}
-
-function appendPersistedTranscriptTurn(state: BtwTranscriptState, details: BtwDetails): void {
-  const turnId = ensureTranscriptTurn(state);
-  upsertUserMessageEntry(state, turnId, details.question);
-  if (details.thinking) {
-    upsertTranscriptTextEntry(state, turnId, "thinking", details.thinking, false);
-  }
-  upsertTranscriptTextEntry(state, turnId, "assistant-text", details.answer, false);
-  finishTranscriptTurn(state, turnId);
-}
-
-function setTranscriptFailure(state: BtwTranscriptState, message: string): void {
-  const turnId = state.currentTurnId ?? state.lastTurnId ?? ensureTranscriptTurn(state);
-  upsertTranscriptTextEntry(state, turnId, "assistant-text", `❌ ${message}`, false);
-  finishTranscriptTurn(state, turnId);
-}
-
-function hasStreamingTranscriptEntry(entries: BtwTranscript): boolean {
-  return entries.some(
-    (entry) =>
-      (entry.type === "thinking" || entry.type === "assistant-text" || entry.type === "tool-result") &&
-      entry.streaming,
-  );
-}
-
-function getCompletedExchangeCount(entries: BtwTranscript): number {
-  return entries.filter((entry) => entry.type === "assistant-text" && !entry.streaming).length;
 }
 
 function buildOverlayTranscript(entries: BtwTranscript, theme: ExtensionContext["ui"]["theme"]): string[] {
@@ -884,84 +294,6 @@ function buildOverlayTranscript(entries: BtwTranscript, theme: ExtensionContext[
   }
 
   return lines;
-}
-
-function getLastAssistantMessage(session: AgentSession): AssistantMessage | null {
-  for (let i = session.state.messages.length - 1; i >= 0; i--) {
-    const message = session.state.messages[i];
-    if (message.role === "assistant") {
-      return message as AssistantMessage;
-    }
-  }
-
-  return null;
-}
-
-type BtwHandoffExchange = {
-  user: string;
-  assistant: string;
-};
-
-function buildBtwMessageContent(question: string, answer: string): string {
-  return `Q: ${question}\n\nA: ${answer}`;
-}
-
-function formatThread(thread: BtwHandoffExchange[]): string {
-  return thread.map((entry) => `User: ${entry.user.trim()}\nAssistant: ${entry.assistant.trim()}`).join("\n\n---\n\n");
-}
-
-function isThreadContinuationMarker(messages: Message[], index: number): boolean {
-  const userMessage = messages[index];
-  const assistantMessage = messages[index + 1];
-  return (
-    userMessage?.role === "user" &&
-    extractMessageText(userMessage) === BTW_CONTINUE_THREAD_USER_TEXT &&
-    assistantMessage?.role === "assistant" &&
-    extractMessageText(assistantMessage) === BTW_CONTINUE_THREAD_ASSISTANT_TEXT
-  );
-}
-
-function extractBtwHandoffThread(sessionRuntime: BtwSessionRuntime): BtwHandoffExchange[] {
-  const handoffMessages = sessionRuntime.session.state.messages.slice(sessionRuntime.sideThreadStartIndex);
-  const threadMessages = isThreadContinuationMarker(handoffMessages as Message[], 0) ? handoffMessages.slice(2) : handoffMessages;
-  const exchanges: BtwHandoffExchange[] = [];
-  let currentUser = "";
-  let currentAssistant = "";
-
-  const pushCurrent = () => {
-    if (!currentUser && !currentAssistant) {
-      return;
-    }
-
-    exchanges.push({
-      user: currentUser.trim() || "(No user prompt)",
-      assistant: currentAssistant.trim() || "(No assistant response)",
-    });
-    currentUser = "";
-    currentAssistant = "";
-  };
-
-  for (const message of threadMessages) {
-    if (message.role !== "user" && message.role !== "assistant") {
-      continue;
-    }
-
-    const text = extractMessageText(message).trim();
-    if (!text) {
-      continue;
-    }
-
-    if (message.role === "user") {
-      pushCurrent();
-      currentUser = text;
-      continue;
-    }
-
-    currentAssistant = currentAssistant ? `${currentAssistant}\n\n${text}` : text;
-  }
-
-  pushCurrent();
-  return exchanges;
 }
 
 function saveVisibleBtwNote(
@@ -1278,8 +610,8 @@ class BtwOverlayComponent extends Container implements Focusable {
     this.modeTextValue = `${getOverlayTitle(this.getMode())} · hidden thread preserved`;
     this.modeText.setText(this.modeTextValue);
     const entries = this.readTranscriptEntries();
-    const exchanges = getCompletedExchangeCount(entries);
-    const active = hasStreamingTranscriptEntry(entries) ? " · streaming" : " · idle";
+    const exchanges = getCompletedBtwExchangeCount(entries);
+    const active = hasStreamingBtwTranscriptEntry(entries) ? " · streaming" : " · idle";
     this.summaryTextValue = `${exchanges} exchange${exchanges === 1 ? "" : "s"}${active}`;
     this.summaryText.setText(this.summaryTextValue);
 
@@ -1303,7 +635,7 @@ export default function (pi: ExtensionAPI) {
   let pendingMode: BtwThreadMode = "contextual";
   let btwModelOverride: SessionModel | null = null;
   let btwThinkingOverride: SessionThinkingLevel | null = null;
-  let transcriptState = createEmptyTranscriptState();
+  let transcriptState = createEmptyBtwTranscriptState();
   let overlayStatus: string | null = null;
   let overlayDraft = "";
   let overlayRuntime: OverlayRuntime | null = null;
@@ -1386,7 +718,7 @@ export default function (pi: ExtensionAPI) {
       return;
     }
 
-    applyTranscriptEvent(transcriptState, event);
+    applyBtwTranscriptEvent(transcriptState, event as BtwTranscriptEvent);
 
     if (event.type === "tool_execution_start") {
       setOverlayStatus(`⏳ running tool: ${event.toolName}`, ctx);
@@ -1451,97 +783,35 @@ export default function (pi: ExtensionAPI) {
   async function resolveBtwModel(
     ctx: ExtensionCommandContext,
     notifyOnFallback = false,
-  ): Promise<ResolvedBtwModel> {
+  ): Promise<ResolvedBtwModel<SessionModel>> {
+    let overrideHasCredentials: boolean | undefined;
     if (btwModelOverride) {
       const auth = await ctx.modelRegistry.getApiKeyAndHeaders(btwModelOverride);
-      if (auth.ok && auth.apiKey) {
-        return {
-          model: btwModelOverride,
-          source: "override",
-          configuredOverride: btwModelOverride,
-        };
-      }
-
-      const fallbackReason = ctx.model
-        ? `Configured BTW model ${formatModelRef(btwModelOverride)} has no credentials. Falling back to main model ${formatModelRef(
-            ctx.model,
-          )}.`
-        : `Configured BTW model ${formatModelRef(btwModelOverride)} has no credentials, and no main model is active.`;
-      if (notifyOnFallback) {
-        notify(ctx, fallbackReason, "warning");
-      }
-
-      if (ctx.model) {
-        return {
-          model: ctx.model,
-          source: "main",
-          configuredOverride: btwModelOverride,
-          fallbackReason,
-        };
-      }
-
-      return {
-        model: null,
-        source: "none",
-        configuredOverride: btwModelOverride,
-        fallbackReason,
-      };
+      overrideHasCredentials = auth.ok && !!auth.apiKey;
     }
 
-    if (ctx.model) {
-      return {
-        model: ctx.model,
-        source: "main",
-        configuredOverride: null,
-      };
+    const resolved = resolveBtwModelWithCredentialStatus({
+      configuredOverride: btwModelOverride,
+      mainModel: ctx.model ?? null,
+      overrideHasCredentials,
+    });
+    if (notifyOnFallback && resolved.fallbackReason) {
+      notify(ctx, resolved.fallbackReason, "warning");
     }
 
-    return {
-      model: null,
-      source: "none",
-      configuredOverride: null,
-    };
+    return resolved;
   }
 
   async function resolveBtwSettings(
     ctx: ExtensionCommandContext,
     notifyOnFallback = false,
-  ): Promise<ResolvedBtwSettings> {
+  ): Promise<ResolvedBtwSettings<SessionModel>> {
     const resolvedModel = await resolveBtwModel(ctx, notifyOnFallback);
-    const thinkingLevel = btwThinkingOverride ?? (pi.getThinkingLevel() as SessionThinkingLevel);
-
-    return {
-      model: resolvedModel.model,
-      modelSource: resolvedModel.source,
-      configuredModelOverride: resolvedModel.configuredOverride,
-      thinkingLevel,
-      thinkingSource: btwThinkingOverride ? "override" : "main",
-      fallbackReason: resolvedModel.fallbackReason,
-    };
-  }
-
-  function describeResolvedModel(settings: ResolvedBtwSettings): string {
-    if (!settings.model) {
-      if (settings.configuredModelOverride && settings.fallbackReason) {
-        return `BTW model unavailable. ${settings.fallbackReason}`;
-      }
-      return "BTW model unavailable. No active model selected.";
-    }
-
-    const source =
-      settings.modelSource === "override"
-        ? "override"
-        : settings.configuredModelOverride
-          ? "inherited fallback"
-          : "inherits main thread";
-    return `BTW model: ${formatModelRef(settings.model)} (${source}).${
-      settings.fallbackReason ? ` ${settings.fallbackReason}` : ""
-    }`;
-  }
-
-  function describeResolvedThinking(settings: ResolvedBtwSettings): string {
-    const source = settings.thinkingSource === "override" ? "override" : "inherits main thread";
-    return `BTW thinking: ${settings.thinkingLevel} (${source}).`;
+    return buildResolvedBtwSettings(
+      resolvedModel,
+      pi.getThinkingLevel() as SessionThinkingLevel,
+      btwThinkingOverride,
+    );
   }
 
   async function setBtwModelOverride(ctx: ExtensionCommandContext, nextModel: SessionModel | null): Promise<void> {
@@ -1865,8 +1135,8 @@ export default function (pi: ExtensionAPI) {
         const { thread } = await getBtwHandoffThread(ctx);
         const instructions = trimmedArgs;
         const content = instructions
-          ? `Here is a side conversation I had. ${instructions}\n\n${formatThread(thread)}`
-          : `Here is a side conversation I had for additional context:\n\n${formatThread(thread)}`;
+          ? `Here is a side conversation I had. ${instructions}\n\n${formatBtwThread(thread)}`
+          : `Here is a side conversation I had for additional context:\n\n${formatBtwThread(thread)}`;
 
         sendThreadToMain(ctx, content);
         const count = thread.length;
@@ -1912,19 +1182,6 @@ export default function (pi: ExtensionAPI) {
     return false;
   }
 
-  function parseOverlayBtwCommand(value: string): { name: string; args: string } | null {
-    const trimmed = value.trim();
-    const match = trimmed.match(/^\/(btw:(?:new|tangent|clear|inject|summarize|model|thinking))(?:\s+(.*))?$/);
-    if (!match) {
-      return null;
-    }
-
-    return {
-      name: match[1],
-      args: match[2]?.trim() ?? "",
-    };
-  }
-
   async function submitFromOverlay(ctx: ExtensionCommandContext | ExtensionContext, value: string): Promise<void> {
     const question = value.trim();
     if (!question) {
@@ -1960,7 +1217,7 @@ export default function (pi: ExtensionAPI) {
     await disposeBtwSession();
     pendingThread = [];
     pendingMode = mode;
-    transcriptState = createEmptyTranscriptState();
+    transcriptState = createEmptyBtwTranscriptState();
     setOverlayDraft("");
     setOverlayStatus(null, ctx);
     if (persist) {
@@ -1976,64 +1233,26 @@ export default function (pi: ExtensionAPI) {
     pendingMode = "contextual";
     btwModelOverride = null;
     btwThinkingOverride = null;
-    transcriptState = createEmptyTranscriptState();
+    transcriptState = createEmptyBtwTranscriptState();
     overlayDraft = "";
     lastUiContext = ctx;
     overlayStatus = null;
 
-    const branch = ctx.sessionManager.getBranch();
-    let lastResetIndex = -1;
+    const restored = restoreBtwThreadState(ctx.sessionManager.getBranch(), ctx.model?.api || "openai-responses");
+    pendingMode = restored.mode;
 
-    for (let i = 0; i < branch.length; i++) {
-      if (isCustomEntry(branch[i], BTW_MODEL_OVERRIDE_TYPE)) {
-        const details = (branch[i] as unknown as { data?: BtwModelOverrideDetails }).data;
-        if (details?.action === "set") {
-          const resolved = ctx.modelRegistry.find(details.provider, details.id);
-          if (resolved) {
-            btwModelOverride = resolved;
-          } else {
-            // Configured override is no longer in the registry; drop it on restore.
-            btwModelOverride = null;
-          }
-        } else if (details?.action === "clear") {
-          btwModelOverride = null;
-        }
-      }
-
-      if (isCustomEntry(branch[i], BTW_THINKING_OVERRIDE_TYPE)) {
-        const details = (branch[i] as unknown as { data?: BtwThinkingOverrideDetails }).data;
-        btwThinkingOverride =
-          details?.action === "set"
-            ? details.thinkingLevel
-            : details?.action === "clear"
-              ? null
-              : btwThinkingOverride;
-      }
-
-      if (isCustomEntry(branch[i], BTW_RESET_TYPE)) {
-        lastResetIndex = i;
-        const details = (branch[i] as unknown as { data?: BtwResetDetails }).data;
-        pendingMode = details?.mode ?? "contextual";
-      }
+    if (restored.modelOverride) {
+      const resolved = ctx.modelRegistry.find(restored.modelOverride.provider, restored.modelOverride.id);
+      // Configured override may no longer be in the registry; drop it on restore.
+      btwModelOverride = resolved ?? null;
     }
 
-    for (const entry of branch.slice(lastResetIndex + 1)) {
-      if (!isCustomEntry(entry, BTW_ENTRY_TYPE)) {
-        continue;
-      }
+    btwThinkingOverride = restored.thinkingOverride as SessionThinkingLevel | null;
 
-      const details = (entry as unknown as { data?: BtwDetails }).data;
-      if (!details?.question || !details.answer) {
-        continue;
-      }
-
-      const normalizedDetails: BtwDetails = {
-        ...details,
-        api: details.api || ctx.model?.api || "openai-responses",
-      };
-
+    for (const details of restored.thread) {
+      const normalizedDetails = details as BtwDetails;
       pendingThread.push(normalizedDetails);
-      appendPersistedTranscriptTurn(transcriptState, normalizedDetails);
+      appendPersistedBtwTranscriptTurn(transcriptState, normalizedDetails);
     }
 
     syncUi(ctx);
@@ -2056,8 +1275,9 @@ export default function (pi: ExtensionAPI) {
     }
 
     const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
-    if (!auth.ok || !auth.apiKey) {
-      const message = auth.ok ? `No credentials available for ${model.provider}/${model.id}.` : (auth.error ?? `Authentication failed for ${model.provider}/${model.id}.`);
+    const authFailure = getBtwAuthFailureMessage(model, auth);
+    if (authFailure) {
+      const message = authFailure;
       setOverlayStatus(message, ctx);
       notify(ctx, message, "error");
       await ensureOverlay(ctx);
@@ -2080,8 +1300,8 @@ export default function (pi: ExtensionAPI) {
     await ensureOverlay(ctx);
 
     // Capture the turn ID actually allocated for this prompt invocation by
-    // listening for the first turn_start event. applyTranscriptEvent calls
-    // ensureTranscriptTurn on turn_start, which sets transcriptState.currentTurnId.
+    // listening for the first turn_start event. applyBtwTranscriptEvent calls
+    // ensureBtwTranscriptTurn on turn_start, which sets transcriptState.currentTurnId.
     // Snapshotting nextTurnId before the call is unreliable: if abort fires after
     // finishTranscriptTurn nullifies currentTurnId and a concurrent caller has
     // since advanced nextTurnId, the snapshot refers to the wrong turn ID.
@@ -2097,12 +1317,12 @@ export default function (pi: ExtensionAPI) {
     try {
       await session.prompt(question, { source: "extension" });
 
-      const response = getLastAssistantMessage(session);
+      const response = getLastAssistantMessage(session.state.messages) as AssistantMessage | null;
       if (!response) {
         throw new Error("BTW request finished without a response.");
       }
       if (response.stopReason === "aborted") {
-        removeTranscriptTurn(transcriptState, transcriptState.currentTurnId ?? promptTurnId);
+        removeBtwTranscriptTurn(transcriptState, transcriptState.currentTurnId ?? promptTurnId);
         setOverlayStatus("Request aborted.", ctx);
         return;
       }
@@ -2112,21 +1332,17 @@ export default function (pi: ExtensionAPI) {
 
       const completedTurnId = transcriptState.lastTurnId ?? transcriptState.currentTurnId;
       const streamedThinking =
-        completedTurnId !== null ? findLatestTranscriptEntry(transcriptState, completedTurnId, "thinking")?.text : "";
-      const answer = extractAnswer(response);
-      const thinking = extractThinking(response) || streamedThinking || "";
-
-      const details: BtwDetails = {
+        completedTurnId !== null ? findLatestBtwTranscriptEntry(transcriptState, completedTurnId, "thinking")?.text : "";
+      const details: BtwDetails = buildBtwDetailsFromResponse<AssistantMessage>({
         question,
-        thinking,
-        answer,
-        provider: model.provider,
-        model: model.id,
-        api: model.api,
+        model,
         thinkingLevel,
+        response,
+        streamedThinking: streamedThinking ?? "",
+        extractAnswer: extractBtwAssistantAnswer,
+        extractThinking: extractBtwAssistantThinking,
         timestamp: Date.now(),
-        usage: response.usage,
-      };
+      });
 
       pendingThread.push(details);
       pi.appendEntry(BTW_ENTRY_TYPE, details);
@@ -2143,7 +1359,7 @@ export default function (pi: ExtensionAPI) {
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
-      setTranscriptFailure(transcriptState, errorMessage);
+      setBtwTranscriptFailure(transcriptState, errorMessage);
       setOverlayStatus("Request failed. Thread preserved for retry or follow-up.", ctx);
       notify(ctx, errorMessage, "error");
       await disposeBtwSession();
@@ -2154,14 +1370,16 @@ export default function (pi: ExtensionAPI) {
   }
 
   function getPendingThreadForHandoff(): BtwHandoffExchange[] {
-    return pendingThread.map((entry) => ({ user: entry.question, assistant: entry.answer }));
+    return pendingThreadToHandoff(pendingThread);
   }
 
   async function getBtwHandoffThread(
     ctx: ExtensionCommandContext,
   ): Promise<{ sessionRuntime: BtwSessionRuntime | null; thread: BtwHandoffExchange[] }> {
     const sessionRuntime = activeBtwSession ?? (await ensureBtwSession(ctx, pendingMode));
-    const thread = sessionRuntime ? extractBtwHandoffThread(sessionRuntime) : [];
+    const thread = sessionRuntime
+      ? extractBtwHandoffThread(sessionRuntime.session.state.messages.slice(sessionRuntime.sideThreadStartIndex))
+      : [];
     const resolvedThread = thread.length > 0 ? thread : getPendingThreadForHandoff();
 
     if (resolvedThread.length === 0) {
@@ -2179,8 +1397,9 @@ export default function (pi: ExtensionAPI) {
     }
 
     const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
-    if (!auth.ok || !auth.apiKey) {
-      throw new Error(auth.ok ? `No credentials available for ${model.provider}/${model.id}.` : (auth.error ?? `Authentication failed for ${model.provider}/${model.id}.`));
+    const authFailure = getBtwAuthFailureMessage(model, auth);
+    if (authFailure) {
+      throw new Error(authFailure);
     }
 
     const { session } = await createAgentSession({
@@ -2193,9 +1412,9 @@ export default function (pi: ExtensionAPI) {
     });
 
     try {
-      await session.prompt(formatThread(thread), { source: "extension" });
+      await session.prompt(formatBtwThread(thread), { source: "extension" });
 
-      const response = getLastAssistantMessage(session);
+      const response = getLastAssistantMessage(session.state.messages) as AssistantMessage | null;
       if (!response) {
         throw new Error("BTW summarize finished without a response.");
       }
@@ -2206,7 +1425,7 @@ export default function (pi: ExtensionAPI) {
         throw new Error("BTW summarize aborted.");
       }
 
-      return extractAnswer(response);
+      return extractBtwAssistantAnswer(response);
     } finally {
       try {
         await session.abort();

@@ -1,7 +1,8 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { type GraphView, GRAPH_VIEWS, graphViewLabel, renderGraphBody } from "./graph-view.js";
+import { renderGraphBody } from "./graph-view.js";
 import { ScrollDialog } from "./scroll-dialog.js";
 import { collectCacheSessionMetrics } from "./session-data.js";
+import { applyGraphViewKey, graphViewLabel, type GraphView } from "./view-state.js";
 
 export default function contextExtension(pi: ExtensionAPI): void {
   pi.registerCommand("context", {
@@ -32,24 +33,17 @@ export default function contextExtension(pi: ExtensionAPI): void {
               helpText: "1/2/3 view • r refresh • v cycle • ↑/↓ scroll • PgUp/PgDn • q/Esc close",
               renderBody: (innerWidth) => renderGraphBody(theme, metrics, innerWidth, currentView),
               onKey: (data) => {
-                if (data === "r") {
-                  metrics = collectCacheSessionMetrics(ctx.sessionManager);
-                  return true;
-                }
-                const prev = currentView;
-                if (data === "1") currentView = "per-turn";
-                else if (data === "2") currentView = "cumulative-percent";
-                else if (data === "3") currentView = "cumulative-total";
-                else if (data === "v") {
-                  const idx = GRAPH_VIEWS.indexOf(currentView);
-                  currentView = GRAPH_VIEWS[(idx + 1) % GRAPH_VIEWS.length]!;
-                } else if (data === "V") {
-                  const idx = GRAPH_VIEWS.indexOf(currentView);
-                  currentView = GRAPH_VIEWS[(idx + GRAPH_VIEWS.length - 1) % GRAPH_VIEWS.length]!;
-                } else {
+                const action = applyGraphViewKey(currentView, data);
+                if (action.type === "none") {
                   return false;
                 }
-                return currentView !== prev || true; // always re-render on a recognised key
+
+                if (action.type === "refresh") {
+                  metrics = collectCacheSessionMetrics(ctx.sessionManager);
+                }
+
+                currentView = action.view;
+                return true;
               },
             },
             () => done(undefined),

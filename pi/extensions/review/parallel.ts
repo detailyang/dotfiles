@@ -1,10 +1,12 @@
 import type { ExtensionAPI, ExtensionCommandContext } from "@earendil-works/pi-coding-agent";
 import { DynamicBorder, getAgentDir } from "@earendil-works/pi-coding-agent";
 import { Container, type SelectItem, Text, Spacer } from "@earendil-works/pi-tui";
-import { spawn } from "node:child_process";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { matchesKey, Key, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { extractMessageText } from "../shared/transcript.js";
+import { runReviewAgentProcess, type ParallelReviewOptions } from "./agent-run.js";
+import { parseReviewStreamLine } from "./stream.js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -23,27 +25,13 @@ export interface ParallelReviewResult {
   error: boolean;
 }
 
-export interface ParallelReviewOptions {
-  stdin?: string;
-  cwd?: string;
-  noTools?: boolean;
-  noSkills?: boolean;
-}
-
 interface Prefs {
   lastSelected: string[];
 }
 
-type ReviewStreamEvent =
-  | { type: "assistant"; text: string }
-  | { type: "status"; text: string };
-
 // ─── Preferences (persist last selection) ────────────────────────────────────
 
 const PREFS_PATH = join(getAgentDir(), "extension-state", "review.json");
-const MAX_STDERR_CHARS = 256_000;
-const MAX_ASSISTANT_TEXT_CHARS = 2_000_000;
-const TRUNCATED_MARKER = "\n\n[review output truncated by extension safety limit]";
 
 function loadPrefs(): Prefs {
   try {
@@ -131,99 +119,6 @@ function buildReviewPayload(ctx: ExtensionCommandContext): { reviewPrompt: strin
   return { reviewPrompt, conversationContext };
 }
 
-function extractMessageText(message: any): string {
-  const content = message?.content;
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-
-  return content
-    .filter((part: any) => part?.type === "text" && typeof part.text === "string")
-    .map((part: any) => part.text)
-    .join("\n")
-    .trim();
-}
-
-function compactOneLine(text: string, maxWidth = 120): string {
-  const oneLine = text.replace(/\s+/g, " ").trim();
-  if (oneLine.length <= maxWidth) return oneLine;
-  return `${oneLine.slice(0, maxWidth - 1)}…`;
-}
-
-function limitText(text: string, maxChars: number): string {
-  if (text.length <= maxChars) return text;
-  return `${text.slice(0, maxChars)}${TRUNCATED_MARKER}`;
-}
-
-function extractToolText(value: any): string {
-  if (value === undefined || value === null) return "";
-  if (typeof value === "string") {
-    const trimmed = value.trim();
-    if (!trimmed) return "";
-
-    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
-      try {
-        return extractToolText(JSON.parse(trimmed));
-      } catch {
-        // Fall through to compact raw text.
-      }
-    }
-
-    return compactOneLine(trimmed);
-  }
-
-  const content = value.content;
-  if (typeof content === "string") return compactOneLine(content);
-  if (Array.isArray(content)) {
-    const text = content
-      .filter((part: any) => part?.type === "text" && typeof part.text === "string")
-      .map((part: any) => part.text)
-      .join("\n")
-      .trim();
-    return compactOneLine(text);
-  }
-
-  if (typeof value.text === "string") return compactOneLine(value.text);
-  if (typeof value.output === "string") return compactOneLine(value.output);
-  if (typeof value.stdout === "string") return compactOneLine(value.stdout);
-  if (typeof value.stderr === "string") return compactOneLine(value.stderr);
-
-  return "";
-}
-
-function summarizeToolActivity(toolName: string, args: any): string {
-  if (toolName === "bash") {
-    const command = typeof args?.command === "string" ? args.command : "";
-    return command ? `running: ${compactOneLine(command)}` : "running command";
-  }
-
-  if (toolName === "read") {
-    const file =
-      typeof args?.path === "string"
-        ? args.path
-        : typeof args?.filePath === "string"
-        ? args.filePath
-        : "";
-    return file ? `reading ${compactOneLine(file)}` : "reading file";
-  }
-
-  if (toolName === "grep") {
-    const pattern =
-      typeof args?.pattern === "string"
-        ? args.pattern
-        : typeof args?.query === "string"
-        ? args.query
-        : "";
-    return pattern ? `searching ${compactOneLine(pattern)}` : "searching";
-  }
-
-  if (toolName === "find" || toolName === "ls") {
-    const path = typeof args?.path === "string" ? args.path : "";
-    return path ? `${toolName} ${compactOneLine(path)}` : toolName;
-  }
-
-  return toolName;
-}
-
 function padVisible(line: string, width: number): string {
   const truncated = truncateToWidth(line, width, "");
   return truncated + " ".repeat(Math.max(0, width - visibleWidth(truncated)));
@@ -251,114 +146,6 @@ function wrapBodyLines(lines: string[], width: number): string[] {
   }
 
   return wrapped.length > 0 ? wrapped : [""];
-}
-
-function runModelReview(
-  model: string,
-  prompt: string,
-  options: ParallelReviewOptions,
-  onEvent: (event: ReviewStreamEvent) => void,
-  signal: AbortSignal
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    let stderr = "";
-    let stdoutBuffer = "";
-    const args = ["--mode", "json", "-p", "--no-session"];
-    if (options.noTools) args.push("--no-tools");
-    if (options.noSkills) args.push("--no-skills");
-    args.push("--model", model, prompt);
-
-    const child = spawn("pi", args, {
-      cwd: options.cwd,
-      stdio: ["pipe", "pipe", "pipe"],
-      env: process.env,
-    });
-
-    const onAbort = () => {
-      child.kill("SIGTERM");
-      reject(new Error("Aborted"));
-    };
-    signal.addEventListener("abort", onAbort);
-    child.on("close", () => signal.removeEventListener("abort", onAbort));
-
-    const processLine = (line: string) => {
-      if (!line.trim()) return;
-
-      let event: any;
-      try {
-        event = JSON.parse(line);
-      } catch {
-        onEvent({ type: "status", text: compactOneLine(line) });
-        return;
-      }
-
-      if (
-        (event.type === "message_update" || event.type === "message_end") &&
-        event.message?.role === "assistant"
-      ) {
-        const text = limitText(extractMessageText(event.message), MAX_ASSISTANT_TEXT_CHARS);
-        if (text) onEvent({ type: "assistant", text });
-        return;
-      }
-
-      if (event.type === "tool_execution_start") {
-        onEvent({ type: "status", text: summarizeToolActivity(event.toolName, event.args) });
-        return;
-      }
-
-      if (event.type === "tool_execution_update") {
-        const text = extractToolText(event.partialResult);
-        if (event.isError && text) onEvent({ type: "status", text });
-        return;
-      }
-
-      if (event.type === "tool_execution_end") {
-        if (event.isError) onEvent({ type: "status", text: `${event.toolName ?? "tool"} failed` });
-      }
-    };
-
-    child.stdout.on("data", (chunk: Buffer) => {
-      stdoutBuffer += chunk.toString("utf8");
-      const lines = stdoutBuffer.split("\n");
-      stdoutBuffer = lines.pop() ?? "";
-      for (const line of lines) processLine(line);
-    });
-    child.stderr.on("data", (chunk: Buffer) => {
-      stderr = limitText(stderr + chunk.toString("utf8"), MAX_STDERR_CHARS);
-    });
-
-    // Propagate stdin errors immediately to avoid race conditions where
-    // the process exits with code 0 before the close handler runs.
-    child.stdin.on("error", (err: any) => {
-      if (err?.code !== "EPIPE") {
-        const error = err instanceof Error ? err : new Error(String(err));
-        child.kill("SIGTERM");
-        reject(error);
-      }
-    });
-
-    child.on("error", reject);
-    child.on("close", (code) => {
-      if (stdoutBuffer.trim()) processLine(stdoutBuffer);
-      if (code === 0 || code === null) resolve();
-      else {
-        const stderrText = stderr.trim() || "(no stderr)";
-        const stderrTail = stderrText.split("\n").slice(-30).join("\n");
-        reject(new Error(`pi exited with code ${code}\n\nstderr:\n${stderrTail}`));
-      }
-    });
-
-    try {
-      if (options.stdin !== undefined) {
-        child.stdin.write(options.stdin, "utf8");
-      }
-      child.stdin.end();
-    } catch (err: any) {
-      if (err?.code !== "EPIPE") {
-        reject(err instanceof Error ? err : new Error(String(err)));
-      }
-    }
-  });
 }
 
 // ─── TUI: Multi-select list ───────────────────────────────────────────────────
@@ -481,13 +268,13 @@ class ReviewDashboard {
     await Promise.allSettled(
       this.panes.map(async (pane) => {
         try {
-          await runModelReview(
+          await runReviewAgentProcess(
             pane.model,
             prompt,
             options,
             (event) => {
               if (event.type === "assistant") {
-                // Text already limited in runModelReview; store directly.
+                // Text is already limited by the review agent runner; store directly.
                 pane.finalText = event.text;
                 pane.lines = pane.finalText.split("\n");
               } else {
@@ -496,7 +283,8 @@ class ReviewDashboard {
               this.invalidate();
               this.handle?.requestRender();
             },
-            this.abortController.signal
+            this.abortController.signal,
+            parseReviewStreamLine
           );
           pane.done = true;
           pane.status = "";

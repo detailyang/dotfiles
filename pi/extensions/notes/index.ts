@@ -28,6 +28,7 @@ import { Container, Markdown, matchesKey, Text } from "@earendil-works/pi-tui";
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { homedir } from "node:os";
+import { extractTextParts, summarizeToolResultContent } from "../shared/transcript.js";
 
 type ContentBlock = {
 	type?: string;
@@ -43,33 +44,6 @@ type NoteMessage = {
 };
 
 const NOTES_BASE_DIR = `${homedir()}/notes`;
-
-/**
- * 从 content 中提取文本部分
- */
-const extractTextParts = (content: unknown): string[] => {
-	if (typeof content === "string") {
-		return [content];
-	}
-
-	if (!Array.isArray(content)) {
-		return [];
-	}
-
-	const textParts: string[] = [];
-	for (const part of content) {
-		if (!part || typeof part !== "object") {
-			continue;
-		}
-
-		const block = part as ContentBlock;
-		if (block.type === "text" && typeof block.text === "string") {
-			textParts.push(block.text);
-		}
-	}
-
-	return textParts;
-};
 
 /**
  * 从 content 中提取工具调用信息
@@ -111,9 +85,8 @@ const extractToolResultLines = (content: unknown, toolName?: string): string[] =
 
 		const block = part as ContentBlock;
 		if (block.type === "text" && typeof block.text === "string") {
-			// 截断过长的工具结果
-			const text = block.text.length > 500 ? block.text.slice(0, 500) + "..." : block.text;
-			results.push(`[工具结果${toolName ? ` - ${toolName}` : ""}] ${text}`);
+			const { content } = summarizeToolResultContent(block.text, 500);
+			results.push(`[工具结果${toolName ? ` - ${toolName}` : ""}] ${content}`);
 		}
 	}
 

@@ -12,17 +12,15 @@ import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-a
 import { compact } from "@earendil-works/pi-coding-agent";
 import { Container, type SelectItem, SelectList, Text } from "@earendil-works/pi-tui";
 import { DynamicBorder } from "@earendil-works/pi-coding-agent";
-
-type LoopMode = "tests" | "custom" | "self";
-
-type LoopStateData = {
-	active: boolean;
-	mode?: LoopMode;
-	condition?: string;
-	prompt?: string;
-	summary?: string;
-	loopCount?: number;
-};
+import {
+	buildLoopCompactionInstructions,
+	buildLoopPrompt,
+	getLoopConditionText,
+	parseLoopArgs,
+	summarizeLoopCondition,
+	type LoopMode,
+	type LoopStateData,
+} from "./state.js";
 
 const LOOP_PRESETS = [
 	{ value: "tests", label: "Until tests pass", description: "" },
@@ -41,49 +39,6 @@ Use plain text only, no quotes, no punctuation, no prefix.
 Form should be "breaks when ...", "loops until ...", "stops on ...", "runs until ...", or similar.
 Use the best form that makes sense for the loop condition.
 `;
-
-function buildPrompt(mode: LoopMode, condition?: string): string {
-	switch (mode) {
-		case "tests":
-			return (
-				"Run all tests. If they are passing, call the signal_loop_success tool. " +
-				"Otherwise continue until the tests pass."
-			);
-		case "custom": {
-			const customCondition = condition?.trim() || "the custom condition is satisfied";
-			return (
-				`Continue until the following condition is satisfied: ${customCondition}. ` +
-				"When it is satisfied, call the signal_loop_success tool."
-			);
-		}
-		case "self":
-			return "Continue until you are done. When finished, call the signal_loop_success tool.";
-	}
-}
-
-function summarizeCondition(mode: LoopMode, condition?: string): string {
-	switch (mode) {
-		case "tests":
-			return "tests pass";
-		case "custom": {
-			const summary = condition?.trim() || "custom condition";
-			return summary.length > 48 ? `${summary.slice(0, 45)}...` : summary;
-		}
-		case "self":
-			return "done";
-	}
-}
-
-function getConditionText(mode: LoopMode, condition?: string): string {
-	switch (mode) {
-		case "tests":
-			return "tests pass";
-		case "custom":
-			return condition?.trim() || "custom condition";
-		case "self":
-			return "you are done";
-	}
-}
 
 async function selectSummaryModel(
 	ctx: ExtensionContext,
@@ -110,11 +65,11 @@ async function summarizeBreakoutCondition(
 	mode: LoopMode,
 	condition?: string,
 ): Promise<string> {
-	const fallback = summarizeCondition(mode, condition);
+	const fallback = summarizeLoopCondition(mode, condition);
 	const selection = await selectSummaryModel(ctx);
 	if (!selection) return fallback;
 
-	const conditionText = getConditionText(mode, condition);
+	const conditionText = getLoopConditionText(mode, condition);
 	const userMessage: UserMessage = {
 		role: "user",
 		content: [{ type: "text", text: conditionText }],
@@ -140,11 +95,6 @@ async function summarizeBreakoutCondition(
 
 	if (!summary) return fallback;
 	return summary.length > 60 ? `${summary.slice(0, 57)}...` : summary;
-}
-
-function getCompactionInstructions(mode: LoopMode, condition?: string): string {
-	const conditionText = getConditionText(mode, condition);
-	return `Loop active. Breakout condition: ${conditionText}. Preserve this loop state and breakout condition in the summary.`;
 }
 
 function updateStatus(ctx: ExtensionContext, state: LoopStateData): void {
@@ -273,9 +223,9 @@ export default function loopExtension(pi: ExtensionAPI): void {
 
 		switch (selection) {
 			case "tests":
-				return { active: true, mode: "tests", prompt: buildPrompt("tests") };
+				return { active: true, mode: "tests", prompt: buildLoopPrompt("tests") };
 			case "self":
-				return { active: true, mode: "self", prompt: buildPrompt("self") };
+				return { active: true, mode: "self", prompt: buildLoopPrompt("self") };
 			case "custom": {
 				const condition = await ctx.ui.editor("Enter loop breakout condition:", "");
 				if (!condition?.trim()) return null;
@@ -283,32 +233,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 					active: true,
 					mode: "custom",
 					condition: condition.trim(),
-					prompt: buildPrompt("custom", condition.trim()),
-				};
-			}
-			default:
-				return null;
-		}
-	}
-
-	function parseArgs(args: string | undefined): LoopStateData | null {
-		if (!args?.trim()) return null;
-		const parts = args.trim().split(/\s+/);
-		const mode = parts[0]?.toLowerCase();
-
-		switch (mode) {
-			case "tests":
-				return { active: true, mode: "tests", prompt: buildPrompt("tests") };
-			case "self":
-				return { active: true, mode: "self", prompt: buildPrompt("self") };
-			case "custom": {
-				const condition = parts.slice(1).join(" ").trim();
-				if (!condition) return null;
-				return {
-					active: true,
-					mode: "custom",
-					condition,
-					prompt: buildPrompt("custom", condition),
+					prompt: buildLoopPrompt("custom", condition.trim()),
 				};
 			}
 			default:
@@ -341,7 +266,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 	pi.registerCommand("loop", {
 		description: "Start a follow-up loop until a breakout condition is met",
 		handler: async (args, ctx) => {
-			let nextState = parseArgs(args);
+			let nextState = parseLoopArgs(args);
 			if (!nextState) {
 				if (ctx.mode !== "tui") {
 					ctx.ui.notify("Usage: /loop tests | /loop custom <condition> | /loop self", "warning");
@@ -404,7 +329,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		const auth = await ctx.modelRegistry.getApiKeyAndHeaders(ctx.model);
 		if (!auth.ok) return;
 
-		const instructionParts = [event.customInstructions, getCompactionInstructions(loopState.mode, loopState.condition)]
+		const instructionParts = [event.customInstructions, buildLoopCompactionInstructions(loopState.mode, loopState.condition)]
 			.filter(Boolean)
 			.join("\n\n");
 

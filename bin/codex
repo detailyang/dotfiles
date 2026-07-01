@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+
+set -uo pipefail
+
+find_real_codex() {
+    local self_dir self_path
+    self_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+    self_path="$self_dir/$(basename "${BASH_SOURCE[0]}")"
+
+    local IFS=:
+    local dir candidate candidate_dir candidate_path
+    for dir in $PATH; do
+        [[ -n "$dir" ]] || dir=.
+        candidate="$dir/codex"
+        [[ -x "$candidate" && ! -d "$candidate" ]] || continue
+
+        candidate_dir="$(cd "$(dirname "$candidate")" 2>/dev/null && pwd -P)" || continue
+        candidate_path="$candidate_dir/$(basename "$candidate")"
+        [[ "$candidate_path" != "$self_path" ]] || continue
+
+        printf '%s\n' "$candidate"
+        return 0
+    done
+
+    return 1
+}
+
+tmux_value() {
+    tmux "$@" 2>/dev/null || true
+}
+
+tmux_quiet() {
+    tmux "$@" >/dev/null 2>&1 || true
+}
+
+real_codex="$(find_real_codex)" || {
+    echo "codex wrapper: real codex command not found in PATH" >&2
+    exit 127
+}
+
+if [[ -z "${TMUX:-}" ]] || ! command -v tmux >/dev/null 2>&1; then
+    exec "$real_codex" "$@"
+fi
+
+tmux_target=()
+if [[ -n "${TMUX_PANE:-}" ]]; then
+    tmux_target=(-t "$TMUX_PANE")
+fi
+
+window_id="$(tmux_value display-message -p "${tmux_target[@]}" '#{window_id}')"
+if [[ -z "$window_id" ]]; then
+    exec "$real_codex" "$@"
+fi
+
+base_name="$(basename "$PWD")"
+original_name="$(tmux_value display-message -p -t "$window_id" '#{window_name}')"
+original_auto="$(tmux_value display-message -p -t "$window_id" '#{window_automatic_rename}')"
+[[ -n "$original_name" ]] || original_name="$base_name"
+[[ -n "$original_auto" ]] || original_auto=1
+
+spinner_pid=""
+frames=('⠋' '⠙' '⠹' '⠸' '⠼' '⠴' '⠦' '⠧' '⠇' '⠏')
+
+rename_window() {
+    tmux_quiet rename-window -t "$window_id" "$1"
+}
+
+restore_window() {
+    rename_window "$original_name"
+    case "$original_auto" in
+        1|on) tmux_quiet set-option -w -t "$window_id" -q automatic-rename on ;;
+        *) tmux_quiet set-option -w -t "$window_id" -q automatic-rename off ;;
+    esac
+}
+
+stop_spinner() {
+    if [[ -n "$spinner_pid" ]]; then
+        kill "$spinner_pid" >/dev/null 2>&1 || true
+        wait "$spinner_pid" 2>/dev/null || true
+        spinner_pid=""
+    fi
+}
+
+cleanup() {
+    local status=$?
+    trap - EXIT INT TERM HUP
+    stop_spinner
+    restore_window
+    exit "$status"
+}
+
+start_spinner() {
+    tmux_quiet set-option -w -t "$window_id" -q automatic-rename off
+
+    (
+        local frame=0
+        while true; do
+            rename_window "${frames[$((frame % ${#frames[@]}))]} ${base_name}"
+            frame=$((frame + 1))
+            sleep 0.2
+        done
+    ) &
+    spinner_pid=$!
+}
+
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
+trap 'exit 129' HUP
+
+start_spinner
+"$real_codex" "$@"
+exit "$?"

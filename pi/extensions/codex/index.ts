@@ -18,6 +18,7 @@ import { Container, type SelectItem, SelectList, Text } from "@earendil-works/pi
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, basename } from "node:path";
 import { homedir } from "node:os";
+import { parseCodexJsonlMetadata, parseCodexJsonlTranscript, type ParsedCodexTranscript } from "../shared/transcript.js";
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -31,23 +32,6 @@ interface SessionInfo {
   mtimeMs: number;
   /** Number of user messages in the session */
   turnCount: number;
-}
-
-interface ParsedConversation {
-  agent: string;
-  sessionId: string;
-  cwd?: string;
-  /** Structured turns: each turn is a user message + assistant response + tool I/O */
-  turns: ConversationTurn[];
-  /** Flat markdown text for context injection */
-  fullText: string;
-  entryCount: number;
-}
-
-interface ConversationTurn {
-  user?: string;
-  assistant?: string;
-  toolCalls: { name: string; args: string; output?: string }[];
 }
 
 // ── Codex Session Discovery ────────────────────────────────────────────
@@ -92,194 +76,29 @@ function listCodexSessions(cwd?: string): SessionInfo[] {
   return results;
 }
 
-/** Check if a user message is a Codex internal injection (not a real user prompt) */
-function isInternalMessage(text: string): boolean {
-  return text.startsWith("<environment_context>") || text.startsWith("<turn_aborted>");
-}
-
 function parseCodexMeta(filePath: string, mtimeMs: number): SessionInfo | null {
-  let sessionId = "";
-  let cwd: string | undefined;
-  let startedAt: string | undefined;
-  let firstMessage = "";
-  let userMsgCount = 0;
-
   const lines = readFileSync(filePath, "utf-8").split("\n");
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    let obj: any;
-    try { obj = JSON.parse(line); } catch { continue; }
-    if (obj.type === "session_meta") {
-      const p = obj.payload || {};
-      sessionId = p.id || "";
-      cwd = p.cwd;
-      startedAt = p.timestamp;
-    } else if (obj.type === "response_item") {
-      const p = obj.payload || {};
-      if (p.role === "user") {
-        const text = extractTextFromContent(p.content);
-        if (text) {
-          userMsgCount++;
-          // Skip internal messages — take the first real user prompt
-          if (!firstMessage && !isInternalMessage(text)) {
-            firstMessage = text.replace(/\n/g, " ").trim().slice(0, 120);
-          }
-        }
-      }
-    }
-    // Note: we continue reading after finding both sessionId and firstMessage
-    // because userMsgCount (→ turnCount) requires scanning all lines.
-  }
+  const meta = parseCodexJsonlMetadata(lines);
 
-  if (!sessionId) return null;
+  if (!meta) return null;
   return {
-    id: sessionId,
+    id: meta.id,
     path: filePath,
-    cwd,
-    firstMessage: firstMessage || "(no user message)",
-    startedAt,
+    cwd: meta.cwd,
+    firstMessage: meta.firstMessage,
+    startedAt: meta.startedAt,
     mtimeMs,
-    turnCount: userMsgCount,
+    turnCount: meta.turnCount,
   };
 }
 
 // ── Codex Session Parser ───────────────────────────────────────────────
 
-function parseCodexSession(filePath: string): ParsedConversation {
-  let sessionId = "";
-  let cwd: string | undefined;
-  const turns: ConversationTurn[] = [];
-  let currentTurn: ConversationTurn = { toolCalls: [] };
-  let entryCount = 0;
-
+function parseCodexSession(filePath: string): ParsedCodexTranscript {
   const lines = readFileSync(filePath, "utf-8").split("\n");
-
-  // Collect role-less items that belong to the current assistant turn
-  let pendingToolCalls: { name: string; args: string; callId: string }[] = [];
-  let pendingToolOutputs: Map<string, string> = new Map();
-
-  function flushTurn() {
-    if (currentTurn.user || currentTurn.assistant || currentTurn.toolCalls.length > 0) {
-      // Attach pending tool calls/outputs
-      for (const tc of pendingToolCalls) {
-        const output = pendingToolOutputs.get(tc.callId);
-        currentTurn.toolCalls.push({ name: tc.name, args: tc.args, output });
-      }
-      turns.push(currentTurn);
-      currentTurn = { toolCalls: [] };
-      pendingToolCalls = [];
-      pendingToolOutputs = new Map();
-    }
-  }
-
-  for (const line of lines) {
-    if (!line.trim()) continue;
-    let obj: any;
-    try { obj = JSON.parse(line); } catch {
-      console.warn(`codex: skipping unparseable line in ${filePath}`);
-      continue;
-    }
-
-    if (obj.type === "session_meta") {
-      sessionId = obj.payload?.id || "";
-      cwd = obj.payload?.cwd;
-      continue;
-    }
-    if (obj.type !== "response_item") continue;
-
-    const p = obj.payload || {};
-    const role = p.role;
-
-    if (role === "user") {
-      flushTurn();
-      const text = extractTextFromContent(p.content);
-      if (text) {
-        currentTurn.user = text;
-        entryCount++;
-      }
-    } else if (role === "assistant") {
-      // Flush if we already have assistant content (multi-response turn)
-      if (currentTurn.assistant) flushTurn();
-      const text = extractTextFromContent(p.content);
-      if (text) {
-        currentTurn.assistant = text;
-        entryCount++;
-      }
-    } else if (!role) {
-      const pType = p.type;
-      if (pType === "function_call") {
-        const name = p.name || "tool";
-        const argsStr = typeof p.arguments === "string"
-          ? p.arguments : safeStringify(p.arguments, 300);
-        pendingToolCalls.push({ name, args: argsStr, callId: p.call_id || "" });
-        entryCount++;
-      } else if (pType === "function_call_output") {
-        const output = String(p.output || "");
-        pendingToolOutputs.set(p.call_id || "", output);
-        entryCount++;
-      }
-      // Skip reasoning (encrypted), status updates
-    }
-  }
-  flushTurn();
-
-  // Build full text from structured turns
-  const parts: string[] = [];
-  for (const turn of turns) {
-    if (turn.user) {
-      parts.push(`## User\n\n${turn.user}\n`);
-    }
-    if (turn.assistant) {
-      parts.push(`## Assistant\n\n${turn.assistant}\n`);
-    }
-    for (const tc of turn.toolCalls) {
-      parts.push(`## Tool: ${tc.name}\n\`\`\`json\n${tc.args}\n\`\`\`\n`);
-      if (tc.output) {
-        const outputDisplay = tc.output.length > 1500
-          ? tc.output.slice(0, 1500) + `\n... (truncated, ${tc.output.length} chars total)`
-          : tc.output;
-        parts.push(`### Output\n\`\`\`\n${outputDisplay}\n\`\`\`\n`);
-      }
-    }
-  }
-
-  return {
-    agent: "codex",
-    sessionId: sessionId || basename(filePath),
-    cwd,
-    turns,
-    fullText: parts.join("\n"),
-    entryCount,
-  };
-}
-
-// ── Shared Helpers ─────────────────────────────────────────────────────
-
-function extractTextFromContent(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-  const blocks: string[] = [];
-  for (const item of content) {
-    if (!item || typeof item !== "object") continue;
-    const t = (item as any).type;
-    if (t === "text" || t === "input_text" || t === "output_text") {
-      if ((item as any).text) blocks.push((item as any).text);
-    }
-  }
-  return blocks.join("\n");
-}
-
-function safeStringify(value: unknown, maxLen: number): string {
-  if (value === undefined || value === null) return "";
-  if (typeof value === "string") {
-    return value.length > maxLen ? value.slice(0, maxLen) + "..." : value;
-  }
-  try {
-    const s = JSON.stringify(value, null, 2);
-    return s.length > maxLen ? s.slice(0, maxLen) + "..." : s;
-  } catch {
-    return String(value).slice(0, maxLen);
-  }
+  return parseCodexJsonlTranscript(lines, basename(filePath), (message) => {
+    console.warn(`codex: ${message} in ${filePath}`);
+  });
 }
 
 // ── TUI: Action Selector ───────────────────────────────────────────────
@@ -424,7 +243,7 @@ export default function (pi: ExtensionAPI) {
       // ── Step 3: Parse session ──────────────────────────────────────
       ctx.ui.notify("Parsing session...", "info");
 
-      let parsed: ParsedConversation;
+      let parsed: ParsedCodexTranscript;
       try {
         parsed = parseCodexSession(sessionPath);
       } catch (err: unknown) {

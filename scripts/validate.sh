@@ -34,7 +34,7 @@ function check_if_available() {
 echo "=== Dotfiles Validation ==="
 echo ""
 
-check "bash scripts parse before shell startup" "bash -n install.sh bash/*.sh bin/proxy-env scripts/*.sh"
+check "bash scripts parse before shell startup" "bash -n install.sh bash/*.sh bin/proxy-env bin/codex scripts/*.sh"
 check_if_available fish "fish scripts parse before shell startup" "for f in fish/*.fish; do fish -n \"\$f\" || exit 1; done"
 
 check "proxy-env is the executable proxy env module" "test -x bin/proxy-env"
@@ -53,6 +53,7 @@ check "bash proxy adapter does not own proxy rules" "! grep -q 'export HTTP_PROX
 check "fish proxy adapter does not own proxy rules" "! grep -q 'set -gx HTTP_PROXY\|export HTTP_PROXY=' fish/proxy.fish"
 check "CONTEXT records Shell capability language" "grep -q '^\\*\\*Shell capability\\*\\*:' CONTEXT.md"
 check "CONTEXT records Proxy env language" "grep -q '^\\*\\*Proxy env\\*\\*:' CONTEXT.md"
+check "codex wrapper rotates and restores tmux window name" "bash scripts/test-codex-wrapper.sh"
 
 echo ""
 echo "=== Results ==="
