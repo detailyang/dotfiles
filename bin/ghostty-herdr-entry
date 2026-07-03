@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+lock_dir="${XDG_RUNTIME_DIR:-/tmp}/ghostty-herdr-entry.${USER}.lock"
+pid_file="$lock_dir/pid"
+
+cleanup() {
+  rm -rf "$lock_dir"
+}
+
+if mkdir "$lock_dir" 2>/dev/null; then
+  echo "$$" > "$pid_file"
+  trap cleanup EXIT INT TERM HUP
+
+  /Users/didi/.local/bin/herdr
+  exit $?
+fi
+
+if [[ -r "$pid_file" ]]; then
+  existing_pid="$(cat "$pid_file" 2>/dev/null || true)"
+
+  if [[ "$existing_pid" =~ ^[0-9]+$ ]] && kill -0 "$existing_pid" 2>/dev/null; then
+    exec /usr/local/bin/fish -l
+  fi
+fi
+
+rm -rf "$lock_dir"
+exec "$0"

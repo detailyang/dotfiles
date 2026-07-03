@@ -1,5 +1,5 @@
 shell-integration = fish
-command = /usr/local/bin/fish -l -c "if tmux has-session -t main 2>/dev/null; and tmux list-sessions -f '#{==:#{session_name},main}' 2>/dev/null | grep -q '(attached)'; exec fish; else if tmux has-session -t main 2>/dev/null; tmux attach -t main; else; tmux new-session -s main; end"
+command = /usr/local/bin/fish -l -c "exec /Users/didi/art/github/dotfiles/bin/ghostty-herdr-entry"
 font-family = "JetBrains Mono"
 font-size = 14
 macos-titlebar-style = tabs
