@@ -33,9 +33,9 @@ const withSerial = (serial: string | null, name: string) => {
   if (!serial) return name;
 
   const frame = FRAMES.find((candidate) => name.startsWith(candidate));
-  if (!frame) return `${serial} ${name}`;
+  if (!frame) return `${serial}(${name})`;
 
-  return `${frame}${serial} ${name.slice(frame.length)}`;
+  return `${frame}${serial}(${name.slice(frame.length)})`;
 };
 
 const getCurrentTmuxWindowId = () => {
