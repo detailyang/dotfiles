@@ -82,21 +82,24 @@ Hard: `npm run test:server` exits 0 and the result is recorded in the progress f
 
 Every code phase or work unit needs at least one automated check unless the repo has no runnable test surface; UI work needs browser verification at named viewports; document-only work needs file assertions and conflict review. Never write "tests pass" without naming what can actually run.
 
-### 7. Git And Commit Rules
+### 7. Git Worktree And Commit Rules
 
 Write these rules into every M/L plan and ledger:
 
-- Before execution starts: create a dedicated branch and make a clean-start commit. Never run a ledger on the main branch.
+- Before execution starts: create a dedicated Git worktree with a dedicated branch from the target base ref, normally with `git worktree add -b <branch> <worktree_path> <base_ref>`. Never run a ledger in the primary checkout or on the main branch.
+- Record `worktree_path`, `branch`, and `base_ref` in the plan/ledger. Use a predictable path outside the repo root, such as `../<repo>-<topic>-worktree`, unless the repo has its own worktree convention.
+- If the plan/progress files were generated in the primary checkout and are not present in the worktree, copy them into the worktree and make the clean-start commit there before implementation. That commit must contain only plan/ledger/progress bootstrap files, not feature changes.
+- Run every `/goal` turn, edit, verification command, and commit inside the dedicated worktree.
 - Commit each verified work unit in a single commit that contains both the code change and the progress-file update, with the task id in the commit message (for example `feat: entry flow [task 1.2]`). Do not record commit hashes in the progress file; `git log` linked by task id is the audit trail. This keeps one commit per work unit instead of a paired bookkeeping commit.
 - Never commit when required verification fails.
 - Never push, merge, or amend automatically. Merging into the main branch requires the user's review.
-- S-level work keeps default behavior: do not auto-commit; suggest a commit when done.
+- S-level work keeps default behavior: do not auto-create a worktree or auto-commit; suggest a commit when done.
 
 ### 8. Progress File Rules
 
 - Prefer JSON for anything the executing agent must update repeatedly; models corrupt structured JSON less than prose.
 - The executing agent may only flip status, evidence, and log fields. It must not add, remove, or rewrite task definitions or acceptance criteria.
-- The file must answer: current phase/task, next allowed action, which items are done/pending/blocked, which verification proves each done item, and what residual risk remains. The commit history, linked by task id, shows which commit completed each item.
+- The file must answer: dedicated worktree path, branch, base ref, current phase/task, next allowed action, which items are done/pending/blocked, which verification proves each done item, and what residual risk remains. The commit history, linked by task id, shows which commit completed each item.
 - Concrete templates live in the reference file for the chosen ledger shape.
 
 ### 9. Plan Self-Review
@@ -114,26 +117,27 @@ Fix issues inline. If a fix would change the user's stated direction, stop and a
 
 ### 10. /goal Starter
 
-End with a copy-ready starter. Keep it under roughly 1,000 characters — the hard limit is 4,000 — and keep it about the ledger protocol only; the official goal prompt already handles completion auditing and goal fidelity.
+End with a copy-ready starter. Use repo-relative plan/progress paths so the same paths resolve inside the dedicated worktree; avoid absolute paths that point back to the primary checkout. Keep it under roughly 1,000 characters — the hard limit is 4,000 — and keep it about the ledger protocol only; the official goal prompt already handles completion auditing and goal fidelity.
 
 ```text
-/goal Implement <plan-path> by following its execution ledger.
+/goal Implement <plan-path> using <progress-path>. Use repo-relative paths only.
 
 Each turn:
-1. Read <progress-path>, then the current task or next batch in <plan-path>.
-2. Run `git log --oneline -15` and the smoke check named in the plan; repair a broken state before starting new work.
-3. Work only on the current work unit or batch.
-4. After verification passes: update <progress-path> (status, evidence, and log fields only) and commit the code change and that update together in one commit, with the task id in the message. Never commit on failed verification. Never push, merge, or amend.
-5. When a phase's acceptance checks all pass, record it and continue to the next phase without asking for approval.
+1. Read <progress-path>. If its worktree is missing, run `git worktree add -b <branch> <worktree_path> <base_ref>`, copy plan/progress there if absent, make the clean-start commit, then work only inside that worktree.
+2. In the worktree, read the current task/batch in <plan-path>.
+3. Run `git log --oneline -15` and the smoke check; repair broken state before new work.
+4. Do only the current work unit/batch.
+5. After verification passes, update <progress-path> status/evidence/log only and commit code + progress together with the task id. Never commit failed verification; never push, merge, or amend.
+6. Continue verified phases automatically.
 
-Done when every item in <plan-path> is complete, every acceptance check is proven, and <progress-path> records final status and residual risk.
+Done when every item and acceptance check is proven and <progress-path> records final status/risk.
 
-Stop and report if a product decision is missing, the plan conflicts with the latest direction, or the worktree holds unrelated changes that cannot be safely separated.
+Stop if a decision is missing, the plan conflicts with latest direction, the primary checkout would be edited, or the worktree has unrelated changes.
 ```
 
 ## Output Format
 
-When the user asks for a proposal first, respond in chat with: spec review, task size and reason, implementation map, ledger choice, plan outline, file paths, /goal starter, open questions. When asked to write files, create the plan/ledger and progress files, then report created paths, review result, and whether it is ready to start.
+When the user asks for a proposal first, respond in chat with: spec review, task size and reason, implementation map, ledger choice, plan outline, file paths, dedicated worktree path, branch/base ref, /goal starter, open questions. When asked to write files, create the plan/ledger and progress files, then report created paths, dedicated worktree path, branch/base ref, review result, and whether it is ready to start.
 
 ## Guardrails
 

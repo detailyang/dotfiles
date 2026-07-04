@@ -15,14 +15,16 @@ Minimal markdown shape:
 ```markdown
 # <topic> Execution Checklist
 
+Worktree: ../<repo>-<topic>-worktree
 Branch: <dedicated-branch-name>
+Base ref: <target-base-ref>
 Verification baseline: <smoke command>
 
 - [ ] 1. <work unit> — accept: <binary check> — verify: `<command>`
 - [ ] 2. <work unit> — accept: <binary check> — verify: `<command>`
 ```
 
-Commit each verified item with its checklist update in the same commit, with the item number in the commit message. Do not store commit hashes here; `git log` is the audit trail.
+Execute the checklist only inside the dedicated worktree. Commit each verified item with its checklist update in the same commit, with the item number in the commit message. Do not store commit hashes here; `git log` from the worktree branch is the audit trail.
 
 ## Batch Inventory Ledger
 
@@ -39,7 +41,10 @@ Minimal JSON shape:
 {
   "goal": "Reverse engineer the target subsystem",
   "source": "scripts/generated-inventory.json",
+  "worktree_path": "../<repo>-<topic>-worktree",
   "branch": "<dedicated-branch-name>",
+  "base_ref": "<target-base-ref>",
+  "run_only_inside_worktree": true,
   "batching": { "batch_size": 20, "current_batch": 1 },
   "items": [
     {
@@ -53,7 +58,7 @@ Minimal JSON shape:
 }
 ```
 
-The executing agent may only flip `status`, fill `evidence`, `notes`, `verification`, and advance `current_batch`. Item ids and rules are read-only during execution.
+The executing agent may only flip `status`, fill `evidence`, `notes`, `verification`, and advance `current_batch`. Item ids, worktree path, branch, base ref, and rules are read-only during execution.
 
 ## File Naming
 

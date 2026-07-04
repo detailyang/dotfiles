@@ -33,7 +33,7 @@ Hard: design.md, plan.md, and the progress file agree on phase goals, boundaries
 
 ## Plan Document Sections
 
-The plan document should include: goal, source documents, execution rules, `/goal` protocol, progress file path, implementation surface map, architecture or data-flow diagram when useful, phase list with per-phase tasks/acceptance/surfaces, a baseline smoke command, verification commands, test and eval plan, what already exists, not in scope, failure modes and residual risk, decision log, and commit rules.
+The plan document should include: goal, source documents, execution rules, `/goal` protocol, progress file path, dedicated worktree path, branch, base ref, implementation surface map, architecture or data-flow diagram when useful, phase list with per-phase tasks/acceptance/surfaces, a baseline smoke command, verification commands, test and eval plan, what already exists, not in scope, failure modes and residual risk, decision log, and commit rules.
 
 ## Progress File Template
 
@@ -46,7 +46,12 @@ The plan document should include: goal, source documents, execution rules, `/goa
     "next_allowed_action": "Implement the current task; after verified completion, advance to the next task or phase automatically"
   },
   "execution_rules": {
+    "worktree_path": "../<repo>-<topic>-worktree",
     "branch": "<dedicated-branch-name>",
+    "base_ref": "<target-base-ref>",
+    "run_only_inside_worktree": true,
+    "primary_checkout_read_only": true,
+    "clean_start_commit_required": true,
     "smoke_check": "<command that proves the build/tests are not broken>",
     "commit_each_verified_task": true,
     "progress_update_in_same_commit": true,
@@ -71,7 +76,7 @@ The plan document should include: goal, source documents, execution rules, `/goa
 }
 ```
 
-The executing agent may only flip `status`, fill `verification`, `decision_log`, and `turn_log` entries. Task definitions, acceptance, and rules are read-only during execution. Commit each verified task with its progress update in the same commit and put the task id in the commit message; do not store commit hashes in this file.
+The executing agent may only flip `status`, fill `verification`, `decision_log`, and `turn_log` entries. Task definitions, acceptance, worktree path, branch, base ref, and rules are read-only during execution. Commit each verified task from inside the dedicated worktree with its progress update in the same commit and put the task id in the commit message; do not store commit hashes in this file.
 
 ## File Naming
 
