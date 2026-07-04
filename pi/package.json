@@ -10,7 +10,7 @@
     "pi-theme"
   ],
   "scripts": {
-    "check": "npm run check:inventory && npm run test:transcript && npm run test:btw-transcript && npm run test:btw-command && npm run test:btw-thread && npm run test:btw-settings && npm run test:btw-session-run && npm run test:review-target && npm run test:review-git && npm run test:review-path && npm run test:review-stream && npm run test:review-agent-run && npm run test:review-findings && npm run test:loop-state && npm run test:context-view-state && npm run test:context-chart-data",
+    "check": "npm run check:inventory && npm run test:transcript && npm run test:btw-transcript && npm run test:btw-command && npm run test:btw-thread && npm run test:btw-settings && npm run test:btw-session-run && npm run test:review-target && npm run test:review-git && npm run test:review-path && npm run test:review-stream && npm run test:review-agent-run && npm run test:review-findings && npm run test:loop-state && npm run test:context-view-state && npm run test:context-chart-data && npm run test:commit",
     "check:inventory": "node scripts/check-inventory.mjs",
     "test:transcript": "node --test tests/transcript.test.ts",
     "test:btw-transcript": "node --test tests/btw-transcript.test.ts",
@@ -26,7 +26,8 @@
     "test:review-findings": "node --test tests/review-findings.test.ts",
     "test:loop-state": "node --test tests/loop-state.test.ts",
     "test:context-view-state": "node --test tests/context-view-state.test.ts",
-    "test:context-chart-data": "node --test tests/context-chart-data.test.ts"
+    "test:context-chart-data": "node --test tests/context-chart-data.test.ts",
+    "test:commit": "node --test tests/commit.test.ts"
   },
   "pi": {
     "extensions": [

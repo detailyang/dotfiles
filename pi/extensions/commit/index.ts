@@ -59,10 +59,83 @@ Steps:
 3. Stage intended files
 4. Create one compliant commit; use multiple git commit -m arguments when body or footer is needed`;
 
+interface CommitModelReference {
+  provider?: unknown;
+  id?: unknown;
+}
+
+interface CommitAgentArgsOptions {
+  promptFile: string;
+  task: string;
+  model?: CommitModelReference;
+  thinkingLevel?: string;
+  approveProject?: boolean;
+}
+
+interface CommitOutcomeInput {
+  exitCode: number;
+  beforeHead: string | undefined;
+  afterHead: string | undefined;
+  finalText: string;
+  failureMessage: string;
+}
+
+interface CommitOutcome {
+  type: "info" | "error";
+  message: string;
+}
+
 function truncate(text: string, max = 160): string {
   const value = text.replace(/\s+/g, " ").trim();
   if (value.length <= max) return value;
   return `${value.slice(0, max - 3)}...`;
+}
+
+export function getModelArgument(model: CommitModelReference | undefined): string | undefined {
+  if (!model || typeof model.provider !== "string" || typeof model.id !== "string") return undefined;
+  if (!model.provider || !model.id) return undefined;
+  return `${model.provider}/${model.id}`;
+}
+
+export function buildCommitAgentArgs(options: CommitAgentArgsOptions): string[] {
+  const args = [
+    "--mode",
+    "json",
+    "--no-session",
+    options.approveProject ? "--approve" : "--no-approve",
+    "--append-system-prompt",
+    options.promptFile,
+  ];
+
+  const model = getModelArgument(options.model);
+  if (model) args.push("--model", model);
+  if (options.thinkingLevel) args.push("--thinking", options.thinkingLevel);
+
+  args.push("-p", options.task);
+  return args;
+}
+
+export function getCommitOutcome(input: CommitOutcomeInput): CommitOutcome {
+  if (input.exitCode !== 0) {
+    return { type: "error", message: input.failureMessage || "Commit failed" };
+  }
+
+  if (!input.afterHead || input.beforeHead === input.afterHead) {
+    if (input.failureMessage) {
+      return {
+        type: "error",
+        message: `Commit agent did not create a commit: ${input.failureMessage}`,
+      };
+    }
+
+    return {
+      type: "error",
+      message: "Commit agent exited successfully, but no new git commit was created.",
+    };
+  }
+
+  const message = input.finalText.trim() || `Commit completed (${input.afterHead.slice(0, 7)})`;
+  return { type: "info", message };
 }
 
 function extractText(content: unknown): string {
@@ -83,6 +156,11 @@ function summarizeEvent(event: any): string | null {
   switch (event?.type) {
     case "error":
       return truncate(typeof event.error === "string" ? event.error : JSON.stringify(event.error), 200) || "subagent error";
+    case "message_end":
+      if (event.message?.role === "assistant" && event.message.stopReason === "error") {
+        return `assistant error: ${truncate(event.message.errorMessage || "unknown error", 200)}`;
+      }
+      return null;
     default:
       return null;
   }
@@ -99,14 +177,52 @@ function getPiInvocation(args: string[]): { command: string; args: string[] } {
   return { command: "pi", args };
 }
 
+async function getGitHead(cwd: string): Promise<string | undefined> {
+  return new Promise((resolve) => {
+    let stdout = "";
+    const proc = spawn("git", ["rev-parse", "--verify", "HEAD"], {
+      cwd,
+      shell: false,
+      stdio: ["ignore", "pipe", "ignore"],
+    });
+
+    proc.stdout.on("data", (data: Buffer) => {
+      stdout += data.toString("utf8");
+    });
+    proc.on("error", () => resolve(undefined));
+    proc.on("close", (code: number | null) => {
+      resolve(code === 0 ? stdout.trim() || undefined : undefined);
+    });
+  });
+}
+
+function reportCommitOutcome(
+  ctx: { mode: string; ui: { notify(message: string, type?: "info" | "warning" | "error"): void } },
+  outcome: CommitOutcome,
+): void {
+  if (ctx.mode === "tui" || ctx.mode === "rpc") {
+    ctx.ui.notify(outcome.message, outcome.type);
+    return;
+  }
+
+  if (outcome.type === "error") {
+    console.error(outcome.message);
+  } else if (ctx.mode === "print") {
+    console.log(outcome.message);
+  } else {
+    console.error(outcome.message);
+  }
+}
+
 class CommitProgressComponent implements Component {
   private frameIndex = 0;
   private timer: NodeJS.Timeout;
+  private readonly tui: TUI;
+  private readonly theme: Theme;
 
-  constructor(
-    private readonly tui: TUI,
-    private readonly theme: Theme,
-  ) {
+  constructor(tui: TUI, theme: Theme) {
+    this.tui = tui;
+    this.theme = theme;
     this.timer = setInterval(() => {
       this.frameIndex = (this.frameIndex + 1) % SPINNER_FRAMES.length;
       this.tui.requestRender();
@@ -147,7 +263,14 @@ export default function (pi: ExtensionAPI) {
         ? `Create a git commit. Additional guidance: ${args}`
         : "Create a git commit for the current changes.";
 
-      const piArgs = ["--mode", "json", "-p", "--no-session", "--append-system-prompt", promptFile, task];
+      const beforeHead = await getGitHead(ctx.cwd);
+      const piArgs = buildCommitAgentArgs({
+        promptFile,
+        task,
+        model: ctx.model,
+        thinkingLevel: pi.getThinkingLevel(),
+        approveProject: ctx.isProjectTrusted(),
+      });
       let closeProgress: (() => void) | undefined;
       const progressPromise = ctx.mode === "tui"
         ? ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
@@ -160,7 +283,7 @@ export default function (pi: ExtensionAPI) {
         const invocation = getPiInvocation(piArgs);
         let finalText = "";
         let buffer = "";
-        let stderrBuffer = "";
+        let stderrText = "";
 
         const exitCode = await new Promise<number>((resolve) => {
           const proc = spawn(invocation.command, invocation.args, {
@@ -187,14 +310,8 @@ export default function (pi: ExtensionAPI) {
           });
 
           proc.stderr.on("data", (data: Buffer) => {
-            stderrBuffer += data.toString();
-            const lines = stderrBuffer.split("\n");
-            stderrBuffer = lines.pop() ?? "";
-            for (const line of lines) {
-              const text = line.trim();
-              if (!text) continue;
-              failureMessage = `stderr: ${text}`;
-            }
+            const text = data.toString();
+            stderrText += text;
           });
 
           proc.on("close", (code: number | null) => {
@@ -210,19 +327,20 @@ export default function (pi: ExtensionAPI) {
               } catch {}
             }
 
-            const trailingStderr = stderrBuffer.trim();
-            if (trailingStderr) failureMessage = `stderr: ${trailingStderr}`;
+            const trailingStderr = stderrText.trim();
+            if (trailingStderr) {
+              const stderrTail = trailingStderr.split("\n").filter((line) => line.trim()).slice(-8).join("\n");
+              failureMessage = `stderr: ${stderrTail}`;
+            }
 
             resolve(code ?? 0);
           });
           proc.on("error", () => resolve(1));
         });
 
-        if (exitCode !== 0) {
-          ctx.ui.notify(failureMessage || "Commit failed", "error");
-        } else {
-          ctx.ui.notify(finalText.trim() || "Commit completed", "info");
-        }
+        const afterHead = exitCode === 0 ? await getGitHead(ctx.cwd) : beforeHead;
+        const outcome = getCommitOutcome({ exitCode, beforeHead, afterHead, finalText, failureMessage });
+        reportCommitOutcome(ctx, outcome);
       } finally {
         closeProgress?.();
         await progressPromise;
