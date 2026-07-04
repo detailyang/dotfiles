@@ -1,4 +1,5 @@
 shell-integration = fish
+cursor-click-to-move = false
 command = /usr/local/bin/fish -l -c "exec ~/bin/ghostty-herdr-entry"
 font-family = "JetBrains Mono"
 font-size = 14
@@ -13,3 +14,4 @@ clipboard-paste-bracketed-safe = false
 unfocused-split-opacity = 0.55
 shell-integration-features = ssh-terminfo,ssh-env
 keybind = alt+backspace=text:\x1b\x7f
+cursor-click-to-move = false

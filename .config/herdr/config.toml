@@ -64,6 +64,7 @@ command = "/Users/didi/bin/snippte"
 [ui]
 prompt_new_tab_name = false
 pane_borders = true
+pane_gaps = false 
 agent_panel_sort = "priority"
 
 [ui.sound]
