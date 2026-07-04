@@ -37,6 +37,9 @@ echo ""
 check "bash scripts parse before shell startup" "bash -n install.sh bash/*.sh bin/proxy-env bin/codex scripts/*.sh"
 check_if_available fish "fish scripts parse before shell startup" "for f in fish/*.fish; do fish -n \"\$f\" || exit 1; done"
 
+check "herdr new panes use fish" "grep -q '^default_shell = \"/usr/local/bin/fish\"$' .config/herdr/config.toml"
+check "herdr starts fish as a login shell" "grep -q '^shell_mode = \"login\"$' .config/herdr/config.toml"
+
 check "proxy-env is the executable proxy env module" "test -x bin/proxy-env"
 check "proxy-env bash adapter output sets the default proxy endpoint" "[[ \"\$(./bin/proxy-env bash proxy)\" == *'export HTTP_PROXY=http://192.168.33.1:7890'* ]]"
 check "proxy-env fish adapter output sets the default proxy endpoint" "[[ \"\$(./bin/proxy-env fish proxy)\" == *\"set -gx HTTP_PROXY 'http://192.168.33.1:7890'\"* ]]"

@@ -3,6 +3,10 @@ onboarding = false
 [theme]
 name = "catppuccin-latte"
 
+[terminal]
+default_shell = "/usr/local/bin/fish"
+shell_mode = "login"
+
 [keys]
 # Match the tmux prefix in ~/.tmux.conf.
 prefix = "ctrl+a"
@@ -61,3 +65,6 @@ command = "/Users/didi/bin/snippte"
 prompt_new_tab_name = false
 pane_borders = true
 agent_panel_sort = "priority"
+
+[ui.sound]
+enabled = false
