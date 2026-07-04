@@ -1,5 +1,5 @@
 shell-integration = fish
-command = /usr/local/bin/fish -l -c "exec /Users/didi/art/github/dotfiles/bin/ghostty-herdr-entry"
+command = /usr/local/bin/fish -l -c "exec ~/bin/ghostty-herdr-entry"
 font-family = "JetBrains Mono"
 font-size = 14
 macos-titlebar-style = tabs

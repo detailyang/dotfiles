@@ -12,7 +12,7 @@ if mkdir "$lock_dir" 2>/dev/null; then
   echo "$$" > "$pid_file"
   trap cleanup EXIT INT TERM HUP
 
-  /Users/didi/.local/bin/herdr
+  $HOME/.local/bin/herdr
   exit $?
 fi
 
