@@ -7,3 +7,5 @@
 .worktrees/
 node_modules
 package-lock.json
+.pi/agent/models.json
+.pi/agent/auth.json
