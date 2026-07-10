@@ -1,5 +1,9 @@
 onboarding = false
 
+[remote]
+manage_ssh_config = true
+
+
 [theme]
 name = "catppuccin-latte"
 
