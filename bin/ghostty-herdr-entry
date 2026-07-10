@@ -1,18 +1,50 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-lock_dir="${XDG_RUNTIME_DIR:-/tmp}/ghostty-herdr-entry.${USER}.lock"
+fish_shell="/usr/local/bin/fish"
+herdr_bin="$HOME/.local/bin/herdr"
+runtime_dir="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
+lock_dir="${runtime_dir%/}/ghostty-herdr-entry.${USER}.lock"
 pid_file="$lock_dir/pid"
 
 cleanup() {
   rm -rf "$lock_dir"
 }
 
+exec_fish() {
+  exec "$fish_shell" -l
+}
+
+herdr_ui_running() {
+  local pid command
+
+  while read -r pid command; do
+    [[ -z "${pid:-}" || "$pid" == "$$" ]] && continue
+
+    case "$command" in
+      herdr|"$herdr_bin"|herdr\ --session\ *|"$herdr_bin"\ --session\ *)
+        return 0
+        ;;
+    esac
+  done < <(ps -axo pid=,command=)
+
+  return 1
+}
+
+if herdr_ui_running; then
+  exec_fish
+fi
+
 if mkdir "$lock_dir" 2>/dev/null; then
   echo "$$" > "$pid_file"
   trap cleanup EXIT INT TERM HUP
 
-  $HOME/.local/bin/herdr
+  if herdr_ui_running; then
+    cleanup
+    exec_fish
+  fi
+
+  "$herdr_bin"
   exit $?
 fi
 
@@ -20,7 +52,7 @@ if [[ -r "$pid_file" ]]; then
   existing_pid="$(cat "$pid_file" 2>/dev/null || true)"
 
   if [[ "$existing_pid" =~ ^[0-9]+$ ]] && kill -0 "$existing_pid" 2>/dev/null; then
-    exec /usr/local/bin/fish -l
+    exec_fish
   fi
 fi
 

@@ -35,6 +35,7 @@ echo "=== Dotfiles Validation ==="
 echo ""
 
 check "bash scripts parse before shell startup" "bash -n install.sh bash/*.sh bin/proxy-env bin/codex scripts/*.sh"
+check "ghostty herdr entry parses" "bash -n bin/ghostty-herdr-entry"
 check_if_available fish "fish scripts parse before shell startup" "for f in fish/*.fish; do fish -n \"\$f\" || exit 1; done"
 
 check "herdr new panes use fish" "grep -q '^default_shell = \"/usr/local/bin/fish\"$' .config/herdr/config.toml"
