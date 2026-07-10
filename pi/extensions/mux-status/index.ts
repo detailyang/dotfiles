@@ -24,11 +24,6 @@ type MuxTarget = {
   restore: () => void;
 };
 
-const herdrTabSerial = (tabId: string): string | null => {
-  const match = /(?:^|:)t(\d+)$/.exec(tabId);
-  return match?.[1] || null;
-};
-
 const withSerial = (serial: string | null, name: string) => {
   if (!serial) return name;
 
@@ -68,14 +63,12 @@ const herdrTarget = (): MuxTarget | null => {
   const tabId = process.env.HERDR_TAB_ID;
   if (!tabId) return null;
 
-  const serial = herdrTabSerial(tabId);
-
   return {
     rename: (name) => {
-      runHerdr(["tab", "rename", tabId, withSerial(serial, name)]);
+      runHerdr(["tab", "rename", tabId, name]);
     },
     restore: () => {
-      runHerdr(["tab", "rename", tabId, withSerial(serial, dir())]);
+      runHerdr(["tab", "rename", tabId, dir()]);
     },
   };
 };
