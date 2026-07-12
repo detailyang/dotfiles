@@ -1,12 +1,7 @@
 if test (uname) = "Darwin"
-    # Check for Apple Silicon Homebrew path first
-    if test -d "/opt/homebrew"
+    if test -x /opt/homebrew/bin/brew
         eval "$(/opt/homebrew/bin/brew shellenv)"
-    # Fall back to Intel Homebrew path
-    else if test -d "/usr/local/Homebrew"
-        # Intel path is added by brew shellenv; nothing extra needed
-    else
-        echo "Homebrew installation not found"
-        return 1
+    else if test -x /usr/local/bin/brew
+        eval "$(/usr/local/bin/brew shellenv)"
     end
 end

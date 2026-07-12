@@ -1,7 +1,6 @@
 .vagrant/
 .DS_Store
 /.idea
-/alfred/.idea
 .idea
 *.swp
 .worktrees/

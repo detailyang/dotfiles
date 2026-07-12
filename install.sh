@@ -2,7 +2,7 @@
 
 # Dotfiles Installation Script
 # Supports macOS, Linux, and WSL
-# Usage: ./install.sh [--no-pull] [--dry-run] [--npx] [--mac-apps]
+# Usage: ./install.sh [--no-pull] [--dry-run] [--toolchain] [--npx] [--mac-apps]
 
 set -o pipefail
 
@@ -12,7 +12,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 # CONFIGURATION
 # ============================================================================
 
-readonly SCRIPT_VERSION="2.0.0"
+readonly SCRIPT_VERSION="2.1.0"
 
 # Brew CLI packages
 readonly BREW_CLI_PACKAGES=(
@@ -382,6 +382,11 @@ setup_macos_defaults() {
     # Key repeat rate
     defaults write -g KeyRepeat -int 2
     defaults write -g InitialKeyRepeat -int 15
+
+    # Disable automatic macOS software updates
+    sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled -bool false
+    sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticDownload -bool false
+    sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool false
     
     # Restart Finder
     killall Finder 2>/dev/null || true
@@ -397,6 +402,7 @@ phase_package_management() {
     local install_mac_apps="$1"
     local install_npx="$2"
     local install_pi="$3"
+    local install_toolchain="$4"
     
     log_step "Phase 5: Package Management"
     
@@ -408,12 +414,22 @@ phase_package_management() {
         fi
     fi
     
+    if [[ "$install_toolchain" == true ]]; then
+        if install_official_toolchains; then
+            install_go_tools
+        else
+            log_error "Toolchain installation failed"
+            exit 1
+        fi
+    else
+        log_info "Skipping Go, Rust, and Node.js toolchains (use --toolchain to install)"
+        log_info "Skipping Go tools (use --toolchain to install)"
+    fi
+
     if [[ "$install_npx" == true ]]; then
         install_npx_tools
-        install_go_tools
     else
         log_info "Skipping npx tools (use --npx to install)"
-        log_info "Skipping Go tools (use --npx to install)"
     fi
 
     if [[ "$install_pi" == true ]]; then
@@ -513,6 +529,217 @@ install_npx_tools() {
     fi
     
     log_success "npx tools installation completed"
+}
+
+install_official_toolchains() {
+    if ! is_macos; then
+        log_error "--toolchain currently supports macOS only"
+        return 1
+    fi
+
+    log_info "Installing official language toolchains..."
+    install_official_go || return 1
+    install_official_node || return 1
+    install_official_rust || return 1
+    log_success "Official language toolchains installation completed"
+}
+
+install_official_go() {
+    local go_version
+    local go_arch
+    local installed_version=""
+    local temp_dir
+    local package_path
+    local signature_output
+
+    log_info "Checking the latest official Go release..."
+    go_version=$(curl -fsSL 'https://go.dev/VERSION?m=text' | awk 'NR == 1 { print; exit }')
+    if [[ ! "$go_version" =~ ^go[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+        log_error "Could not determine the latest Go version"
+        return 1
+    fi
+
+    case "$(uname -m)" in
+        x86_64)
+            go_arch="amd64"
+            ;;
+        arm64)
+            go_arch="arm64"
+            ;;
+        *)
+            log_error "Unsupported macOS architecture for Go: $(uname -m)"
+            return 1
+            ;;
+    esac
+
+    if [[ -x /usr/local/go/bin/go ]]; then
+        installed_version=$(/usr/local/go/bin/go version | awk '{ print $3 }')
+    fi
+
+    if [[ "$installed_version" == "$go_version" ]]; then
+        log_success "Go ${go_version#go} already installed"
+        export PATH="/usr/local/go/bin:$PATH"
+        return 0
+    fi
+
+    temp_dir=$(mktemp -d) || {
+        log_error "Failed to create a temporary directory for Go"
+        return 1
+    }
+    package_path="$temp_dir/${go_version}.darwin-${go_arch}.pkg"
+
+    log_info "Downloading ${go_version} for darwin/${go_arch}..."
+    if ! curl -fL "https://go.dev/dl/${go_version}.darwin-${go_arch}.pkg" -o "$package_path"; then
+        rm -rf "$temp_dir"
+        log_error "Failed to download the Go installer"
+        return 1
+    fi
+
+    signature_output=$(pkgutil --check-signature "$package_path" 2>&1) || {
+        rm -rf "$temp_dir"
+        log_error "The Go installer signature could not be verified"
+        return 1
+    }
+    if [[ "$signature_output" != *"Notarization: trusted by the Apple notary service"* ]] || \
+       [[ "$signature_output" != *"Developer ID Installer: Google LLC"* ]]; then
+        rm -rf "$temp_dir"
+        log_error "The Go installer is not a trusted notarized Google package"
+        return 1
+    fi
+
+    log_info "Installing ${go_version}; macOS may request your administrator password..."
+    if ! sudo /usr/sbin/installer -pkg "$package_path" -target /; then
+        rm -rf "$temp_dir"
+        log_error "Failed to install Go"
+        return 1
+    fi
+    rm -rf "$temp_dir"
+
+    export PATH="/usr/local/go/bin:$PATH"
+    if [[ "$(/usr/local/go/bin/go version | awk '{ print $3 }')" != "$go_version" ]]; then
+        log_error "Go installation verification failed"
+        return 1
+    fi
+    log_success "Go ${go_version#go} installed from the official package"
+}
+
+install_official_node() {
+    local shasums
+    local package_name
+    local node_version
+    local installed_version=""
+    local expected_checksum
+    local actual_checksum
+    local temp_dir
+    local package_path
+    local signature_output
+
+    log_info "Checking the latest official Node.js release..."
+    shasums=$(curl -fsSL 'https://nodejs.org/dist/latest/SHASUMS256.txt') || {
+        log_error "Could not retrieve the latest Node.js checksums"
+        return 1
+    }
+    package_name=$(printf '%s\n' "$shasums" | awk '$2 ~ /^node-v[0-9]+\.[0-9]+\.[0-9]+\.pkg$/ { print $2; exit }')
+    node_version=${package_name#node-}
+    node_version=${node_version%.pkg}
+    if [[ ! "$node_version" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+        log_error "Could not determine the latest Node.js version"
+        return 1
+    fi
+
+    if [[ -x /usr/local/bin/node ]]; then
+        installed_version=$(/usr/local/bin/node --version)
+    fi
+
+    if [[ "$installed_version" == "$node_version" ]]; then
+        log_success "Node.js ${node_version#v} already installed"
+        export PATH="/usr/local/bin:$PATH"
+        return 0
+    fi
+
+    expected_checksum=$(printf '%s\n' "$shasums" | awk -v package="$package_name" '$2 == package { print $1; exit }')
+    if [[ ! "$expected_checksum" =~ ^[0-9a-f]{64}$ ]]; then
+        log_error "Could not determine the Node.js installer checksum"
+        return 1
+    fi
+
+    temp_dir=$(mktemp -d) || {
+        log_error "Failed to create a temporary directory for Node.js"
+        return 1
+    }
+    package_path="$temp_dir/$package_name"
+
+    log_info "Downloading Node.js ${node_version#v}..."
+    if ! curl -fL "https://nodejs.org/dist/latest/$package_name" -o "$package_path"; then
+        rm -rf "$temp_dir"
+        log_error "Failed to download the Node.js installer"
+        return 1
+    fi
+
+    actual_checksum=$(shasum -a 256 "$package_path" | awk '{ print $1 }')
+    if [[ "$actual_checksum" != "$expected_checksum" ]]; then
+        rm -rf "$temp_dir"
+        log_error "The Node.js installer checksum does not match SHASUMS256.txt"
+        return 1
+    fi
+
+    signature_output=$(pkgutil --check-signature "$package_path" 2>&1) || {
+        rm -rf "$temp_dir"
+        log_error "The Node.js installer signature could not be verified"
+        return 1
+    }
+    if [[ "$signature_output" != *"Notarization: trusted by the Apple notary service"* ]]; then
+        rm -rf "$temp_dir"
+        log_error "The Node.js installer is not trusted by the Apple notary service"
+        return 1
+    fi
+
+    log_info "Installing Node.js ${node_version#v}; macOS may request your administrator password..."
+    if ! sudo /usr/sbin/installer -pkg "$package_path" -target /; then
+        rm -rf "$temp_dir"
+        log_error "Failed to install Node.js"
+        return 1
+    fi
+    rm -rf "$temp_dir"
+
+    export PATH="/usr/local/bin:$PATH"
+    if [[ "$(/usr/local/bin/node --version)" != "$node_version" ]] || \
+       ! /usr/local/bin/npm --version; then
+        log_error "Node.js installation verification failed"
+        return 1
+    fi
+    log_success "Node.js ${node_version#v} installed from the official package"
+}
+
+install_official_rust() {
+    local rustup_bin="$HOME/.cargo/bin/rustup"
+
+    if [[ ! -x "$rustup_bin" ]]; then
+        log_info "Installing Rust through the official rustup installer..."
+        if ! curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+            sh -s -- -y --default-toolchain stable --profile default; then
+            log_error "Failed to install rustup"
+            return 1
+        fi
+    else
+        log_info "Updating the official Rust stable toolchain..."
+        if ! "$rustup_bin" update stable; then
+            log_error "Failed to update the Rust stable toolchain"
+            return 1
+        fi
+    fi
+
+    if ! "$rustup_bin" default stable; then
+        log_error "Failed to select the Rust stable toolchain"
+        return 1
+    fi
+
+    export PATH="$HOME/.cargo/bin:$PATH"
+    if ! rustc --version || ! cargo --version; then
+        log_error "Rust installation verification failed"
+        return 1
+    fi
+    log_success "Latest official Rust stable toolchain installed"
 }
 
 install_go_tools() {
@@ -714,6 +941,7 @@ Usage: $0 [OPTIONS]
 OPTIONS:
     --no-pull       Skip git pull before installation
     --dry-run       Show what would be deployed without making changes
+    --toolchain     Install latest official Go, Rust, and Node.js (macOS only)
     --npx           Install npx tools (skills + ctx7)
     --pi            Install PI extensions
     --mac-apps      Install Homebrew packages and casks (macOS only)
@@ -722,7 +950,7 @@ OPTIONS:
 EXAMPLES:
     $0                          # Standard installation
     $0 --dry-run                # Preview changes
-    $0 --mac-apps --npx --pi    # Full installation with all optional components
+    $0 --mac-apps --toolchain --npx --pi  # Full installation with all optional components
     $0 --no-pull --dry-run      # Preview without updating repo
 
 EOF
@@ -734,6 +962,7 @@ main() {
     local install_npx=false
     local install_pi=false
     local install_mac_apps=false
+    local install_toolchain=false
     
     # Parse arguments
     while [[ "$#" -gt 0 ]]; do
@@ -752,6 +981,9 @@ main() {
                 ;;
             --mac-apps)
                 install_mac_apps=true
+                ;;
+            --toolchain)
+                install_toolchain=true
                 ;;
             -h|--help)
                 show_usage
@@ -786,7 +1018,7 @@ main() {
     
     if [[ "$dry_run" == false ]]; then
         phase_platform_setup
-        phase_package_management "$install_mac_apps" "$install_npx" "$install_pi"
+        phase_package_management "$install_mac_apps" "$install_npx" "$install_pi" "$install_toolchain"
         phase_postinstall
     else
         log_info "Skipping remaining phases in dry-run mode"

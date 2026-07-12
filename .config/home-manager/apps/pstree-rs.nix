@@ -10,7 +10,7 @@ let
     };
     x86_64-darwin = pkgs.fetchurl {
       url    = "https://github.com/detailyang/pstree-rs/releases/download/v${version}/pstree-rs-v${version}-x86_64-apple-darwin.tar.gz";
-      hash   = "sha256-I1weFNRMc0TiVNB1wWWLSjkykart+OS8DzrIcbH+D5s=";
+      hash   = "sha256-GNiGPAMgxV+OjauJtjzdjampwOQkUMRk1v5EEho/7L4=";
     };
   };
 

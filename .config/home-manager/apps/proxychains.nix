@@ -13,6 +13,9 @@ let
     buildInputs = [ pkgs.autoconf pkgs.automake pkgs.libtool ]; 
     buildPhase = ''
       sed -i '24i #undef memcpy' src/core.c
+      substituteInPlace src/core.h \
+        --replace-fail 'typedef int (*freeaddrinfo_t)(struct addrinfo *);' \
+                       'typedef void (*freeaddrinfo_t)(struct addrinfo *);'
       ./configure --prefix=$out
       make
       make install
