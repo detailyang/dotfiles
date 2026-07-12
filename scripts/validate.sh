@@ -41,6 +41,11 @@ check_if_available fish "fish login starts without optional-tool errors" "! fish
 check "installer advertises the toolchain option" "./install.sh --help | grep -q -- '--toolchain     Install latest official Go, Rust, and Node.js'"
 check "installer accepts toolchain in dry-run mode" "./install.sh --no-pull --dry-run --toolchain"
 check "Home Manager leaves language runtimes unmanaged" "! grep -REn 'pkgs\\.(go(_[[:alnum:]_]*)?|rust[[:alnum:]_]*|cargo|nodejs(_[[:alnum:]_]*)?)([[:space:];)]|$)' .config/home-manager"
+check "Home Manager leaves Fish unmanaged" "! grep -REn 'programs\\.fish|pkgs\\.fish' .config/home-manager && ! test -e .config/home-manager/apps/fish.nix"
+check "installer provides Fish through Homebrew" "sed -n '/^readonly BREW_CLI_PACKAGES=(/,/^)/p' install.sh | grep -q '^    \"fish\"$'"
+check "Homebrew package checks verify formula ownership" "grep -Fq 'brew list --formula \"\$package\"' install.sh"
+check "installer selects Homebrew Fish as login shell" "grep -Fq 'configure_homebrew_fish_shell' install.sh && grep -Fq 'sudo chsh -s \"\$fish_path\" \"\$USER\"' install.sh"
+check "native Fish config loads repository modules" "grep -Fq 'for file in ~/fish/*.fish' .config/fish/config.fish"
 check "installer disables automatic macOS updates" "grep -Fq 'sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled -bool false' install.sh && grep -Fq 'sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticDownload -bool false' install.sh && grep -Fq 'sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool false' install.sh"
 
 check "herdr new panes use fish" "grep -q '^default_shell = \"/usr/local/bin/fish\"$' .config/herdr/config.toml"

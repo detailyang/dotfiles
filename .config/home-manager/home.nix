@@ -11,7 +11,6 @@ in
 {
   imports = [
     ./apps/git.nix
-    ./apps/fish.nix
     ./apps/proxychains.nix
     ./apps/fonts.nix
     ./apps/pstree-rs.nix
@@ -90,4 +89,3 @@ in
   # home-manager(26.05-pre) vs nixpkgs(25.11pre) 版本号不匹配警告，实际功能正常
   home.enableNixpkgsReleaseCheck = false;
 }
-

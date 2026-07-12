@@ -178,7 +178,7 @@ check_command_silent() {
 install_brew_package() {
     local package="$1"
     
-    if check_command "$package"; then
+    if brew list --formula "$package" &> /dev/null; then
         log_success "$package already installed"
         return 0
     fi
@@ -191,6 +191,39 @@ install_brew_package() {
         log_warn "Failed to install $package"
         return 1
     fi
+}
+
+configure_homebrew_fish_shell() {
+    local fish_path="/usr/local/bin/fish"
+    local current_shell
+
+    if [[ ! -x "$fish_path" ]]; then
+        log_warn "Homebrew Fish is not available at $fish_path"
+        return 1
+    fi
+
+    if ! grep -Fxq "$fish_path" /etc/shells; then
+        log_info "Registering $fish_path in /etc/shells..."
+        if ! printf '%s\n' "$fish_path" | sudo tee -a /etc/shells > /dev/null; then
+            log_warn "Failed to register $fish_path in /etc/shells"
+            return 1
+        fi
+    fi
+
+    current_shell=$(/usr/bin/dscl . -read "/Users/$USER" UserShell 2>/dev/null | awk '{print $2}')
+    if [[ "$current_shell" == "$fish_path" ]]; then
+        log_success "$fish_path is already the default shell"
+        return 0
+    fi
+
+    log_info "Setting $fish_path as the default shell..."
+    if sudo chsh -s "$fish_path" "$USER"; then
+        log_success "Default shell changed to $fish_path"
+        return 0
+    fi
+
+    log_warn "Failed to set $fish_path as the default shell"
+    return 1
 }
 
 install_brew_cask() {
@@ -464,6 +497,8 @@ install_homebrew_packages() {
     for package in "${BREW_CLI_PACKAGES[@]}"; do
         install_brew_package "$package"
     done
+
+    configure_homebrew_fish_shell
 
     # Install taps
     for tap in "${BREW_TAPS[@]}"; do
