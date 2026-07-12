@@ -14,6 +14,7 @@ set -l paths_to_add \
     ~/.gloo/bin \
     ~/.fluvio/bin \
     ~/.opencode/bin \
+    ~/.local/share/pi-node/current/bin \
     ~/.bun/bin
 
 for p in $paths_to_add
