@@ -2,6 +2,10 @@ if [[ ! -o interactive ]]; then
     return
 fi
 
+if [[ -d "$HOME/.local/bin" ]]; then
+    export PATH="$HOME/.local/bin:$PATH"
+fi
+
 if [[ -d "$HOME/go/bin" ]]; then
     export PATH="$HOME/go/bin:$PATH"
 fi

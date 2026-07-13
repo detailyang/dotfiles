@@ -13,6 +13,7 @@ paths_to_add=(
     "$HOME/.gloo/bin"
     "$HOME/.fluvio/bin"
     "$HOME/.opencode/bin"
+    "$HOME/.local/bin"
     "$HOME/.bun/bin"
 )
 
