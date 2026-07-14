@@ -68,6 +68,7 @@ check "fish proxy adapter does not own proxy rules" "! grep -q 'set -gx HTTP_PRO
 check "CONTEXT records Shell capability language" "grep -q '^\\*\\*Shell capability\\*\\*:' CONTEXT.md"
 check "CONTEXT records Proxy env language" "grep -q '^\\*\\*Proxy env\\*\\*:' CONTEXT.md"
 check "codex wrapper rotates and restores tmux window name" "bash scripts/test-codex-wrapper.sh"
+check "agent workflow uses canonical skill names" "test -f .agents/skills/grill/SKILL.md && test -f .agents/skills/to-spec/SKILL.md && test -f .agents/skills/to-issue/SKILL.md && test -f .agents/skills/ship/SKILL.md && test -f .agents/skills/code-review/SKILL.md && ! test -f .agents/skills/think/SKILL.md && ! test -f .agents/skills/to-prd/SKILL.md && ! test -f .agents/skills/to-issues/SKILL.md"
 
 echo ""
 echo "=== Results ==="

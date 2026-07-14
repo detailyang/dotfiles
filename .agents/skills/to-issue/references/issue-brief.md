@@ -11,6 +11,8 @@ Each task in `issues.md` should be durable enough for an agent to execute after 
 
 摘要：one-line summary
 
+Blocked by：issue numbers/titles, or `None — can start immediately`
+
 当前行为：
 
 期望行为：
@@ -29,8 +31,6 @@ Each task in `issues.md` should be durable enough for an agent to execute after 
 
 验证方式：
 - command/test/manual check and expected result
-
-建议顺序：
 
 备注：
 ```
@@ -60,3 +60,4 @@ State what is out of scope. This prevents gold-plating, unrelated refactors, and
 - enough context to execute without the original chat
 - verification path included
 - recommended order if sequencing matters
+- explicit blocking edges that form an acyclic dependency graph

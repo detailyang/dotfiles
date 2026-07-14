@@ -39,7 +39,7 @@ Cover old data, backward compatibility, rollout, rollback, and cleanup.
 
 ## 拆分建议
 
-Suggest vertical slices or implementation tasks for `/to-issues`.
+Suggest vertical slices or implementation tasks for `/to-issue`.
 
 ## 变更记录
 ```
