@@ -8,14 +8,3 @@ function osx
     export LDFLAGS="-L /Library/Developer/CommandLineTools/SDKs/MacOSX.sdk/usr/lib" &> /dev/null
     export PATH="/usr/bin:/Library/Developer/CommandLineTools/usr/bin/:$PATH" &> /dev/null
 end
-
-if test (uname) = "Darwin"
-    defaults write com.apple.finder AppleShowAllFiles YES
-
-    # dock settings
-    defaults write com.apple.dock autohide -int 1
-    defaults write com.apple.dock mineffect -string scale
-    defaults write com.apple.dock minimize-to-application -int 1
-    defaults write com.apple.dock show-recents -int 0
-    defaults write com.apple.dock tilesize -int 44
-end

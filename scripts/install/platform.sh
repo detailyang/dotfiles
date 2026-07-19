@@ -111,6 +111,16 @@ ybw::macos::apply_defaults() {
         defaults write com.apple.finder ShowPathbar -bool true || return 1
     ybw::result::require "Showing the Finder status bar" \
         defaults write com.apple.finder ShowStatusBar -bool true || return 1
+    ybw::result::require "Enabling Dock autohide" \
+        defaults write com.apple.dock autohide -int 1 || return 1
+    ybw::result::require "Configuring Dock minimize effect" \
+        defaults write com.apple.dock mineffect -string scale || return 1
+    ybw::result::require "Minimizing windows into application icons" \
+        defaults write com.apple.dock minimize-to-application -int 1 || return 1
+    ybw::result::require "Hiding recent applications in the Dock" \
+        defaults write com.apple.dock show-recents -int 0 || return 1
+    ybw::result::require "Configuring Dock icon size" \
+        defaults write com.apple.dock tilesize -int 44 || return 1
     ybw::result::require "Configuring global key repeat" \
         defaults write -g ApplePressAndHoldEnabled -bool false || return 1
     ybw::result::require "Configuring VS Code key repeat" \

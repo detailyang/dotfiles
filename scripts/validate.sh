@@ -98,6 +98,9 @@ check "installer defaults to skipping Home Manager activation" "bash -c 'source 
 check "legacy Home Manager channels are no longer used" "! grep -Eq 'nix-channel|nix-shell.*home-manager' scripts/install/*.sh"
 check "Nix prefers the TUNA binary cache with official fallback" "grep -Fq 'substituters = https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store https://cache.nixos.org/' .config/nix/nix.conf && ! grep -Eq 'mirror.sjtu|mirrors.ustc' .config/nix/nix.conf"
 check "Nix trusts the official cache signing key" "grep -Fq 'trusted-public-keys = cache.nixos.org-1:6NCHdD59X431o0gWypbMrAURkbJ16ZPMQFGspcDShjY=' .config/nix/nix.conf && ! grep -Fq 'kb9Kaaa' .config/nix/nix.conf"
+check "Fish startup does not write macOS defaults" "! grep -REn '^[[:space:]]*defaults[[:space:]]+write' fish"
+check "Fish startup does not mutate universal variables" "! grep -REn 'set[[:space:]]+(-[^[:space:]]*U|--universal)' fish"
+check "installer owns Dock defaults" "grep -Fq 'defaults write com.apple.dock autohide -int 1' scripts/install/platform.sh && grep -Fq 'defaults write com.apple.dock tilesize -int 44' scripts/install/platform.sh"
 check "installer disables automatic macOS updates" "grep -Fq 'sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled -bool false' scripts/install/platform.sh && grep -Fq 'sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticDownload -bool false' scripts/install/platform.sh && grep -Fq 'sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool false' scripts/install/platform.sh"
 
 check "herdr resolves Fish from PATH" "grep -q '^default_shell = \"fish\"$' .config/herdr/config.toml"
