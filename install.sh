@@ -14,9 +14,13 @@ cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 
 readonly SCRIPT_VERSION="2.1.0"
 
-# Brew CLI packages
-readonly BREW_CLI_PACKAGES=(
+# Fish executable; integrations are managed by Home Manager
+readonly BREW_FISH_PACKAGES=(
     "fish"
+)
+
+# Optional macOS CLI packages
+readonly BREW_CLI_PACKAGES=(
     "brightness"
     "loop"
     "im-select"
@@ -194,8 +198,10 @@ install_brew_package() {
 }
 
 configure_homebrew_fish_shell() {
-    local fish_path="/usr/local/bin/fish"
+    local fish_path
     local current_shell
+
+    fish_path="$(brew --prefix)/bin/fish"
 
     if [[ ! -x "$fish_path" ]]; then
         log_warn "Homebrew Fish is not available at $fish_path"
@@ -440,10 +446,19 @@ phase_package_management() {
     log_step "Phase 5: Package Management"
     
     if is_macos; then
+        if ! install_homebrew_fish; then
+            log_error "Homebrew Fish installation failed"
+            exit 1
+        fi
+
+        if ! configure_homebrew_fish_shell; then
+            log_warn "Continuing without changing the login shell"
+        fi
+
         if [[ "$install_mac_apps" == true ]]; then
-            install_homebrew_packages
+            install_optional_homebrew_packages
         else
-            log_info "Skipping Homebrew packages (use --mac-apps to install)"
+            log_info "Skipping optional Homebrew packages (use --mac-apps to install)"
         fi
     fi
     
@@ -472,8 +487,33 @@ phase_package_management() {
     fi
 }
 
-install_homebrew_packages() {
-    log_info "Installing Homebrew packages..."
+install_homebrew_fish() {
+    local failed=0
+
+    log_info "Installing Homebrew Fish..."
+
+    if ! check_command brew; then
+        log_error "Homebrew is required to install Fish on macOS"
+        log_info "To install: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+        return 1
+    fi
+
+    for package in "${BREW_FISH_PACKAGES[@]}"; do
+        if ! install_brew_package "$package"; then
+            failed=1
+        fi
+    done
+
+    if [[ $failed -ne 0 ]]; then
+        log_error "Homebrew Fish failed to install"
+        return 1
+    fi
+
+    log_success "Homebrew Fish installation completed"
+}
+
+install_optional_homebrew_packages() {
+    log_info "Installing optional Homebrew packages..."
     
     if ! check_command brew; then
         log_warn "Homebrew is not installed"
@@ -497,8 +537,6 @@ install_homebrew_packages() {
     for package in "${BREW_CLI_PACKAGES[@]}"; do
         install_brew_package "$package"
     done
-
-    configure_homebrew_fish_shell
 
     # Install taps
     for tap in "${BREW_TAPS[@]}"; do
@@ -525,7 +563,7 @@ install_homebrew_packages() {
         fi
     done
     
-    log_success "Homebrew packages installation completed"
+    log_success "Optional Homebrew packages installation completed"
 }
 
 install_npx_tools() {
@@ -842,8 +880,11 @@ phase_postinstall() {
     # Setup shell frameworks
     if is_macos; then
         setup_oh_my_zsh
+        setup_home_manager || {
+            log_error "Home Manager activation failed"
+            exit 1
+        }
         setup_oh_my_fish
-        setup_home_manager
         setup_lazygit_symlink
     fi
     
@@ -898,28 +939,56 @@ setup_oh_my_fish() {
 }
 
 setup_home_manager() {
+    local channels_changed=false
+
     if ! check_command nix-channel; then
-        log_info "Nix is not installed, skipping home-manager setup"
-        return 0
+        log_error "Nix is required to provide the Fish runtime integrations"
+        log_info "Install Nix, then rerun this installer"
+        return 1
     fi
-    
+
     log_info "Setting up home-manager..."
-    
+
     if nix-channel --list | grep -q home-manager; then
         log_success "home-manager channel already added"
     else
         log_info "Adding home-manager channel..."
         nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
-        nix-channel --update
+        channels_changed=true
     fi
-    
+
     if nix-channel --list | grep -q nixpkgs; then
         log_success "nixpkgs channel already added"
     else
         log_info "Adding nixpkgs channel..."
         nix-channel --add https://mirrors.ustc.edu.cn/nix-channels/nixpkgs nixpkgs
+        channels_changed=true
     fi
-    
+
+    export PATH="$HOME/.nix-profile/bin:$PATH"
+
+    if [[ "$channels_changed" == true ]] || ! check_command home-manager; then
+        log_info "Updating Nix channels..."
+        if ! nix-channel --update; then
+            log_error "Failed to update Nix channels"
+            return 1
+        fi
+    fi
+
+    if ! check_command home-manager; then
+        log_info "Installing home-manager..."
+        if ! nix-shell '<home-manager>' -A install; then
+            log_error "Failed to install home-manager"
+            return 1
+        fi
+    fi
+
+    log_info "Activating home-manager configuration..."
+    if ! home-manager -f "$HOME/.config/home-manager/home.nix" switch; then
+        log_error "Failed to activate home-manager configuration"
+        return 1
+    fi
+
     log_success "home-manager setup completed"
 }
 
@@ -979,7 +1048,7 @@ OPTIONS:
     --toolchain     Install latest official Go, Rust, and Node.js (macOS only)
     --npx           Install npx tools (skills + ctx7)
     --pi            Install PI extensions
-    --mac-apps      Install Homebrew packages and casks (macOS only)
+    --mac-apps      Install optional Homebrew packages and casks (macOS only)
     -h, --help      Show this help message
 
 EXAMPLES:

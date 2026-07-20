@@ -40,7 +40,6 @@ in
     pkgs.tokei
     pkgs.lolcat
     pkgs.cowsay
-    pkgs.peco
     pkgs.difftastic
     pkgs.graphviz
     pkgs.aha
@@ -53,13 +52,8 @@ in
     pkgs.skopeo
     pkgs.jq
     pkgs.imgcat
-    pkgs.zoxide
-    pkgs.silver-searcher
-    pkgs.eza
+    pkgs.ripgrep
     pkgs.scc
-    pkgs.mcfly
-    pkgs.starship
-    pkgs.fd
     pkgs.htop
     pkgs.hyperfine
     pkgs.hexyl
@@ -74,6 +68,13 @@ in
     pkgs.findutils
     pkgs.gnugrep
     pkgs.gnused
+    pkgs.eza
+    pkgs.fd
+    pkgs.fzf
+    pkgs.mcfly
+    pkgs.peco
+    pkgs.starship
+    pkgs.zoxide
   ];
 
   home.file = {

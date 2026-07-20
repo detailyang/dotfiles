@@ -1,4 +1,5 @@
 set -l paths_to_add \
+    ~/.nix-profile/bin \
     ~/bin \
     ~/cargo/bin \
     /usr/local/bin \

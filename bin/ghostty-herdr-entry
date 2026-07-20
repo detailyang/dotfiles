@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-fish_shell="/usr/local/bin/fish"
+fish_shell="/opt/homebrew/bin/fish"
 herdr_bin="$HOME/.local/bin/herdr"
 runtime_dir="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
 lock_dir="${runtime_dir%/}/ghostty-herdr-entry.${USER}.lock"
