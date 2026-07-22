@@ -38,6 +38,7 @@ check "bash scripts parse before shell startup" "bash -n install.sh bash/*.sh bi
 check "ghostty herdr entry parses" "bash -n bin/ghostty-herdr-entry"
 check_if_available fish "fish scripts parse before shell startup" "for f in fish/*.fish; do fish -n \"\$f\" || exit 1; done"
 check "Fish FZF bindings are independent of the package manager" "grep -Fq 'fzf --fish | source' fish/fish_fzf_bindings.fish && ! grep -Fq '/opt/homebrew' fish/fish_fzf_bindings.fish"
+check_if_available fish "Fish starts without fzf" "fish_path=\$(command -v fish); env PATH=/nonexistent \"\$fish_path\" --no-config -c 'source fish/fish_fzf_bindings.fish; fish_user_key_bindings'"
 check_if_available fish "fish login starts without optional-tool errors" "! fish -lc true 2>&1 | grep -Eq 'Unknown command: bass|Homebrew installation not found|npm not found'"
 check "installer advertises the toolchain option" "./install.sh --help | grep -q -- '--toolchain     Install latest official Go, Rust, and Node.js'"
 check "installer accepts toolchain in dry-run mode" "./install.sh --no-pull --dry-run --toolchain"

@@ -71,5 +71,32 @@ pane_borders = true
 pane_gaps = false 
 agent_panel_sort = "priority"
 
+# Keep status colors dynamic while emphasizing identity and de-emphasizing context.
+[ui.sidebar.agents]
+row_gap = 0
+rows = [
+  [
+    { token = "state_icon", bold = true, dim = false },
+    { token = "workspace", fg = "#1e66f5", bold = true, dim = false },
+    { token = "tab", fg = "#7c7f93", bold = false, dim = true },
+  ],
+  [
+    { token = "agent", fg = "#8839ef", bold = true, dim = false },
+  ],
+]
+
+[ui.sidebar.spaces]
+row_gap = 0
+rows = [
+  [
+    { token = "state_icon", bold = true, dim = false },
+    { token = "workspace", fg = "#1e66f5", bold = true, dim = false },
+  ],
+  [
+    { token = "branch", fg = "#179299", bold = false, dim = true },
+    { token = "git_status", bold = false, dim = true },
+  ],
+]
+
 [ui.sound]
 enabled = false
