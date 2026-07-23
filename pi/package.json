@@ -10,7 +10,7 @@
     "pi-theme"
   ],
   "scripts": {
-    "check": "npm run check:inventory && npm run test:transcript && npm run test:btw-transcript && npm run test:btw-command && npm run test:btw-thread && npm run test:btw-settings && npm run test:btw-session-run && npm run test:review-target && npm run test:review-git && npm run test:review-path && npm run test:review-stream && npm run test:review-agent-run && npm run test:review-findings && npm run test:loop-state && npm run test:context-view-state && npm run test:context-chart-data && npm run test:commit",
+    "check": "npm run check:inventory && npm run test:transcript && npm run test:btw-transcript && npm run test:btw-command && npm run test:btw-thread && npm run test:btw-settings && npm run test:btw-session-run && npm run test:herdr-btw && npm run test:review-target && npm run test:review-git && npm run test:review-path && npm run test:review-stream && npm run test:review-agent-run && npm run test:review-findings && npm run test:loop-state && npm run test:context-view-state && npm run test:context-chart-data && npm run test:commit",
     "check:inventory": "node scripts/check-inventory.mjs",
     "test:transcript": "node --test tests/transcript.test.ts",
     "test:btw-transcript": "node --test tests/btw-transcript.test.ts",
@@ -18,6 +18,7 @@
     "test:btw-thread": "node --test tests/btw-thread.test.ts",
     "test:btw-settings": "node --test tests/btw-settings.test.ts",
     "test:btw-session-run": "node --test tests/btw-session-run.test.ts",
+    "test:herdr-btw": "node --test tests/herdr-btw.test.ts",
     "test:review-target": "node --test tests/review-target.test.ts",
     "test:review-git": "node --test tests/review-git.test.ts",
     "test:review-path": "node --test tests/review-path.test.ts",
