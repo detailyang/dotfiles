@@ -46,6 +46,7 @@ check "Home Manager leaves language runtimes unmanaged" "! grep -REn 'pkgs\\.(go
 check "Home Manager leaves Fish unmanaged" "! grep -REn 'programs\\.fish|pkgs\\.fish' .config/home-manager && ! test -e .config/home-manager/apps/fish.nix"
 check "Homebrew provides only the Fish executable" "fish_packages=\$(sed -n '/^readonly BREW_FISH_PACKAGES=(/,/^)/p' install.sh); [[ \$(grep -c '^    \"' <<< \"\$fish_packages\") -eq 1 ]] && grep -Fqx '    \"fish\"' <<< \"\$fish_packages\""
 check "Home Manager provides the complete Fish runtime" "for package in eza fd fzf mcfly peco starship zoxide; do grep -Fq \"pkgs.\$package\" .config/home-manager/home.nix || exit 1; done"
+check "Home Manager installs delta through Git integration" "grep -Fq 'programs.git.delta.enable = true;' .config/home-manager/apps/git.nix && ! grep -Fq 'pkgs.delta' .config/home-manager/home.nix"
 check "Home Manager replaces removed silver-searcher with ripgrep" "grep -Fq 'pkgs.ripgrep' .config/home-manager/home.nix && ! grep -Fq 'pkgs.silver-searcher' .config/home-manager/home.nix"
 check "standard macOS install provisions the Fish executable" "sed -n '/^phase_package_management()/,/^}/p' install.sh | grep -Fq 'if ! install_homebrew_fish; then'"
 check "Homebrew package checks verify formula ownership" "grep -Fq 'brew list --formula \"\$package\"' install.sh"

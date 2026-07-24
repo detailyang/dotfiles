@@ -7,6 +7,7 @@
     ];
 
     programs.git.enable = true;
+    programs.git.delta.enable = true;
     programs.git.lfs.enable = true;
     programs.git.settings.user.name = "detailyang";
     programs.git.settings.user.email = "detailyang@gmail.com";

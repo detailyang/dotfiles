@@ -59,7 +59,6 @@ in
     pkgs.hexyl
     pkgs.curl
     pkgs.wget
-    pkgs.delta
     pkgs.git-cliff
     pkgs.vim
     pkgs.tmux
