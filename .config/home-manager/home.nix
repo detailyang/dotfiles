@@ -46,7 +46,6 @@ in
     pkgs.jj
     pkgs.cmake
     pkgs.llvm
-    pkgs.clang
     pkgs.lld
     pkgs.ninja
     pkgs.skopeo
