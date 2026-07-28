@@ -165,7 +165,72 @@ scutil_value() {
     scutil --proxy | awk -v key="$key" '$1 == key {print $3; exit}'
 }
 
-emit_auto_proxy() {
+gsettings_value() {
+    local schema="$1"
+    local key="$2"
+    local value
+
+    value=$(gsettings get "$schema" "$key" 2>/dev/null) || return 1
+    if [[ "$value" == \'*\' ]]; then
+        value="${value:1:${#value}-2}"
+    fi
+    printf '%s' "$value"
+}
+
+is_gnome_desktop() {
+    local desktop="${XDG_CURRENT_DESKTOP:-}:${DESKTOP_SESSION:-}"
+
+    case "$desktop" in
+        *GNOME*|*gnome*|*Unity*|*unity*|*Cinnamon*|*cinnamon*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+proxy_url() {
+    local scheme="$1"
+    local host="$2"
+    local port="$3"
+
+    if [[ -z "$host" || -z "$port" || "$port" == 0 ]]; then
+        return 1
+    fi
+    printf '%s://%s:%s' "$scheme" "$host" "$port"
+}
+
+emit_resolved_proxy() {
+    local shell="$1"
+    local http_proxy="$2"
+    local https_proxy="$3"
+    local socks_proxy="$4"
+    local all_proxy="$5"
+    local no_proxy="$6"
+
+    http_proxy="${http_proxy:-${https_proxy:-${all_proxy:-$socks_proxy}}}"
+    https_proxy="${https_proxy:-$http_proxy}"
+    socks_proxy="${socks_proxy:-${all_proxy:-$http_proxy}}"
+    all_proxy="${all_proxy:-${socks_proxy:-$http_proxy}}"
+    no_proxy="${no_proxy:-$(no_proxy_value)}"
+
+    if [[ -z "$http_proxy" ]]; then
+        echo "proxy configuration does not contain a usable endpoint" >&2
+        return 1
+    fi
+
+    emit_proxy_vars \
+        "$shell" \
+        "$http_proxy" \
+        "$https_proxy" \
+        "$socks_proxy" \
+        "$all_proxy" \
+        "$no_proxy"
+
+    emit_echo "$shell" "HTTP_PROXY:$http_proxy"
+    emit_echo "$shell" "HTTPS_PROXY:$https_proxy"
+    emit_echo "$shell" "SOCKS_PROXY:$socks_proxy"
+    emit_echo "$shell" "NO_PROXY:$no_proxy"
+}
+
+emit_macos_auto_proxy() {
     local shell="$1"
 
     if ! command -v scutil >/dev/null 2>&1; then
@@ -194,6 +259,138 @@ emit_auto_proxy() {
     emit_echo "$shell" "HTTPS_PROXY:http://$https_proxy:$https_port"
     emit_echo "$shell" "SOCKS_PROXY:$socks_proxy:$socks_port"
     emit_echo "$shell" "NO_PROXY:$no_proxy"
+}
+
+emit_gnome_auto_proxy() {
+    local shell="$1"
+    local mode
+
+    mode=$(gsettings_value org.gnome.system.proxy mode) || return 2
+
+    case "$mode" in
+        none)
+            if is_gnome_desktop; then
+                emit_unproxy_vars "$shell"
+                return 0
+            fi
+            return 2
+            ;;
+        auto)
+            local pac_url
+            pac_url=$(gsettings_value org.gnome.system.proxy autoconfig-url || true)
+            echo "PAC proxy configuration cannot be converted to static proxy variables: $pac_url" >&2
+            return 1
+            ;;
+        manual)
+            ;;
+        *)
+            return 2
+            ;;
+    esac
+
+    local http_host http_port https_host https_port socks_host socks_port use_same_proxy
+    local http_proxy="" https_proxy="" socks_proxy="" all_proxy="" no_proxy
+    http_host=$(gsettings_value org.gnome.system.proxy.http host)
+    http_port=$(gsettings_value org.gnome.system.proxy.http port)
+    https_host=$(gsettings_value org.gnome.system.proxy.https host)
+    https_port=$(gsettings_value org.gnome.system.proxy.https port)
+    socks_host=$(gsettings_value org.gnome.system.proxy.socks host)
+    socks_port=$(gsettings_value org.gnome.system.proxy.socks port)
+    use_same_proxy=$(gsettings_value org.gnome.system.proxy use-same-proxy)
+    no_proxy=$(no_proxy_value)
+
+    http_proxy=$(proxy_url http "$http_host" "$http_port" || true)
+    if [[ "$use_same_proxy" == true ]]; then
+        https_proxy="$http_proxy"
+        socks_proxy="$http_proxy"
+        all_proxy="$http_proxy"
+    else
+        https_proxy=$(proxy_url http "$https_host" "$https_port" || true)
+        socks_proxy=$(proxy_url socks5 "$socks_host" "$socks_port" || true)
+        all_proxy="$socks_proxy"
+    fi
+
+    emit_resolved_proxy \
+        "$shell" \
+        "$http_proxy" \
+        "$https_proxy" \
+        "$socks_proxy" \
+        "$all_proxy" \
+        "$no_proxy"
+}
+
+emit_environment_auto_proxy() {
+    local shell="$1"
+    local http_value="${HTTP_PROXY:-${http_proxy:-}}"
+    local https_value="${HTTPS_PROXY:-${https_proxy:-}}"
+    local all_value="${ALL_PROXY:-${all_proxy:-}}"
+    local socks_value="${SOCKS_PROXY:-${socks_proxy:-}}"
+    local no_value="${NO_PROXY:-${no_proxy:-}}"
+    local systemd_environment=""
+    local name value
+
+    if [[ -z "$http_value$https_value$all_value$socks_value" ]] && command -v systemctl >/dev/null 2>&1; then
+        systemd_environment=$(systemctl --user show-environment 2>/dev/null || true)
+        while IFS='=' read -r name value; do
+            case "$name" in
+                HTTP_PROXY|http_proxy) http_value="${http_value:-$value}" ;;
+                HTTPS_PROXY|https_proxy) https_value="${https_value:-$value}" ;;
+                ALL_PROXY|all_proxy) all_value="${all_value:-$value}" ;;
+                SOCKS_PROXY|socks_proxy) socks_value="${socks_value:-$value}" ;;
+                NO_PROXY|no_proxy) no_value="${no_value:-$value}" ;;
+            esac
+        done <<< "$systemd_environment"
+    fi
+
+    if [[ -z "$http_value$https_value$all_value$socks_value" ]]; then
+        return 2
+    fi
+
+    emit_resolved_proxy \
+        "$shell" \
+        "$http_value" \
+        "$https_value" \
+        "$socks_value" \
+        "$all_value" \
+        "$no_value"
+}
+
+emit_linux_auto_proxy() {
+    local shell="$1"
+    local status
+
+    if command -v gsettings >/dev/null 2>&1; then
+        if emit_gnome_auto_proxy "$shell"; then
+            return 0
+        else
+            status=$?
+            if [[ $status -ne 2 ]]; then
+                return "$status"
+            fi
+        fi
+    fi
+
+    if emit_environment_auto_proxy "$shell"; then
+        return 0
+    else
+        status=$?
+        if [[ $status -ne 2 ]]; then
+            return "$status"
+        fi
+    fi
+
+    echo "no supported Linux proxy configuration found; configure GNOME manual proxy or proxy environment variables" >&2
+    return 1
+}
+
+emit_auto_proxy() {
+    local shell="$1"
+
+    case "$(uname -s)" in
+        Darwin) emit_macos_auto_proxy "$shell" ;;
+        Linux) emit_linux_auto_proxy "$shell" ;;
+        *) echo "autoproxy is not supported on $(uname -s)" >&2; return 1 ;;
+    esac
 }
 
 main() {

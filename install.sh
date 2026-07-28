@@ -2,7 +2,7 @@
 
 # Dotfiles Installation Script
 # Supports macOS, Linux, and WSL
-# Usage: ./install.sh [--no-pull] [--dry-run] [--toolchain] [--npx] [--mac-apps]
+# Usage: ./install.sh [--no-pull] [--dry-run] [--home-manager] [--profile development|desktop] [--toolchain] [--npx] [--mac-apps]
 
 set -o pipefail
 
@@ -12,7 +12,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")" || exit 1
 # CONFIGURATION
 # ============================================================================
 
-readonly SCRIPT_VERSION="2.1.0"
+readonly SCRIPT_VERSION="2.2.0"
 
 # Fish executable; integrations are managed by Home Manager
 readonly BREW_FISH_PACKAGES=(
@@ -74,6 +74,7 @@ readonly OMF_PLUGINS=(
 # Files to backup before deployment
 readonly BACKUP_FILES=(
     "$HOME/.bash_profile"
+    "$HOME/.bashrc"
     "$HOME/.zshrc"
     "$HOME/.config/fish"
     "$HOME/.config/wezterm"
@@ -141,6 +142,51 @@ get_platform() {
     fi
 }
 
+get_home_manager_arch() {
+    case "$(uname -m)" in
+        arm64|aarch64)
+            echo "aarch64"
+            ;;
+        x86_64|amd64)
+            echo "x86_64"
+            ;;
+        *)
+            log_error "Unsupported architecture for Home Manager: $(uname -m)"
+            return 1
+            ;;
+    esac
+}
+
+get_home_manager_target() {
+    local profile="$1"
+    local arch
+    local platform
+
+    arch="$(get_home_manager_arch)" || return 1
+
+    case "$(get_platform)" in
+        macOS)
+            platform="macos"
+            ;;
+        Linux)
+            platform="linux"
+            ;;
+        WSL)
+            platform="wsl"
+            ;;
+        *)
+            log_error "Home Manager is not supported on $(get_platform)"
+            return 1
+            ;;
+    esac
+
+    if [[ "$profile" == "desktop" ]]; then
+        echo "${platform}-${arch}-desktop"
+    else
+        echo "${platform}-${arch}"
+    fi
+}
+
 # ============================================================================
 # HELPER FUNCTIONS - Command Checks
 # ============================================================================
@@ -171,6 +217,37 @@ check_command_silent() {
         return 0
     else
         log_warn "$cmd is not available"
+        return 1
+    fi
+}
+
+load_nix_profile() {
+    local profile_script
+
+    if check_command nix; then
+        return 0
+    fi
+
+    for profile_script in \
+        "$HOME/.nix-profile/etc/profile.d/nix.sh" \
+        "/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh"
+    do
+        if [[ -f "$profile_script" ]]; then
+            # shellcheck disable=SC1090
+            source "$profile_script"
+        fi
+    done
+
+    check_command nix
+}
+
+run_as_root() {
+    if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+        "$@"
+    elif check_command sudo; then
+        sudo "$@"
+    else
+        log_error "Administrator privileges are required, but sudo is not installed"
         return 1
     fi
 }
@@ -460,6 +537,21 @@ phase_package_management() {
         else
             log_info "Skipping optional Homebrew packages (use --mac-apps to install)"
         fi
+    elif is_linux; then
+        local fish_path
+
+        if ! install_linux_fish; then
+            log_error "Linux Fish installation failed"
+            exit 1
+        fi
+
+        fish_path="$(find_system_fish)" || {
+            log_error "No stable system Fish executable found"
+            exit 1
+        }
+        if ! configure_fish_login_shell "$fish_path"; then
+            log_warn "Continuing without changing the login shell"
+        fi
     fi
     
     if [[ "$install_toolchain" == true ]]; then
@@ -510,6 +602,113 @@ install_homebrew_fish() {
     fi
 
     log_success "Homebrew Fish installation completed"
+}
+
+is_stable_login_shell_path() {
+    local shell_path="$1"
+    local resolved_path
+
+    case "$shell_path" in
+        "$HOME/.nix-profile/"*|"$HOME/.local/state/nix/profiles/"*|/nix/var/nix/profiles/*|/nix/store/*)
+            return 1
+            ;;
+    esac
+
+    resolved_path="$(readlink -f "$shell_path" 2>/dev/null || true)"
+    [[ -n "$resolved_path" && "$resolved_path" != /nix/store/* ]]
+}
+
+find_system_fish() {
+    local candidate
+
+    for candidate in /usr/bin/fish /bin/fish; do
+        if [[ -x "$candidate" ]] && is_stable_login_shell_path "$candidate"; then
+            printf '%s' "$candidate"
+            return 0
+        fi
+    done
+
+    candidate="$(command -v fish 2>/dev/null || true)"
+    if [[ -n "$candidate" && -x "$candidate" ]] && is_stable_login_shell_path "$candidate"; then
+        printf '%s' "$candidate"
+        return 0
+    fi
+
+    return 1
+}
+
+install_linux_fish() {
+    local fish_path
+
+    if fish_path="$(find_system_fish)"; then
+        log_success "System Fish is already installed at $fish_path"
+        return 0
+    fi
+
+    log_info "Installing Fish for Linux..."
+
+    if check_command apt-get; then
+        run_as_root apt-get update && run_as_root apt-get install -y fish
+    elif check_command dnf; then
+        run_as_root dnf install -y fish
+    elif check_command yum; then
+        run_as_root yum install -y fish
+    elif check_command pacman; then
+        run_as_root pacman -S --needed --noconfirm fish
+    elif check_command zypper; then
+        run_as_root zypper --non-interactive install fish
+    elif check_command apk; then
+        run_as_root apk add fish
+    else
+        log_error "No supported Linux package manager found (apt, dnf, yum, pacman, zypper, or apk)"
+        return 1
+    fi
+
+    fish_path="$(find_system_fish)" || {
+        log_error "Fish installation completed without a stable system executable"
+        return 1
+    }
+
+    log_success "Fish installed at $fish_path"
+}
+
+configure_fish_login_shell() {
+    local fish_path="$1"
+    local current_shell
+
+    if [[ ! -x "$fish_path" ]]; then
+        log_warn "Fish is not executable at $fish_path"
+        return 1
+    fi
+
+    if ! is_stable_login_shell_path "$fish_path"; then
+        log_error "Refusing generation-bound Fish login shell: $fish_path"
+        return 1
+    fi
+
+    if [[ -f /etc/shells ]] && ! grep -Fxq "$fish_path" /etc/shells; then
+        log_info "Registering $fish_path in /etc/shells..."
+        if ! printf '%s\n' "$fish_path" | run_as_root tee -a /etc/shells > /dev/null; then
+            log_warn "Failed to register $fish_path in /etc/shells"
+            return 1
+        fi
+    fi
+
+    current_shell="$(getent passwd "$USER" 2>/dev/null | cut -d: -f7)"
+    current_shell="${current_shell:-${SHELL:-}}"
+    if [[ "$current_shell" == "$fish_path" ]]; then
+        log_success "$fish_path is already the default shell"
+        return 0
+    fi
+
+    log_info "Setting $fish_path as the default shell..."
+    if run_as_root chsh -s "$fish_path" "$USER"; then
+        log_success "Default shell changed to $fish_path"
+        return 0
+    fi
+
+    log_warn "Failed to set $fish_path as the default shell"
+    return 1
 }
 
 install_optional_homebrew_packages() {
@@ -865,6 +1064,9 @@ install_pi_extensions() {
 # ============================================================================
 
 phase_postinstall() {
+    local activate_home_manager="$1"
+    local home_manager_profile="$2"
+
     log_step "Phase 6: Post-Install Configuration"
     
     # Create directory structure
@@ -877,14 +1079,21 @@ phase_postinstall() {
         fi
     done
     
-    # Setup shell frameworks
     if is_macos; then
         setup_oh_my_zsh
-        setup_home_manager || {
+    fi
+
+    if [[ "$activate_home_manager" == true ]]; then
+        setup_home_manager "$home_manager_profile" || {
             log_error "Home Manager activation failed"
             exit 1
         }
-        setup_oh_my_fish
+    else
+        log_info "Skipping Home Manager activation (use --home-manager to activate)"
+    fi
+    setup_oh_my_fish
+
+    if is_macos; then
         setup_lazygit_symlink
     fi
     
@@ -939,57 +1148,30 @@ setup_oh_my_fish() {
 }
 
 setup_home_manager() {
-    local channels_changed=false
+    local profile="$1"
+    local home_manager_dir="$HOME/.config/home-manager"
+    local target
 
-    if ! check_command nix-channel; then
-        log_error "Nix is required to provide the Fish runtime integrations"
-        log_info "Install Nix, then rerun this installer"
+    if ! load_nix_profile; then
+        log_error "Nix with Flakes support is required to provide the Fish runtime integrations"
+        log_info "Run ./scripts/install-nix.sh, then rerun this installer"
         return 1
     fi
 
-    log_info "Setting up home-manager..."
-
-    if nix-channel --list | grep -q home-manager; then
-        log_success "home-manager channel already added"
-    else
-        log_info "Adding home-manager channel..."
-        nix-channel --add https://github.com/nix-community/home-manager/archive/master.tar.gz home-manager
-        channels_changed=true
-    fi
-
-    if nix-channel --list | grep -q nixpkgs; then
-        log_success "nixpkgs channel already added"
-    else
-        log_info "Adding nixpkgs channel..."
-        nix-channel --add https://mirrors.ustc.edu.cn/nix-channels/nixpkgs nixpkgs
-        channels_changed=true
-    fi
-
-    export PATH="$HOME/.nix-profile/bin:$PATH"
-
-    if [[ "$channels_changed" == true ]] || ! check_command home-manager; then
-        log_info "Updating Nix channels..."
-        if ! nix-channel --update; then
-            log_error "Failed to update Nix channels"
-            return 1
-        fi
-    fi
-
-    if ! check_command home-manager; then
-        log_info "Installing home-manager..."
-        if ! nix-shell '<home-manager>' -A install; then
-            log_error "Failed to install home-manager"
-            return 1
-        fi
-    fi
-
-    log_info "Activating home-manager configuration..."
-    if ! home-manager -f "$HOME/.config/home-manager/home.nix" switch; then
-        log_error "Failed to activate home-manager configuration"
+    if [[ ! -f "$home_manager_dir/flake.nix" || ! -f "$home_manager_dir/flake.lock" ]]; then
+        log_error "Home Manager Flake is incomplete at $home_manager_dir"
         return 1
     fi
 
-    log_success "home-manager setup completed"
+    target="$(get_home_manager_target "$profile")" || return 1
+    log_info "Activating Home Manager target: $target"
+
+    if ! nix run "$home_manager_dir#home-manager" -- --impure -v --option max-jobs 1 --option cores 2 --flake "$home_manager_dir#$target" switch; then
+        log_error "Failed to activate Home Manager target: $target"
+        return 1
+    fi
+
+    log_success "Home Manager setup completed"
 }
 
 setup_lazygit_symlink() {
@@ -1045,6 +1227,8 @@ Usage: $0 [OPTIONS]
 OPTIONS:
     --no-pull       Skip git pull before installation
     --dry-run       Show what would be deployed without making changes
+    --home-manager  Activate the selected Home Manager profile
+    --profile NAME  Home Manager profile: development (default) or desktop
     --toolchain     Install latest official Go, Rust, and Node.js (macOS only)
     --npx           Install npx tools (skills + ctx7)
     --pi            Install PI extensions
@@ -1052,8 +1236,10 @@ OPTIONS:
     -h, --help      Show this help message
 
 EXAMPLES:
-    $0                          # Standard installation
+    $0                          # Standard installation without Home Manager activation
     $0 --dry-run                # Preview changes
+    $0 --home-manager           # Activate the development Home Manager profile
+    $0 --home-manager --profile desktop  # Activate development plus desktop tools
     $0 --mac-apps --toolchain --npx --pi  # Full installation with all optional components
     $0 --no-pull --dry-run      # Preview without updating repo
 
@@ -1067,6 +1253,8 @@ main() {
     local install_pi=false
     local install_mac_apps=false
     local install_toolchain=false
+    local activate_home_manager=false
+    local home_manager_profile="development"
     
     # Parse arguments
     while [[ "$#" -gt 0 ]]; do
@@ -1076,6 +1264,17 @@ main() {
                 ;;
             --dry-run)
                 dry_run=true
+                ;;
+            --home-manager)
+                activate_home_manager=true
+                ;;
+            --profile)
+                if [[ "$#" -lt 2 ]]; then
+                    log_error "--profile requires a value"
+                    exit 1
+                fi
+                home_manager_profile="$2"
+                shift
                 ;;
             --npx)
                 install_npx=true
@@ -1101,6 +1300,16 @@ main() {
         esac
         shift
     done
+
+    case "$home_manager_profile" in
+        development|desktop)
+            ;;
+        *)
+            log_error "Unsupported Home Manager profile: $home_manager_profile"
+            log_info "Supported profiles: development, desktop"
+            exit 1
+            ;;
+    esac
     
     # Show banner
     echo "╔════════════════════════════════════════════════════════════╗"
@@ -1123,7 +1332,7 @@ main() {
     if [[ "$dry_run" == false ]]; then
         phase_platform_setup
         phase_package_management "$install_mac_apps" "$install_npx" "$install_pi" "$install_toolchain"
-        phase_postinstall
+        phase_postinstall "$activate_home_manager" "$home_manager_profile"
     else
         log_info "Skipping remaining phases in dry-run mode"
     fi

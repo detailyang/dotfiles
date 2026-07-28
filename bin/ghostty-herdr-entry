@@ -1,8 +1,13 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-fish_shell="/opt/homebrew/bin/fish"
+fish_shell="$(command -v fish || true)"
 herdr_bin="$HOME/.local/bin/herdr"
+
+if [[ -z "$fish_shell" ]]; then
+  echo "Fish is not installed or not available in PATH. Run ~/install.sh first." >&2
+  exit 127
+fi
 runtime_dir="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}"
 lock_dir="${runtime_dir%/}/ghostty-herdr-entry.${USER}.lock"
 pid_file="$lock_dir/pid"

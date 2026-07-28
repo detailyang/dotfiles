@@ -1,0 +1,42 @@
+{ pkgs, ... }:
+
+{
+  home.packages = [
+    pkgs.aha
+    pkgs.bat
+    pkgs.btop
+    pkgs.cowsay
+    pkgs.coreutils
+    pkgs.curl
+    pkgs.difftastic
+    pkgs.eza
+    pkgs.fd
+    pkgs.findutils
+    pkgs.fortune
+    pkgs.fzf
+    pkgs.git-cliff
+    pkgs.gnugrep
+    pkgs.gnused
+    pkgs.graphviz
+    pkgs.hexyl
+    pkgs.htop
+    pkgs.hyperfine
+    pkgs.jj
+    pkgs.jq
+    pkgs.lazygit
+    pkgs.lolcat
+    pkgs.mcfly
+    pkgs.peco
+    pkgs.ripgrep
+    pkgs.scc
+    pkgs.socat
+    pkgs.starship
+    pkgs.tmux
+    pkgs.tokei
+    pkgs.tree
+    pkgs.vim
+    pkgs.wget
+    pkgs.yazi
+    pkgs.zoxide
+  ];
+}
