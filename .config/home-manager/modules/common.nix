@@ -26,6 +26,7 @@
     pkgs.lazygit
     pkgs.lolcat
     pkgs.mcfly
+    pkgs.mise
     pkgs.peco
     pkgs.ripgrep
     pkgs.scc

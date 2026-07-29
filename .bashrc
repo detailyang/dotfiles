@@ -20,6 +20,10 @@ case $- in
     *) return 0 ;;
 esac
 
+if command -v mise > /dev/null 2>&1; then
+    eval "$(mise activate bash)"
+fi
+
 if type starship > /dev/null 2>&1; then
     eval "$(starship init bash)"
 fi

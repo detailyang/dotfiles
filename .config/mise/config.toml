@@ -1,0 +1,5 @@
+[tools]
+node = "lts"
+python = "3.13"
+go = "latest"
+rust = { version = "stable", profile = "default" }

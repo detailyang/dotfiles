@@ -4,11 +4,8 @@ set -l paths_to_add \
     ~/cargo/bin \
     /usr/local/bin \
     ~/go/bin \
-    ~/python/bin \
     ~/bash/bin \
-    ~/node/bin \
     ~/java/bin \
-    /usr/local/go/bin \
     ~/maven/bin \
     /usr/local/openresty/bin \
     ~/.jenv/bin \
