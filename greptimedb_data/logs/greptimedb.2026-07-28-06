@@ -1,0 +1,379 @@
+2026-07-28T06:38:31.967887Z  INFO cmd: GreptimeDB version: 
+branch: 
+commit: 16e9abe4a9b0512ef9d800cb8c8f68d4167327bd
+clean: true
+version: 1.1.4
+2026-07-28T06:38:31.968403Z  INFO cmd: Heap profile is active
+2026-07-28T06:38:31.968424Z  INFO cmd: GreptimeDB start with cpu limit in millicores: 10000
+2026-07-28T06:38:31.968460Z  INFO cmd: GreptimeDB start with memory limit in bytes: 8383180800
+2026-07-28T06:38:31.968525Z  INFO cmd::standalone: Standalone start command: StartCommand {
+    http_addr: Some(
+        "0.0.0.0:4000",
+    ),
+    grpc_bind_addr: Some(
+        "0.0.0.0:4001",
+    ),
+    mysql_addr: Some(
+        "0.0.0.0:4002",
+    ),
+    postgres_addr: Some(
+        "0.0.0.0:4003",
+    ),
+    influxdb_enable: false,
+    config_file: None,
+    tls_mode: None,
+    tls_cert_path: None,
+    tls_key_path: None,
+    tls_watch: false,
+    user_provider: None,
+    env_prefix: "GREPTIMEDB_STANDALONE",
+    data_home: None,
+}
+2026-07-28T06:38:31.968797Z  INFO cmd::standalone: Standalone options: GreptimeOptions {
+    runtime: RuntimeOptions {
+        global_rt_size: 10,
+        compact_rt_size: 5,
+        query_rt_size: 9,
+        ingest_rt_size: 10,
+    },
+    plugins: [],
+    component: StandaloneOptions {
+        enable_telemetry: true,
+        default_timezone: None,
+        default_column_prefix: None,
+        auto_create_table: true,
+        max_in_flight_write_bytes: 0B,
+        write_bytes_exhausted_policy: Wait {
+            timeout: 10s,
+        },
+        http: HttpOptions {
+            addr: "0.0.0.0:4000",
+            timeout: 0ns,
+            disable_dashboard: false,
+            body_limit: 64.0MiB,
+            prom_validation_mode: Strict,
+            cors_allowed_origins: [],
+            enable_cors: true,
+        },
+        grpc: GrpcOptions {
+            bind_addr: "0.0.0.0:4001",
+            server_addr: "",
+            max_recv_message_size: 512.0MiB,
+            max_send_message_size: 512.0MiB,
+            flight_compression: ArrowIpc,
+            runtime_size: 8,
+            tls: TlsOption {
+                mode: Disable,
+                cert_path: "",
+                key_path: "",
+                ca_cert_path: "",
+                watch: false,
+            },
+            max_connection_age: None,
+            http2_keep_alive_interval: 10s,
+            http2_keep_alive_timeout: 3s,
+        },
+        mysql: MysqlOptions {
+            enable: true,
+            addr: "0.0.0.0:4002",
+            runtime_size: 2,
+            tls: TlsOption {
+                mode: Disable,
+                cert_path: "",
+                key_path: "",
+                ca_cert_path: "",
+                watch: false,
+            },
+            reject_no_database: None,
+            keep_alive: 0ns,
+            prepared_stmt_cache_size: 10000,
+        },
+        postgres: PostgresOptions {
+            enable: true,
+            addr: "0.0.0.0:4003",
+            runtime_size: 2,
+            tls: TlsOption {
+                mode: Disable,
+                cert_path: "",
+                key_path: "",
+                ca_cert_path: "",
+                watch: false,
+            },
+            keep_alive: 0ns,
+        },
+        opentsdb: OpentsdbOptions {
+            enable: true,
+        },
+        influxdb: InfluxdbOptions {
+            enable: true,
+            default_merge_mode: LastNonNull,
+        },
+        jaeger: JaegerOptions {
+            enable: true,
+        },
+        prom_store: PromStoreOptions {
+            enable: true,
+            with_metric_engine: true,
+            pending_rows_flush_interval: 0ns,
+            max_batch_rows: 100000,
+            max_concurrent_flushes: 256,
+            worker_channel_capacity: 65526,
+            max_inflight_requests: 3000,
+        },
+        wal: RaftEngine(
+            RaftEngineConfig {
+                dir: None,
+                file_size: 128.0MiB,
+                purge_threshold: 1.0GiB,
+                purge_interval: 60s,
+                read_batch_size: 128,
+                sync_write: false,
+                enable_log_recycle: true,
+                prefill_log_files: false,
+                sync_period: None,
+                recovery_parallelism: 10,
+            },
+        ),
+        storage: StorageConfig {
+            data_home: "./greptimedb_data",
+            store: File(
+                FileConfig,
+            ),
+            providers: [],
+        },
+        metadata_store: KvBackendConfig {
+            file_size: 64.0MiB,
+            purge_threshold: 256.0MiB,
+            purge_interval: 60s,
+        },
+        procedure: ProcedureConfig {
+            max_retry_times: 3,
+            retry_delay: 500ms,
+            max_metadata_value_size: None,
+            max_running_procedures: 128,
+        },
+        flow: FlowConfig {
+            num_workers: 5,
+            batching_mode: BatchingModeOptions {
+                query_timeout: 600s,
+                slow_query_threshold: 60s,
+                experimental_min_refresh_duration: 5s,
+                grpc_conn_timeout: 5s,
+                experimental_grpc_max_retries: 3,
+                experimental_frontend_scan_timeout: 30s,
+                experimental_max_filter_num_per_query: 20,
+                experimental_time_window_merge_threshold: 3,
+                experimental_enable_incremental_read: false,
+                read_preference: Leader,
+                frontend_tls: None,
+            },
+        },
+        logging: LoggingOptions {
+            dir: "./greptimedb_data/logs",
+            level: None,
+            log_format: Text,
+            max_log_files: 720,
+            append_stdout: true,
+            enable_otlp_tracing: false,
+            otlp_endpoint: None,
+            tracing_sample_ratio: None,
+            otlp_export_protocol: None,
+            otlp_headers: {},
+        },
+        user_provider: None,
+        region_engine: [
+            Mito(
+                MitoConfig {
+                    num_workers: 5,
+                    worker_channel_size: 128,
+                    worker_request_batch_size: 64,
+                    manifest_checkpoint_distance: 10,
+                    experimental_manifest_keep_removed_file_count: 256,
+                    experimental_manifest_keep_removed_file_ttl: 3600s,
+                    compress_manifest: false,
+                    max_background_index_builds: 2,
+                    max_background_flushes: 5,
+                    max_background_compactions: 3,
+                    max_background_purges: 10,
+                    experimental_compaction_memory_limit: Unlimited,
+                    experimental_compaction_on_exhausted: Wait {
+                        timeout: 10s,
+                    },
+                    auto_flush_interval: 1800s,
+                    global_write_buffer_size: 999.4MiB,
+                    global_write_buffer_reject_size: 2.0GiB,
+                    sst_meta_cache_size: 128.0MiB,
+                    vector_cache_size: 499.7MiB,
+                    page_cache_size: 999.4MiB,
+                    selector_result_cache_size: 499.7MiB,
+                    range_result_cache_size: 499.7MiB,
+                    prefilter_result_cache_size: 128.0MiB,
+                    enable_write_cache: false,
+                    write_cache_path: "",
+                    write_cache_size: 5.0GiB,
+                    write_cache_ttl: None,
+                    preload_index_cache: true,
+                    index_cache_percent: 20,
+                    enable_refill_cache_on_read: true,
+                    manifest_cache_size: 256.0MiB,
+                    sst_write_buffer_size: 8.0MiB,
+                    max_concurrent_scan_files: 384,
+                    allow_stale_entries: false,
+                    scan_memory_limit: Unlimited,
+                    scan_memory_on_exhausted: Fail,
+                    index: IndexConfig {
+                        aux_path: "",
+                        staging_size: 2.0GiB,
+                        staging_ttl: Some(
+                            604800s,
+                        ),
+                        build_mode: Sync,
+                        write_buffer_size: 8.0MiB,
+                        metadata_cache_size: 64.0MiB,
+                        content_cache_size: 128.0MiB,
+                        content_cache_page_size: 64.0KiB,
+                        result_cache_size: 128.0MiB,
+                    },
+                    inverted_index: InvertedIndexConfig {
+                        create_on_flush: Auto,
+                        create_on_compaction: Auto,
+                        apply_on_query: Auto,
+                        mem_threshold_on_create: Auto,
+                        intermediate_path: "",
+                        write_buffer_size: 8.0MiB,
+                    },
+                    fulltext_index: FulltextIndexConfig {
+                        create_on_flush: Auto,
+                        create_on_compaction: Auto,
+                        apply_on_query: Auto,
+                        mem_threshold_on_create: Auto,
+                        compress: true,
+                    },
+                    bloom_filter_index: BloomFilterConfig {
+                        create_on_flush: Auto,
+                        create_on_compaction: Auto,
+                        apply_on_query: Auto,
+                        mem_threshold_on_create: Auto,
+                    },
+                    min_compaction_interval: 0ns,
+                    schedule_compaction_after_edit: true,
+                    default_flat_format: true,
+                    gc: GcConfig {
+                        enable: false,
+                        lingering_time: Some(
+                            60s,
+                        ),
+                        unknown_file_lingering_time: 3600s,
+                        max_concurrent_lister_per_gc_job: 32,
+                        max_concurrent_gc_job: 4,
+                    },
+                },
+            ),
+            File(
+                EngineConfig,
+            ),
+        ],
+        tracing: TracingOptions,
+        init_regions_in_background: false,
+        init_regions_parallelism: 16,
+        slow_query: SlowQueryOptions {
+            enable: true,
+            record_type: SystemTable,
+            threshold: 30s,
+            sample_ratio: 1.0,
+            ttl: 7776000s,
+        },
+        query: QueryOptions {
+            parallelism: 0,
+            allow_query_fallback: false,
+            memory_pool_size: Unlimited,
+        },
+        memory: MemoryOptions {
+            enable_heap_profiling: true,
+        },
+        heartbeat_env_vars: [],
+    },
+}
+2026-07-28T06:38:31.969114Z  INFO servers::grpc: Using detected: 192.168.215.2:4001 as server address
+2026-07-28T06:38:31.969285Z  INFO standalone::metadata: Creating metadata kvbackend with dir: ./greptimedb_data/metadata, config: KvBackendConfig { file_size: 64.0MiB, purge_threshold: 256.0MiB, purge_interval: 60s }
+2026-07-28T06:38:31.970579Z  INFO raft_engine::engine: Recovering raft logs takes 965.125µs
+2026-07-28T06:38:31.970789Z  INFO common_procedure::store: The procedure state store path is: procedure/
+2026-07-28T06:38:31.978549Z  INFO object_store::factory: The file storage home is: ./greptimedb_data/
+2026-07-28T06:38:31.982104Z  INFO datanode::datanode: Creating raft-engine logstore with config: RaftEngineConfig { dir: None, file_size: 128.0MiB, purge_threshold: 1.0GiB, purge_interval: 60s, read_batch_size: 128, sync_write: false, enable_log_recycle: true, prefill_log_files: false, sync_period: None, recovery_parallelism: 10 } and storage path: ./greptimedb_data/wal
+2026-07-28T06:38:31.982639Z  INFO raft_engine::engine: Recovering raft logs takes 509.416µs
+2026-07-28T06:38:31.983195Z  INFO puffin::puffin_manager::stager::bounded_stager: Recovering the staging area, base_dir: "./greptimedb_data/index_intermediate/staging"
+2026-07-28T06:38:31.983539Z  INFO puffin::puffin_manager::stager::bounded_stager: Recovered the staging area, num_entries: 0, num_bytes: 0, cost: 356.125µs
+2026-07-28T06:38:31.983557Z  INFO mito2::sst::index::intermediate: Initializing intermediate manager, aux_path: ./greptimedb_data/index_intermediate
+2026-07-28T06:38:31.984417Z  INFO mito2::worker: Start region worker thread 0, init_check_delay: 77s
+2026-07-28T06:38:31.984418Z  INFO mito2::worker: Start region worker thread 1, init_check_delay: 99s
+2026-07-28T06:38:31.984441Z  INFO mito2::worker: Start region worker thread 2, init_check_delay: 172s
+2026-07-28T06:38:31.984442Z  INFO mito2::worker: Start region worker thread 3, init_check_delay: 73s
+2026-07-28T06:38:31.984444Z  INFO mito2::worker: Start region worker thread 4, init_check_delay: 58s
+2026-07-28T06:38:31.984564Z  INFO datanode::region_server: Region Engine mito is registered
+2026-07-28T06:38:31.984618Z  INFO datanode::region_server: Region Engine metric is registered
+2026-07-28T06:38:31.984622Z  INFO datanode::region_server: Region Engine file is registered
+2026-07-28T06:38:31.984934Z  INFO datanode::datanode: going to open 0 region(s)
+2026-07-28T06:38:31.984999Z  INFO datanode::datanode: Opened 0 regions in 59.125µs
+2026-07-28T06:38:31.985003Z  INFO datanode::datanode: all regions are opened
+2026-07-28T06:38:31.986715Z  INFO common_stat::resource: Starting to collect CPU usage periodically for every 5 seconds
+2026-07-28T06:38:31.991375Z  INFO flow::server: Flow Worker started in new thread
+2026-07-28T06:38:31.991465Z  INFO flow::server: Flow Worker started in new thread
+2026-07-28T06:38:31.991525Z  INFO flow::server: Flow Worker started in new thread
+2026-07-28T06:38:31.991583Z  INFO flow::server: Flow Worker started in new thread
+2026-07-28T06:38:31.991693Z  INFO flow::server: Flow Worker started in new thread
+2026-07-28T06:38:31.991696Z  INFO flow::server: Flow Node Manager started
+2026-07-28T06:38:31.992213Z  INFO common_event_recorder::recorder: Start the background processor in event recorder to handle the received events.
+2026-07-28T06:38:31.993431Z  INFO cmd: Starting app: greptime-standalone
+2026-07-28T06:38:31.993466Z  INFO common_greptimedb_telemetry: Attention: GreptimeDB now collects anonymous usage data to help improve its roadmap and prioritize features.
+2026-07-28T06:38:31.993467Z  INFO common_greptimedb_telemetry: To learn more about this anonymous program and how to deactivate it if you don't want to participate, please visit the following URL: 
+2026-07-28T06:38:31.993468Z  INFO common_greptimedb_telemetry: https://docs.greptime.com/reference/telemetry
+2026-07-28T06:38:31.993499Z  INFO common_procedure::local: LocalManager is start.
+2026-07-28T06:38:31.993500Z  INFO common_procedure::local: LocalManager start to recover
+2026-07-28T06:38:31.993544Z  INFO common_procedure::local: LocalManager finish recovery, cost: 0ms
+2026-07-28T06:38:31.993647Z  INFO servers::http: Enable dashboard service at '/dashboard'
+2026-07-28T06:38:31.993672Z  INFO servers::http: HTTP server timeout is disabled
+2026-07-28T06:38:31.993711Z  INFO common_greptimedb_telemetry: reporting greptimedb version: StatisticData { os: "linux", version: "1.1.4", arch: "aarch64", mode: Standalone, git_commit: "16e9abe4a9b0512ef9d800cb8c8f68d4167327bd", nodes: Some(1), uuid: "74f63c0b-7926-479c-be03-f25cbc970629", uptime: "hours" }
+2026-07-28T06:38:31.993857Z  INFO servers::http: HTTP server is bound to 0.0.0.0:4000
+2026-07-28T06:38:31.993895Z  INFO servers::server: Server HTTP_SERVER is started
+2026-07-28T06:38:31.993905Z  INFO servers::server: Postgres server started at 0.0.0.0:4003
+2026-07-28T06:38:31.993909Z  INFO servers::server: Server POSTGRES_SERVER is started
+2026-07-28T06:38:31.993913Z  INFO servers::server: MySQL server started at 0.0.0.0:4002
+2026-07-28T06:38:31.993916Z  INFO servers::server: Server MYSQL_SERVER is started
+2026-07-28T06:38:31.993922Z  INFO servers::grpc: gRPC server(name=GRPC_SERVER) is bound to 0.0.0.0:4001
+2026-07-28T06:38:31.995069Z  INFO servers::server: Server GRPC_SERVER is started
+2026-07-28T06:38:31.995119Z  INFO flow::adapter: Starting flownode manager's background task
+2026-07-28T06:38:31.995963Z  INFO flow::adapter::flownode_impl: FlowDualEngine done recovering
+2026-07-28T06:39:58.509390Z  WARN servers::http::client_ip: HTTP error response 400 Bad Request for POST /v1/sql?db=public (matched: /v1/sql) from client 192.168.215.1:43272
+2026-07-28T06:40:14.193815Z  WARN servers::http::client_ip: HTTP error response 400 Bad Request for POST /v1/sql?db=public (matched: /v1/sql) from client 192.168.215.1:43258
+2026-07-28T06:40:24.138656Z  WARN servers::http::client_ip: HTTP error response 400 Bad Request for POST /v1/sql?db=public (matched: /v1/sql) from client 192.168.215.1:43258
+2026-07-28T06:40:26.775240Z  INFO cmd: Received SIGINT, shutting down
+2026-07-28T06:40:26.782931Z  INFO servers::grpc: Shutdown grpc server
+2026-07-28T06:40:26.785444Z  INFO servers::server: Service GRPC_SERVER is shutdown!
+2026-07-28T06:40:26.785968Z  INFO servers::http: Shutdown HTTP server
+2026-07-28T06:40:26.786006Z  INFO servers::server: Service HTTP_SERVER is shutdown!
+2026-07-28T06:40:26.786040Z  INFO servers::server: MySQL server is shutdown.
+2026-07-28T06:40:26.786042Z  INFO servers::server: Service MYSQL_SERVER is shutdown!
+2026-07-28T06:40:26.786044Z  INFO servers::server: Postgres server is shutdown.
+2026-07-28T06:40:26.786045Z  INFO servers::server: Service POSTGRES_SERVER is shutdown!
+2026-07-28T06:40:26.787804Z  INFO common_procedure::local: LocalManager is stopped.
+2026-07-28T06:40:26.789156Z  INFO datanode::region_server: closed 0 regions
+2026-07-28T06:40:26.795393Z  INFO datanode::region_server: Region engine metric is stopped
+2026-07-28T06:40:26.797569Z  INFO datanode::region_server: Region engine file is stopped
+2026-07-28T06:40:26.797679Z  INFO mito2::worker: Stop region worker group
+2026-07-28T06:40:26.801437Z  INFO mito2::worker: Stop region worker 0
+2026-07-28T06:40:26.801746Z  INFO mito2::worker: Exit region worker thread 0
+2026-07-28T06:40:26.802124Z  INFO mito2::worker: Stop region worker 1
+2026-07-28T06:40:26.802141Z  INFO mito2::worker: Stop region worker 2
+2026-07-28T06:40:26.802152Z  INFO mito2::worker: Stop region worker 3
+2026-07-28T06:40:26.802166Z  INFO mito2::worker: Stop region worker 4
+2026-07-28T06:40:26.802191Z  INFO mito2::worker: Exit region worker thread 1
+2026-07-28T06:40:26.802207Z  INFO mito2::worker: Exit region worker thread 2
+2026-07-28T06:40:26.802237Z  INFO mito2::worker: Exit region worker thread 3
+2026-07-28T06:40:26.802318Z  INFO mito2::worker: Exit region worker thread 4
+2026-07-28T06:40:26.802469Z  INFO datanode::region_server: Region engine mito is stopped
+2026-07-28T06:40:26.811473Z  INFO puffin::puffin_manager::stager::bounded_stager: The delete routine for the bounded stager is terminated.
+2026-07-28T06:40:26.811649Z  INFO flow::adapter::flownode_impl: Stopping flow consistent check task
+2026-07-28T06:40:26.811695Z  INFO flow::adapter::flownode_impl: Stopped flow consistent check task
+2026-07-28T06:40:26.811711Z  INFO cmd::standalone: Datanode instance stopped.
+2026-07-28T06:40:26.811716Z  INFO cmd: Goodbye!
+2026-07-28T06:40:26.819168Z  INFO common_event_recorder::recorder: Aborted the background processor in event recorder
