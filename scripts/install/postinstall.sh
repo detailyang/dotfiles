@@ -59,6 +59,7 @@ ybw::remote::run_installer() {
     local interpreter="$3"
     local installer_path
     local status=0
+    shift 3
 
     installer_path="$(mktemp "${TMPDIR:-/tmp}/dotfiles-installer.XXXXXX")" || {
         ybw::log::warn "Failed to create a temporary file for $name"
@@ -72,7 +73,7 @@ ybw::remote::run_installer() {
         return 1
     fi
 
-    "$interpreter" "$installer_path" || status=$?
+    "$interpreter" "$installer_path" "$@" || status=$?
     rm -f "$installer_path"
 
     if [[ $status -ne 0 ]]; then
@@ -117,7 +118,8 @@ ybw::postinstall::setup_oh_my_fish() {
         if ybw::remote::run_installer \
             "oh-my-fish" \
             "https://raw.githubusercontent.com/oh-my-fish/oh-my-fish/master/bin/install" \
-            fish
+            fish \
+            --noninteractive --yes
         then
             ybw::log::success "oh-my-fish installed"
         else

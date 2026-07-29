@@ -4,6 +4,11 @@
   targets.genericLinux.enable = true;
   targets.genericLinux.gpu.enable = false;
 
+  home.sessionVariables = {
+    LANG = "en_US.UTF-8";
+    LANGUAGE = "en_US:en";
+  };
+
   home.activation.checkStableLoginShell = lib.hm.dag.entryBefore [ "writeBoundary" ] ''
     login_shell="$(${pkgs.getent}/bin/getent passwd ${lib.escapeShellArg config.home.username} | ${pkgs.coreutils}/bin/cut -d: -f7)"
 

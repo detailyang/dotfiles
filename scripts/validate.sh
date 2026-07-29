@@ -34,7 +34,8 @@ function check_if_available() {
 echo "=== Dotfiles Validation ==="
 echo ""
 
-check "bash scripts parse before shell startup" "bash -n bootstrap.sh .bash_profile .bashrc bash/*.sh bin/proxy-env bin/codex scripts/*.sh scripts/install/*.sh"
+check "bash scripts parse before shell startup" "bash -n bootstrap.sh .bash_profile .bashrc bash/*.sh bin/proxy-env scripts/*.sh scripts/install/*.sh"
+check "removed Codex wrapper has no stale artifacts" "! test -e bin/codex && ! test -e scripts/test-codex-wrapper.sh"
 check "Bash login shells delegate to the managed bashrc" "grep -Fq 'source \"\$HOME/.bashrc\"' .bash_profile"
 check "managed bashrc loads deployed Bash modules" "grep -Fq '\$HOME/bash/.path' .bashrc && grep -Fq '\$HOME/bash/.aliases' .bashrc && cache_dir=\$(mktemp -d) && HOME=\"\$PWD\" XDG_CACHE_HOME=\"\$cache_dir/cache\" XDG_DATA_HOME=\"\$cache_dir/data\" XDG_STATE_HOME=\"\$cache_dir/state\" bash --noprofile --rcfile .bashrc -ic 'declare -F proxy'; status=\$?; rm -rf \"\$cache_dir\"; [[ \$status -eq 0 ]]"
 check "installer deployment and result behavior" "test -x scripts/test-install.sh && ./scripts/test-install.sh"
@@ -43,6 +44,8 @@ check_if_available fish "fish scripts parse before shell startup" "for f in fish
 check "Fish FZF bindings are independent of the package manager" "grep -Fq 'fzf --fish | source' fish/fish_fzf_bindings.fish && ! grep -Fq '/opt/homebrew' fish/fish_fzf_bindings.fish"
 check_if_available fish "Fish starts without fzf" "fish_path=\$(command -v fish); env PATH=/nonexistent \"\$fish_path\" --no-config -c 'source fish/fish_fzf_bindings.fish; fish_user_key_bindings'"
 check_if_available fish "fish login starts without optional-tool errors" "! fish -lc true 2>&1 | grep -Eq 'Unknown command: bass|Homebrew installation not found|npm not found'"
+check "Linux Home Manager sessions use an English locale" "grep -Fq 'LANG = \"en_US.UTF-8\";' .config/home-manager/modules/platform/linux.nix && grep -Fq 'LANGUAGE = \"en_US:en\";' .config/home-manager/modules/platform/linux.nix && ! grep -Fq 'LC_ALL' .config/home-manager/modules/platform/linux.nix"
+check_if_available fish "Fish uses English messages without overriding locale categories" "env LANG=zh_CN.UTF-8 LANGUAGE=zh_CN:en_US:en LC_ALL=C fish --no-config -c 'source fish/locale.fish; test \"\$LANG\" = en_US.UTF-8; and test \"\$LANGUAGE\" = en_US:en; and test \"\$LC_ALL\" = C'"
 check "installer advertises the Mise toolchain option" "./bootstrap.sh --help | grep -q -- '--toolchain     Install Node.js, Python, Go, and Rust with Mise (macOS only)'"
 check "installer advertises Home Manager profiles" "./bootstrap.sh --help | grep -q -- '--profile NAME'"
 check "installer advertises explicit Home Manager activation" "./bootstrap.sh --help | grep -q -- '--home-manager'"
@@ -88,6 +91,8 @@ check "native Fish config loads repository modules" "grep -Fq 'for file in ~/fis
 check "native Fish config loads the Home Manager profile" "grep -Fq '~/.nix-profile/bin' fish/path.fish"
 check "installer activates the locked Home Manager flake" "grep -Fq 'nix run \"\$home_manager_dir#home-manager\"' scripts/install/packages.sh && grep -Fq -- '--flake \"\$home_manager_dir#\$target\" switch' scripts/install/packages.sh"
 check "Home Manager activation is verbose and memory bounded" "grep -Fq -- '--impure -v --option max-jobs 1 --option cores 2' scripts/install/packages.sh"
+check "Home Manager activation rejects a non-symlink Nix profile" "setup_body=\$(sed -n '/^ybw::packages::activate_home_manager()/,/^}/p' scripts/install/packages.sh); grep -Fq '[[ -e \"\$HOME/.nix-profile\" && ! -L \"\$HOME/.nix-profile\" ]]' <<< \"\$setup_body\" && grep -Fq '~/.nix-profile must be a symlink' <<< \"\$setup_body\""
+check "Oh My Fish installer supports headless setup" "setup_body=\$(sed -n '/^ybw::postinstall::setup_oh_my_fish()/,/^}/p' scripts/install/postinstall.sh); grep -Fq -- '--noninteractive --yes' <<< \"\$setup_body\" && grep -Fq 'if ! ybw::postinstall::setup_oh_my_fish; then' scripts/install/postinstall.sh"
 check "Home Manager activation is explicit" "package_phase=\$(sed -n '/^ybw::packages::install_selected()/,/^}/p' scripts/install/packages.sh); grep -Fq 'if [[ \"\$YBW_INSTALL_PLAN_HOME_MANAGER\" == true ]]' <<< \"\$package_phase\" && grep -Fq 'ybw::packages::activate_home_manager \"\$YBW_INSTALL_PLAN_HOME_MANAGER_PROFILE\"' <<< \"\$package_phase\""
 check "installer defaults to skipping Home Manager activation" "bash -c 'source ./bootstrap.sh; ybw::plan::reset; [[ \"\$YBW_INSTALL_PLAN_HOME_MANAGER\" == false && \"\$YBW_INSTALL_PLAN_HOME_MANAGER_PROFILE\" == development ]]'"
 check "legacy Home Manager channels are no longer used" "! grep -Eq 'nix-channel|nix-shell.*home-manager' scripts/install/*.sh"
@@ -115,7 +120,6 @@ check_if_available fish "fish unproxy adapter clears the shared proxy env interf
 
 check "bash proxy adapter does not own proxy rules" "! grep -q 'export HTTP_PROXY=' bash/proxy.sh"
 check "fish proxy adapter does not own proxy rules" "! grep -q 'set -gx HTTP_PROXY\|export HTTP_PROXY=' fish/proxy.fish"
-check "codex wrapper rotates and restores tmux window name" "bash scripts/test-codex-wrapper.sh"
 check "agent workflow uses canonical skill names" "test -f .agents/skills/grill/SKILL.md && test -f .agents/skills/to-spec/SKILL.md && test -f .agents/skills/to-issue/SKILL.md && test -f .agents/skills/ship/SKILL.md && test -f .agents/skills/code-review/SKILL.md && ! test -f .agents/skills/think/SKILL.md && ! test -f .agents/skills/to-prd/SKILL.md && ! test -f .agents/skills/to-issues/SKILL.md"
 
 echo ""

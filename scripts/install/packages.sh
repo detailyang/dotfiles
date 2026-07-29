@@ -227,6 +227,12 @@ ybw::packages::activate_home_manager() {
     local home_manager_dir="$HOME/.config/home-manager"
     local target
 
+    if [[ -e "$HOME/.nix-profile" && ! -L "$HOME/.nix-profile" ]]; then
+        ybw::log::error "~/.nix-profile must be a symlink before Home Manager activation"
+        ybw::log::info "Move the existing path aside, then rerun this installer"
+        return 1
+    fi
+
     if ! ybw::nix::load_profile; then
         ybw::log::error "Nix with Flakes support is required to provide the Fish runtime integrations"
         ybw::log::info "Run ./scripts/install-nix.sh, then rerun this installer"
