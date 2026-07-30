@@ -60,7 +60,7 @@ function Initialize-Directories {
         Write-Success "Created .config directory"
     }
     
-    # Create art directories like in install.sh
+    # Create art directories like in bootstrap.sh
     $artDirs = "$env:USERPROFILE\art\github", "$env:USERPROFILE\art\opensource", "$env:USERPROFILE\art\personal"
     foreach ($dir in $artDirs) {
         if (!(Test-Path $dir)) {

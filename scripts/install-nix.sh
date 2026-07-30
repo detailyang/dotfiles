@@ -288,4 +288,4 @@ fi
 configure_nix
 configure_nix_daemon
 verify_nix
-log_info "Run ./install.sh to activate the dotfiles configuration"
+log_info "Run ./bootstrap.sh to activate the dotfiles configuration"
