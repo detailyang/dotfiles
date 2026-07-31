@@ -1,5 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import { Box, Spacer, Text } from "@earendil-works/pi-tui";
+import { Type } from "typebox";
 import {
 	accountGoalTurn,
 	createGoalState,
@@ -17,6 +18,23 @@ import { tokenDeltaFromUsage, type UsageSnapshot } from "./usage.js";
 
 const CUSTOM_TYPE = "pi-goal";
 const EVENT_TYPE = "pi-goal-event";
+
+const GET_GOAL_PARAMETERS = Type.Object({}, { additionalProperties: false });
+const CREATE_GOAL_PARAMETERS = Type.Object(
+	{
+		objective: Type.String({ description: "The concrete objective to pursue as an active thread goal." }),
+		tokenBudget: Type.Optional(
+			Type.Number({ description: "Optional positive token budget for the goal, only when explicitly requested." }),
+		),
+	},
+	{ additionalProperties: false },
+);
+const UPDATE_GOAL_PARAMETERS = Type.Object(
+	{
+		status: Type.Literal("complete", { description: "Only complete is accepted." }),
+	},
+	{ additionalProperties: false },
+);
 
 let goal: GoalState | null = null;
 let statusBarEnabled = true;
@@ -200,11 +218,7 @@ export default function goalExtension(pi: ExtensionAPI) {
 		promptGuidelines: [
 			"Only call get_goal when you actually need the current objective or remaining budget; the continuation prompt already injects them.",
 		],
-		parameters: {
-			type: "object",
-			properties: {},
-			additionalProperties: false,
-		} as any,
+		parameters: GET_GOAL_PARAMETERS,
 		async execute() {
 			return { content: [{ type: "text", text: JSON.stringify({ goal }, null, 2) }], details: { goal } };
 		},
@@ -225,29 +239,15 @@ export default function goalExtension(pi: ExtensionAPI) {
 			"When called, create_goal replaces any existing goal with the new objective; only call it when the user explicitly asked to set, start, change, or replace a goal.",
 			"Set tokenBudget only when the user explicitly requested a token budget.",
 		],
-		parameters: {
-			type: "object",
-			properties: {
-				objective: {
-					type: "string",
-					description: "The concrete objective to pursue as an active thread goal.",
-				},
-				tokenBudget: {
-					type: "number",
-					description: "Optional positive token budget for the goal, only when explicitly requested.",
-				},
-			},
-			required: ["objective"],
-			additionalProperties: false,
-		} as any,
+		parameters: CREATE_GOAL_PARAMETERS,
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const objective = typeof params.objective === "string" ? params.objective.trim() : "";
 			if (!objective) {
-				return { content: [{ type: "text", text: "objective is required." }], isError: true };
+				return { content: [{ type: "text", text: "objective is required." }], details: { goal }, isError: true };
 			}
 			const parsedBudget = normalizeTokenBudget(params.tokenBudget);
 			if (parsedBudget.error) {
-				return { content: [{ type: "text", text: parsedBudget.error }], isError: true };
+				return { content: [{ type: "text", text: parsedBudget.error }], details: { goal }, isError: true };
 			}
 			const next = createGoalState(objective, parsedBudget.tokenBudget);
 			persist(pi, ctx, next);
@@ -268,24 +268,13 @@ export default function goalExtension(pi: ExtensionAPI) {
 			"Use update_goal only when the current pi-goal objective is fully achieved and verified against concrete evidence.",
 			"Do not use update_goal to pause, resume, abandon, or budget-limit a goal.",
 		],
-		parameters: {
-			type: "object",
-			properties: {
-				status: {
-					type: "string",
-					enum: ["complete"],
-					description: "Only complete is accepted.",
-				},
-			},
-			required: ["status"],
-			additionalProperties: false,
-		} as any,
+		parameters: UPDATE_GOAL_PARAMETERS,
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			if (params.status !== "complete") {
-				return { content: [{ type: "text", text: "update_goal only accepts status=complete." }], isError: true };
+				return { content: [{ type: "text", text: "update_goal only accepts status=complete." }], details: { goal }, isError: true };
 			}
 			if (!goal) {
-				return { content: [{ type: "text", text: "No goal is set." }], isError: true };
+				return { content: [{ type: "text", text: "No goal is set." }], details: { goal }, isError: true };
 			}
 			const now = Date.now();
 			const next: GoalState = { ...goal, status: "complete", updatedAt: now };

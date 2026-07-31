@@ -106,8 +106,9 @@ function isInternalCodexUserMessage(text: string): boolean {
   return text.startsWith("<environment_context>") || text.startsWith("<turn_aborted>");
 }
 
-export function extractMessageText(message: MessageWithContent): string {
-  return extractTextContent(message.content);
+export function extractMessageText(message: unknown): string {
+  if (!message || typeof message !== "object") return "";
+  return extractTextContent((message as MessageWithContent).content);
 }
 
 export function summarizeToolResultContent(

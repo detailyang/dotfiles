@@ -2,6 +2,7 @@ import {
   buildSessionContext,
   createAgentSession,
   createExtensionRuntime,
+  ModelRuntime,
   SessionManager,
   type AgentSession,
   type AgentSessionEvent,
@@ -153,10 +154,31 @@ function createBtwResourceLoader(
     getThemes: () => ({ themes: [], diagnostics: [] }),
     getAgentsFiles: () => ({ agentsFiles: [] }),
     getSystemPrompt: () => systemPrompt,
+    getSystemPromptSource: () => undefined,
     getAppendSystemPrompt: () => appendSystemPrompt,
+    getAppendSystemPromptSources: () => [],
     extendResources: () => {},
     reload: async () => {},
   };
+}
+
+async function createBtwModelRuntime(ctx: ExtensionCommandContext): Promise<ModelRuntime> {
+  const runtime = await ModelRuntime.create();
+
+  for (const providerId of ctx.modelRegistry.getRegisteredProviderIds()) {
+    const nativeProvider = ctx.modelRegistry.getRegisteredNativeProvider(providerId);
+    if (nativeProvider) {
+      runtime.registerNativeProvider(nativeProvider);
+      continue;
+    }
+
+    const providerConfig = ctx.modelRegistry.getRegisteredProviderConfig(providerId);
+    if (providerConfig) {
+      runtime.registerProvider(providerId, providerConfig);
+    }
+  }
+
+  return runtime;
 }
 
 function buildBtwSeedState(
@@ -856,7 +878,7 @@ export default function (pi: ExtensionAPI) {
     const { session } = await createAgentSession({
       sessionManager: SessionManager.inMemory(),
       model: settings.model,
-      modelRegistry: ctx.modelRegistry as AgentSession["modelRegistry"],
+      modelRuntime: await createBtwModelRuntime(ctx),
       thinkingLevel: settings.thinkingLevel,
       // Match pi's default coding-agent toolset (read/bash/edit/write).
       tools: ["read", "bash", "edit", "write"],
@@ -1405,7 +1427,7 @@ export default function (pi: ExtensionAPI) {
     const { session } = await createAgentSession({
       sessionManager: SessionManager.inMemory(),
       model,
-      modelRegistry: ctx.modelRegistry as AgentSession["modelRegistry"],
+      modelRuntime: await createBtwModelRuntime(ctx),
       thinkingLevel: "off",
       tools: [],
       resourceLoader: createBtwResourceLoader(ctx, [BTW_SUMMARIZE_SYSTEM_PROMPT]),
