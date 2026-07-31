@@ -21,7 +21,7 @@
     pkgs.hexyl
     pkgs.htop
     pkgs.hyperfine
-    pkgs.jj
+    pkgs.jujutsu
     pkgs.jq
     pkgs.lazygit
     pkgs.lolcat
