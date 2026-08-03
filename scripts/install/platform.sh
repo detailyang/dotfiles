@@ -1,47 +1,18 @@
-# macOS, Linux, and Homebrew adapters used by package orchestration.
-
-readonly YBW_BREW_FISH_PACKAGES=(
-    "fish"
-)
-
-readonly YBW_BREW_CLI_PACKAGES=(
-    "brightness"
-    "loop"
-    "im-select"
-)
+# macOS, Linux, and remaining Homebrew cask adapters.
 
 readonly YBW_BREW_CASK_PACKAGES=(
+    "loop"
     "openinterminal"
-    "monitorcontrol"
     "codeisland"
 )
 
 readonly YBW_BREW_TAPS=(
     "wxtsky/tap"
-    "daipeihust/tap"
 )
 
 readonly YBW_BREW_TAP_CASKS=(
     "steipete/tap/codexbar"
 )
-
-ybw::brew::install_formula() {
-    local package="$1"
-
-    if brew list --formula "$package" &> /dev/null; then
-        ybw::log::success "$package already installed"
-        return 0
-    fi
-
-    ybw::log::info "Installing $package..."
-    if brew install "$package"; then
-        ybw::log::success "$package installed"
-        return 0
-    fi
-
-    ybw::log::warn "Failed to install $package"
-    return 1
-}
 
 ybw::brew::install_cask() {
     local cask="$1"
@@ -142,37 +113,34 @@ ybw::macos::apply_defaults() {
     ybw::log::success "macOS defaults configured"
 }
 
-ybw::macos::install_fish() {
-    local failed=0
-    local package
+ybw::macos::find_fish() {
+    local candidate
 
-    ybw::log::info "Installing Homebrew Fish..."
-
-    if ! ybw::command::exists brew; then
-        ybw::log::error "Homebrew is required to install Fish on macOS"
-        ybw::log::info "To install: /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
-        return 1
-    fi
-
-    for package in "${YBW_BREW_FISH_PACKAGES[@]}"; do
-        ybw::brew::install_formula "$package" || failed=1
+    for candidate in \
+        "$HOME/.local/state/nix/profiles/home-manager/home-path/bin/fish" \
+        "$HOME/.nix-profile/bin/fish"
+    do
+        if [[ -x "$candidate" ]]; then
+            printf '%s' "$candidate"
+            return 0
+        fi
     done
 
-    if [[ $failed -ne 0 ]]; then
-        ybw::log::error "Homebrew Fish failed to install"
-        return 1
+    candidate="$(command -v fish 2>/dev/null || true)"
+    if [[ -n "$candidate" && -x "$candidate" ]]; then
+        printf '%s' "$candidate"
+        return 0
     fi
 
-    ybw::log::success "Homebrew Fish installation completed"
+    return 1
 }
 
 ybw::macos::configure_fish_login_shell() {
-    local fish_path
+    local fish_path="$1"
     local current_shell
 
-    fish_path="$(brew --prefix)/bin/fish"
     if [[ ! -x "$fish_path" ]]; then
-        ybw::log::warn "Homebrew Fish is not available at $fish_path"
+        ybw::log::warn "Fish is not available at $fish_path"
         return 1
     fi
 
@@ -204,7 +172,6 @@ ybw::macos::install_optional_packages() {
     local cask
     local cask_name
     local failed=0
-    local package
     local tap
 
     ybw::log::info "Installing optional Homebrew packages..."
@@ -213,22 +180,6 @@ ybw::macos::install_optional_packages() {
         ybw::log::error "Homebrew is required for --mac-apps"
         return 1
     fi
-
-    if ybw::command::exists proxychains4; then
-        ybw::log::success "proxychains4 already installed"
-    else
-        ybw::log::info "Installing proxychains-ng from source..."
-        if brew install --build-from-source proxychains-ng; then
-            ybw::log::success "proxychains-ng installed"
-        else
-            ybw::log::warn "Failed to install proxychains-ng"
-            failed=1
-        fi
-    fi
-
-    for package in "${YBW_BREW_CLI_PACKAGES[@]}"; do
-        ybw::brew::install_formula "$package" || failed=1
-    done
 
     for tap in "${YBW_BREW_TAPS[@]}"; do
         ybw::brew::install_tap "$tap" || failed=1

@@ -141,6 +141,52 @@ test_missing_rsync_fails_during_plan_validation() {
     return "$result"
 }
 
+test_macos_standard_plan_does_not_require_homebrew() {
+    local fake_bin
+    local home_dir
+    local output
+    local result=0
+    local status=0
+
+    fake_bin="$(mktemp -d)"
+    home_dir="$(mktemp -d)"
+    mkdir -p "$home_dir/.oh-my-zsh" "$home_dir/.local/share/omf"
+    ln -s /bin/bash "$fake_bin/bash"
+    ln -s /usr/bin/dirname "$fake_bin/dirname"
+    ln -s "$(command -v git)" "$fake_bin/git"
+    ln -s "$(command -v rsync)" "$fake_bin/rsync"
+    ln -s "$(command -v sudo)" "$fake_bin/sudo"
+    printf '#!/bin/sh\necho Darwin\n' > "$fake_bin/uname"
+    chmod +x "$fake_bin/uname"
+
+    output="$(HOME="$home_dir" PATH="$fake_bin" bash -c 'source "$1"; ybw::plan::reset; ybw::plan::parse; ybw::plan::validate' _ "$PWD/bootstrap.sh" 2>&1)" || status=$?
+    rm -rf "$fake_bin" "$home_dir"
+
+    [[ $status -eq 0 ]] || result=1
+    [[ "$output" != *"brew is not installed"* ]] || result=1
+    return "$result"
+}
+
+test_macos_prefers_home_manager_fish() {
+    local fake_bin
+    local fish_path
+    local home_dir
+    local output
+
+    fake_bin="$(mktemp -d)"
+    home_dir="$(mktemp -d)"
+    fish_path="$home_dir/.local/state/nix/profiles/home-manager/home-path/bin/fish"
+    mkdir -p "$(dirname "$fish_path")"
+    printf '#!/bin/sh\nexit 0\n' > "$fish_path"
+    printf '#!/bin/sh\nexit 0\n' > "$fake_bin/fish"
+    chmod +x "$fish_path" "$fake_bin/fish"
+
+    output="$(HOME="$home_dir" PATH="$fake_bin:$PATH" bash -c 'source "$1"; ybw::macos::find_fish' _ "$PWD/bootstrap.sh")"
+    rm -rf "$fake_bin" "$home_dir"
+
+    [[ "$output" == "$fish_path" ]]
+}
+
 test_requested_npx_failure_is_reported() {
     local fake_bin
     local output
@@ -262,6 +308,8 @@ check "deployment manifest rejects unmatched roots" test_deployment_manifest_rej
 check "Linux rejects macOS app selection before deployment" test_linux_rejects_mac_apps_before_deploy
 check "Home Manager profile selection is not a silent no-op" test_profile_requires_home_manager
 check "missing rsync fails during plan validation" test_missing_rsync_fails_during_plan_validation
+check "standard macOS plans do not require Homebrew" test_macos_standard_plan_does_not_require_homebrew
+check "macOS prefers Home Manager Fish over PATH fallbacks" test_macos_prefers_home_manager_fish
 check "requested npx failures produce a failed result" test_requested_npx_failure_is_reported
 check "requested PI failures produce a failed result" test_requested_pi_failure_is_reported
 check "optional post-install failures are counted" test_optional_postinstall_failure_is_counted

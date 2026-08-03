@@ -21,22 +21,7 @@ ybw::packages::install_selected() {
 
     ybw::log::step "Phase 4: Package Management"
 
-    if ybw::platform::is_macos; then
-        if ! ybw::macos::install_fish; then
-            ybw::log::error "Homebrew Fish installation failed"
-            return 1
-        fi
-
-        if ! ybw::macos::configure_fish_login_shell; then
-            ybw::result::warn "Continuing without changing the login shell"
-        fi
-
-        if [[ "$YBW_INSTALL_PLAN_MAC_APPS" == true ]]; then
-            ybw::macos::install_optional_packages || failed=1
-        else
-            ybw::log::info "Skipping optional Homebrew packages (use --mac-apps to install)"
-        fi
-    elif ybw::platform::is_linux; then
+    if ybw::platform::is_linux; then
         if ! ybw::linux::install_fish; then
             ybw::log::error "Linux Fish installation failed"
             return 1
@@ -58,6 +43,22 @@ ybw::packages::install_selected() {
         fi
     else
         ybw::log::info "Skipping Home Manager activation (use --home-manager to activate)"
+    fi
+
+    if ybw::platform::is_macos; then
+        fish_path="$(ybw::macos::find_fish)" || {
+            ybw::log::error "Fish is not installed; rerun with --home-manager to install it through Nix"
+            return 1
+        }
+        if ! ybw::macos::configure_fish_login_shell "$fish_path"; then
+            ybw::result::warn "Continuing without changing the login shell"
+        fi
+
+        if [[ "$YBW_INSTALL_PLAN_MAC_APPS" == true ]]; then
+            ybw::macos::install_optional_packages || failed=1
+        else
+            ybw::log::info "Skipping remaining Homebrew casks (use --mac-apps to install)"
+        fi
     fi
 
     if [[ "$YBW_INSTALL_PLAN_TOOLCHAIN" == true ]]; then

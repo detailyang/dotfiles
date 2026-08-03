@@ -28,7 +28,7 @@ OPTIONS:
     --toolchain     Install Node.js, Python, Go, and Rust with Mise (macOS only)
     --npx           Install npx tools (skills + ctx7)
     --pi            Install PI extensions
-    --mac-apps      Install optional Homebrew packages and casks (macOS only)
+    --mac-apps      Install remaining Homebrew casks (macOS only)
     -h, --help      Show this help message
 
 EXAMPLES:
@@ -135,10 +135,12 @@ ybw::plan::validate() {
     ybw::command::require rsync "Install rsync with the system package manager" || return 1
 
     if [[ "$platform" == "macOS" ]]; then
-        ybw::command::require brew "Visit https://brew.sh" || return 1
         ybw::command::require sudo "Install or enable sudo for system configuration" || return 1
+        if [[ "$YBW_INSTALL_PLAN_MAC_APPS" == true ]]; then
+            ybw::command::require brew "Visit https://brew.sh" || return 1
+        fi
         if [[ ! -d "$HOME/.oh-my-zsh" || ! -d "$HOME/.local/share/omf" ]]; then
-            ybw::command::require curl "Install curl with Homebrew" || return 1
+            ybw::command::require curl "Install curl from Xcode Command Line Tools or Nix" || return 1
         fi
     elif ! ybw::linux::find_fish > /dev/null; then
         package_manager=""

@@ -7,7 +7,6 @@ in
 {
   imports = [
     ./apps/git.nix
-    ./apps/proxychains.nix
     ./modules/common.nix
     ./modules/role/development.nix
   ];
