@@ -200,6 +200,18 @@ test_optional_postinstall_failure_is_counted() {
     return "$result"
 }
 
+test_repository_deployment_manifest_matches_tracked_files() {
+    local file_list
+    local result=0
+
+    file_list="$(mktemp)"
+    bash -c 'source "$1"; ybw::deploy::expand_manifest "$2"' _ "$PWD/bootstrap.sh" "$file_list" > /dev/null || result=1
+    [[ -s "$file_list" ]] || result=1
+    rm -f "$file_list"
+
+    return "$result"
+}
+
 test_deployment_manifest_rejects_unmatched_roots() {
     local file_list
     local manifest
@@ -245,6 +257,7 @@ test_remote_bootstrap_download_failures_are_reported() {
 check "installer exposes a namespaced module boundary" test_installer_has_namespaced_module_boundary
 check "installer can be sourced without execution or cwd changes" test_installer_can_be_sourced
 check "deployment is manifest-scoped and preserves replaced paths" test_deploy_is_scoped_and_backed_up
+check "repository deployment manifest matches tracked files" test_repository_deployment_manifest_matches_tracked_files
 check "deployment manifest rejects unmatched roots" test_deployment_manifest_rejects_unmatched_roots
 check "Linux rejects macOS app selection before deployment" test_linux_rejects_mac_apps_before_deploy
 check "Home Manager profile selection is not a silent no-op" test_profile_requires_home_manager
