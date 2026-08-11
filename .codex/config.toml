@@ -10,6 +10,3 @@ personality = "pragmatic"
 
 [features]
 multi_agent = false
-
-[agents]
-enabled = false
