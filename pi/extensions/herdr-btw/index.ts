@@ -12,9 +12,17 @@ const START_BUSY_RETRY_MS = 100;
 const START_BUSY_MAX_RETRIES = 50;
 
 type HerdrTabCreated = {
+  kind: "tab";
   tabId: string;
   paneId: string;
 };
+
+type HerdrPaneCreated = {
+  kind: "pane";
+  paneId: string;
+};
+
+type HerdrTarget = HerdrTabCreated | HerdrPaneCreated;
 
 type HerdrError = {
   code: string;
@@ -93,7 +101,42 @@ function parseTabCreated(stdout: string, workspaceId: string): HerdrTabCreated {
     throw new Error("created tab does not belong to the requested workspace");
   }
 
-  return { tabId, paneId };
+  return { kind: "tab", tabId, paneId };
+}
+
+function parsePaneCreated(stdout: string, workspaceId: string): HerdrPaneCreated {
+  let response: unknown;
+  try {
+    response = JSON.parse(stdout);
+  } catch (error) {
+    throw new Error(`invalid JSON response: ${errorMessage(error)}`);
+  }
+
+  if (!response || typeof response !== "object") {
+    throw new Error("response is not an object");
+  }
+
+  const result = (response as Record<string, unknown>).result;
+  if (!result || typeof result !== "object") {
+    throw new Error("response is missing result");
+  }
+
+  const record = result as Record<string, unknown>;
+  const pane = record.pane;
+  if (record.type !== "pane_created" || !pane || typeof pane !== "object") {
+    throw new Error("response is not a pane_created result");
+  }
+
+  const paneRecord = pane as Record<string, unknown>;
+  const paneId = paneRecord.pane_id;
+  if (typeof paneId !== "string" || !paneId) {
+    throw new Error("response is missing pane_id");
+  }
+  if (paneRecord.workspace_id !== workspaceId) {
+    throw new Error("created pane does not belong to the requested workspace");
+  }
+
+  return { kind: "pane", paneId };
 }
 
 function buildPiArgs(
@@ -115,14 +158,18 @@ function agentName(paneId: string): string {
   return `btw-${paneId.toLowerCase().replace(/[^a-z0-9_-]/g, "-")}`.slice(0, 32);
 }
 
-async function closeTab(
+async function closeTarget(
   pi: ExtensionAPI,
   herdr: string,
-  tabId: string,
+  target: HerdrTarget,
   cwd: string,
 ): Promise<string | undefined> {
   try {
-    const result = await pi.exec(herdr, ["tab", "close", tabId], {
+    const result = await pi.exec(herdr, [
+      target.kind,
+      "close",
+      target.kind === "tab" ? target.tabId : target.paneId,
+    ], {
       cwd,
       timeout: CREATE_TIMEOUT_MS,
     });
@@ -141,45 +188,70 @@ export function registerHerdrBtwExtension(
   env: NodeJS.ProcessEnv,
 ): void {
   pi.registerCommand("herdr-btw", {
-    description: "Fork the current Pi conversation into a new tab in the current Herdr workspace.",
+    description: "Fork the current Pi conversation into a new pane or tab in Herdr.",
     handler: async (args, ctx) => {
+      if (!ctx.hasUI) return;
+
       const workspaceId = env.HERDR_WORKSPACE_ID?.trim();
       if (!workspaceId) {
-        report(ctx, "Cannot open a Herdr BTW tab: HERDR_WORKSPACE_ID is unavailable.", "error");
+        report(ctx, "Cannot open Herdr BTW: HERDR_WORKSPACE_ID is unavailable.", "error");
         return;
       }
 
       const parentSessionFile = ctx.sessionManager.getSessionFile();
       if (!parentSessionFile) {
-        report(ctx, "Cannot fork Herdr BTW tab: the current Pi session is not persisted.", "error");
+        report(ctx, "Cannot fork Herdr BTW: the current Pi session is not persisted.", "error");
+        return;
+      }
+
+      const location = await ctx.ui.select("Open Herdr BTW in:", [
+        "New pane in current tab",
+        "New tab",
+      ]);
+      if (location === undefined) {
+        report(ctx, "Herdr BTW cancelled.", "info");
         return;
       }
 
       const herdr = env.HERDR_BIN_PATH?.trim() || "herdr";
-      let created: HerdrTabCreated;
+      const targetKind = location === "New pane in current tab" ? "pane" : "tab";
+      let created: HerdrTarget;
       try {
-        const createResult = await pi.exec(
-          herdr,
-          [
-            "tab",
-            "create",
-            "--workspace",
-            workspaceId,
-            "--cwd",
-            ctx.cwd,
-            "--label",
-            "btw",
-            "--focus",
-          ],
-          { cwd: ctx.cwd, timeout: CREATE_TIMEOUT_MS },
-        );
+        const createArgs = targetKind === "pane"
+          ? [
+              "pane",
+              "split",
+              "--current",
+              "--direction",
+              "right",
+              "--cwd",
+              ctx.cwd,
+              "--focus",
+            ]
+          : [
+              "tab",
+              "create",
+              "--workspace",
+              workspaceId,
+              "--cwd",
+              ctx.cwd,
+              "--label",
+              "btw",
+              "--focus",
+            ];
+        const createResult = await pi.exec(herdr, createArgs, {
+          cwd: ctx.cwd,
+          timeout: CREATE_TIMEOUT_MS,
+        });
         if (createResult.code !== 0) {
-          report(ctx, `Cannot create Herdr BTW tab: ${commandFailure(createResult)}`, "error");
+          report(ctx, `Cannot create Herdr BTW ${targetKind}: ${commandFailure(createResult)}`, "error");
           return;
         }
-        created = parseTabCreated(createResult.stdout, workspaceId);
+        created = targetKind === "pane"
+          ? parsePaneCreated(createResult.stdout, workspaceId)
+          : parseTabCreated(createResult.stdout, workspaceId);
       } catch (error) {
-        report(ctx, `Cannot create Herdr BTW tab: ${errorMessage(error)}`, "error");
+        report(ctx, `Cannot create Herdr BTW ${targetKind}: ${errorMessage(error)}`, "error");
         return;
       }
 
@@ -219,14 +291,16 @@ export function registerHerdrBtwExtension(
       }
 
       if (startFailure) {
-        const cleanupFailure = await closeTab(pi, herdr, created.tabId, ctx.cwd);
+        const cleanupFailure = await closeTarget(pi, herdr, created, ctx.cwd);
+        const createdId = created.kind === "tab" ? created.tabId : created.paneId;
         const cleanupMessage = cleanupFailure
-          ? `; new tab ${created.tabId} could not be closed: ${cleanupFailure}`
+          ? `; new ${created.kind} ${createdId} could not be closed: ${cleanupFailure}`
           : "";
-        report(ctx, `Cannot start Pi in Herdr BTW tab: ${startFailure}${cleanupMessage}`, "error");
+        report(ctx, `Cannot start Pi in Herdr BTW ${created.kind}: ${startFailure}${cleanupMessage}`, "error");
         return;
       }
 
+      const createdId = created.kind === "tab" ? created.tabId : created.paneId;
       const question = args.trim();
       if (question) {
         try {
@@ -238,7 +312,7 @@ export function registerHerdrBtwExtension(
           if (promptResult.code !== 0) {
             report(
               ctx,
-              `Opened Herdr BTW tab ${created.tabId}, but could not submit the question: ${commandFailure(promptResult)}`,
+              `Opened Herdr BTW ${created.kind} ${createdId}, but could not submit the question: ${commandFailure(promptResult)}`,
               "error",
             );
             return;
@@ -246,14 +320,14 @@ export function registerHerdrBtwExtension(
         } catch (error) {
           report(
             ctx,
-            `Opened Herdr BTW tab ${created.tabId}, but could not submit the question: ${errorMessage(error)}`,
+            `Opened Herdr BTW ${created.kind} ${createdId}, but could not submit the question: ${errorMessage(error)}`,
             "error",
           );
           return;
         }
       }
 
-      report(ctx, `Opened Herdr BTW tab ${created.tabId}.`, "info");
+      report(ctx, `Opened Herdr BTW ${created.kind} ${createdId}.`, "info");
     },
   });
 }

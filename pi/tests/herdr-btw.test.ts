@@ -18,7 +18,9 @@ interface ExecCall {
 
 interface HarnessOptions {
   env?: NodeJS.ProcessEnv;
+  hasUI?: boolean;
   sessionFile?: string | null;
+  selection?: string | null;
   exec(call: ExecCall): ExecResult | Promise<ExecResult>;
 }
 
@@ -44,6 +46,20 @@ function tabCreatedOutput(): string {
   });
 }
 
+function paneSplitOutput(): string {
+  return JSON.stringify({
+    id: "cli:pane:split",
+    result: {
+      type: "pane_created",
+      pane: {
+        pane_id: "wH:pN",
+        tab_id: "wH:tCurrent",
+        workspace_id: "wH",
+      },
+    },
+  });
+}
+
 function createHarness(options: HarnessOptions) {
   const calls: ExecCall[] = [];
   const notifications: Array<{ message: string; type: string }> = [];
@@ -62,6 +78,7 @@ function createHarness(options: HarnessOptions) {
   };
   const ctx = {
     cwd: "/workspace/project",
+    hasUI: options.hasUI ?? true,
     isProjectTrusted: () => true,
     model: { provider: "openai", id: "gpt-5.2-codex" },
     sessionManager: {
@@ -70,6 +87,13 @@ function createHarness(options: HarnessOptions) {
         : options.sessionFile ?? "/sessions/parent.jsonl",
     },
     ui: {
+      async select(title: string, choices: string[]) {
+        assert.equal(title, "Open Herdr BTW in:");
+        assert.deepEqual(choices, ["New pane in current tab", "New tab"]);
+        return options.selection === null
+          ? undefined
+          : options.selection ?? "New tab";
+      },
       notify(message: string, type: string) {
         notifications.push({ message, type });
       },
@@ -85,6 +109,95 @@ function createHarness(options: HarnessOptions) {
     run: (args: string) => command.handler(args, ctx),
   };
 }
+
+test("does nothing when Pi has no dialog-capable UI", async () => {
+  const harness = createHarness({
+    env: { HERDR_WORKSPACE_ID: "wH" },
+    hasUI: false,
+    exec: () => ok(),
+  });
+
+  await harness.run("question");
+
+  assert.deepEqual(harness.calls, []);
+  assert.deepEqual(harness.notifications, []);
+});
+
+test("creates a focused pane in the current tab when selected", async () => {
+  const harness = createHarness({
+    env: {
+      HERDR_WORKSPACE_ID: "wH",
+      HERDR_BIN_PATH: "/opt/herdr/bin/herdr",
+    },
+    selection: "New pane in current tab",
+    exec: ({ args }) => args[1] === "split" ? ok(paneSplitOutput()) : ok(),
+  });
+
+  await harness.run("Compare these approaches");
+
+  assert.deepEqual(harness.calls, [
+    {
+      command: "/opt/herdr/bin/herdr",
+      args: [
+        "pane",
+        "split",
+        "--current",
+        "--direction",
+        "right",
+        "--cwd",
+        "/workspace/project",
+        "--focus",
+      ],
+      options: { cwd: "/workspace/project", timeout: 10_000 },
+    },
+    {
+      command: "/opt/herdr/bin/herdr",
+      args: [
+        "agent",
+        "start",
+        "btw-wh-pn",
+        "--kind",
+        "pi",
+        "--pane",
+        "wH:pN",
+        "--timeout",
+        "30000",
+        "--",
+        "--fork",
+        "/sessions/parent.jsonl",
+        "--model",
+        "openai/gpt-5.2-codex",
+        "--thinking",
+        "high",
+        "--approve",
+      ],
+      options: { cwd: "/workspace/project", timeout: 35_000 },
+    },
+    {
+      command: "/opt/herdr/bin/herdr",
+      args: ["agent", "prompt", "wH:pN", "Compare these approaches"],
+      options: { cwd: "/workspace/project", timeout: 10_000 },
+    },
+  ]);
+  assert.deepEqual(harness.notifications, [
+    { message: "Opened Herdr BTW pane wH:pN.", type: "info" },
+  ]);
+});
+
+test("does nothing when the location selector is cancelled", async () => {
+  const harness = createHarness({
+    env: { HERDR_WORKSPACE_ID: "wH" },
+    selection: null,
+    exec: () => ok(),
+  });
+
+  await harness.run("question");
+
+  assert.deepEqual(harness.calls, []);
+  assert.deepEqual(harness.notifications, [
+    { message: "Herdr BTW cancelled.", type: "info" },
+  ]);
+});
 
 test("creates a focused tab in the current Herdr workspace and starts a BTW Pi session", async () => {
   const harness = createHarness({
@@ -162,7 +275,7 @@ test("opens an idle Pi session when no question is supplied", async () => {
   ]);
 });
 
-test("does not create a tab when the current Pi session is not persisted", async () => {
+test("does not create a target when the current Pi session is not persisted", async () => {
   const harness = createHarness({
     env: { HERDR_WORKSPACE_ID: "wH" },
     sessionFile: null,
@@ -174,13 +287,13 @@ test("does not create a tab when the current Pi session is not persisted", async
   assert.deepEqual(harness.calls, []);
   assert.deepEqual(harness.notifications, [
     {
-      message: "Cannot fork Herdr BTW tab: the current Pi session is not persisted.",
+      message: "Cannot fork Herdr BTW: the current Pi session is not persisted.",
       type: "error",
     },
   ]);
 });
 
-test("does not create a tab outside Herdr", async () => {
+test("does not create a target outside Herdr", async () => {
   const harness = createHarness({
     exec: () => ok(),
   });
@@ -190,7 +303,7 @@ test("does not create a tab outside Herdr", async () => {
   assert.deepEqual(harness.calls, []);
   assert.deepEqual(harness.notifications, [
     {
-      message: "Cannot open a Herdr BTW tab: HERDR_WORKSPACE_ID is unavailable.",
+      message: "Cannot open Herdr BTW: HERDR_WORKSPACE_ID is unavailable.",
       type: "error",
     },
   ]);
@@ -269,6 +382,34 @@ test("closes the new tab when Pi fails to start", async () => {
   assert.deepEqual(harness.notifications, [
     {
       message: "Cannot start Pi in Herdr BTW tab: agent did not become ready",
+      type: "error",
+    },
+  ]);
+});
+
+test("closes only the new pane when Pi fails to start", async () => {
+  const harness = createHarness({
+    env: { HERDR_WORKSPACE_ID: "wH" },
+    selection: "New pane in current tab",
+    exec: ({ args }) => {
+      if (args[1] === "split") return ok(paneSplitOutput());
+      if (args[1] === "start") {
+        return { stdout: "", stderr: "agent did not become ready", code: 1 };
+      }
+      return ok();
+    },
+  });
+
+  await harness.run("question");
+
+  assert.deepEqual(harness.calls.map(({ args }) => args.slice(0, 3)), [
+    ["pane", "split", "--current"],
+    ["agent", "start", "btw-wh-pn"],
+    ["pane", "close", "wH:pN"],
+  ]);
+  assert.deepEqual(harness.notifications, [
+    {
+      message: "Cannot start Pi in Herdr BTW pane: agent did not become ready",
       type: "error",
     },
   ]);
