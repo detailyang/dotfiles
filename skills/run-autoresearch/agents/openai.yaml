@@ -1,0 +1,4 @@
+interface:
+  display_name: "Run Autoresearch"
+  short_description: "Run evidence-driven optimization research loops"
+  default_prompt: "Use $run-autoresearch to optimize this task through measured experiments and durable evidence."
