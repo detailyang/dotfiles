@@ -39,7 +39,6 @@ check "removed Codex wrapper has no stale artifacts" "! test -e bin/codex && ! t
 check "Bash login shells delegate to the managed bashrc" "grep -Fq 'source \"\$HOME/.bashrc\"' .bash_profile"
 check "managed bashrc loads deployed Bash modules" "grep -Fq '\$HOME/bash/.path' .bashrc && grep -Fq '\$HOME/bash/.aliases' .bashrc && cache_dir=\$(mktemp -d) && HOME=\"\$PWD\" XDG_CACHE_HOME=\"\$cache_dir/cache\" XDG_DATA_HOME=\"\$cache_dir/data\" XDG_STATE_HOME=\"\$cache_dir/state\" bash --noprofile --rcfile .bashrc -ic 'declare -F proxy'; status=\$?; rm -rf \"\$cache_dir\"; [[ \$status -eq 0 ]]"
 check "installer deployment and result behavior" "test -x scripts/test-install.sh && ./scripts/test-install.sh"
-check "ghostty herdr entry parses" "bash -n bin/ghostty-herdr-entry"
 check_if_available fish "fish scripts parse before shell startup" "for f in fish/*.fish; do fish -n \"\$f\" || exit 1; done"
 check "Fish FZF bindings are independent of the package manager" "grep -Fq 'fzf --fish | source' fish/fish_fzf_bindings.fish && ! grep -Fq '/opt/homebrew' fish/fish_fzf_bindings.fish"
 check_if_available fish "Fish starts without fzf" "fish_path=\$(command -v fish); env PATH=/nonexistent \"\$fish_path\" --no-config -c 'source fish/fish_fzf_bindings.fish; fish_user_key_bindings'"
@@ -106,8 +105,7 @@ check "installer owns Dock defaults" "grep -Fq 'defaults write com.apple.dock au
 check "installer disables automatic macOS updates" "grep -Fq 'sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticCheckEnabled -bool false' scripts/install/platform.sh && grep -Fq 'sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticDownload -bool false' scripts/install/platform.sh && grep -Fq 'sudo defaults write /Library/Preferences/com.apple.SoftwareUpdate AutomaticallyInstallMacOSUpdates -bool false' scripts/install/platform.sh"
 
 check "herdr resolves Fish from PATH" "grep -q '^default_shell = \"fish\"$' .config/herdr/config.toml"
-check "Ghostty Herdr entry resolves Fish from PATH" "grep -q '^fish_shell=\"\$(command -v fish || true)\"$' bin/ghostty-herdr-entry && grep -Fq 'Fish is not installed or not available in PATH' bin/ghostty-herdr-entry"
-check "Fish launchers avoid platform-specific paths" "! grep -Eq '/opt/homebrew/bin/fish|/usr/local/bin/fish' bootstrap.sh scripts/install/*.sh .config/herdr/config.toml bin/ghostty-herdr-entry"
+check "Fish launchers avoid platform-specific paths" "! grep -Eq '/opt/homebrew/bin/fish|/usr/local/bin/fish' bootstrap.sh scripts/install/*.sh .config/herdr/config.toml"
 check "herdr starts fish as a login shell" "grep -q '^shell_mode = \"login\"$' .config/herdr/config.toml"
 
 check "proxy-env is the executable proxy env module" "test -x bin/proxy-env"

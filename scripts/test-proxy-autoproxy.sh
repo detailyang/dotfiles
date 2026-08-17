@@ -102,7 +102,8 @@ none_output="$(env "${clear_proxy_env[@]}" \
 [[ "$none_output" == *'echo Proxy\ disabled'* ]]
 
 headless_output="$(env "${clear_proxy_env[@]}" \
-    PATH=/usr/bin:/bin \
+    PATH="$temp_dir:/usr/bin:/bin" \
+    FAKE_UNAME=Linux \
     XDG_CURRENT_DESKTOP= \
     DESKTOP_SESSION= \
     HTTP_PROXY=http://10.0.0.2:3128 \
