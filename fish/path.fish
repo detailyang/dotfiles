@@ -13,6 +13,7 @@ set -l paths_to_add \
     ~/.fluvio/bin \
     ~/.opencode/bin \
     ~/.local/bin \
+    ~/.npm-global/bin \
     ~/.local/share/pi-node/current/bin \
     ~/.bun/bin
 
