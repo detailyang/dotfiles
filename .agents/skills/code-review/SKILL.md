@@ -37,9 +37,9 @@ Read repository standards from applicable `AGENTS.md`, `CONTRIBUTING.md`, coding
 
 If no spec exists, skip only the Spec axis and state that limitation.
 
-## 3. Run independent review axes
+## 3. Run review axes
 
-Run each axis in an independent context so findings from one do not contaminate another. Spawn independent sub-agents in parallel when slots are available; otherwise run isolated sequential passes without carrying findings between them. Give each pass the exact diff command, untracked task files, commit list, relevant source files, and a concise brief.
+Run every axis sequentially in the current agent. Do not spawn subagents or delegate any review axis. Keep the axes analytically independent: start each pass from the pinned change set and source material, record its findings separately, and do not let findings from an earlier axis replace direct evidence in a later one.
 
 ### Standards
 
