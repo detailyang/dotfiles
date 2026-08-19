@@ -73,10 +73,10 @@ function Initialize-Directories {
 function Deploy-Configs {
     Write-Status "Deploying configuration files"
     
-    # Deploy wezterm config if exists
-    if (Test-Path ".\.config\wezterm") {
+    # Deploy wezterm config from the home/ mirror if it exists
+    if (Test-Path ".\home\.config\wezterm") {
         $destDir = "$env:USERPROFILE\.config\wezterm"
-        Copy-Item -Path ".\.config\wezterm" -Destination $destDir -Recurse -Force
+        Copy-Item -Path ".\home\.config\wezterm" -Destination $destDir -Recurse -Force
         Write-Success "Deployed wezterm configuration"
     }
     

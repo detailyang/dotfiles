@@ -24,7 +24,7 @@ for YBW_INSTALL_MODULE in \
     postinstall \
     main
 do
-    if ! source "$YBW_INSTALL_ROOT/scripts/install/$YBW_INSTALL_MODULE.sh"; then
+    if ! source "$YBW_INSTALL_ROOT/installer/$YBW_INSTALL_MODULE.sh"; then
         echo "ERROR: Failed to load installer module: $YBW_INSTALL_MODULE" >&2
         YBW_INSTALL_LOAD_STATUS=1
         break

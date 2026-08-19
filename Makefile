@@ -8,6 +8,8 @@ RESET  				:= $(shell tput -Txterm sgr0)
 TARGET_MAX_CHAR_NUM := 20
 PADDING             := $(shell printf '%-24s' "")
 
+.PHONY: help check check-dotfiles check-pi
+
 ## Show help
 help:
 	@echo ''
@@ -26,10 +28,13 @@ help:
 	} \
 	{ lastLine = $$0 }' $(MAKEFILE_LIST)	
 
-CENTOS7 := dotfiles/centos7:1.0.0
-.PHONY: centos7
-## Build centos7 dev image
-centos7:
-	docker build -t $(CENTOS7) -f docker/centos7/Dockerfile .
-	docker tag  $(CENTOS7) docker.pkg.github.com/detailyang/$(CENTOS7)
-	docker push docker.pkg.github.com/detailyang/$(CENTOS7)
+## Run repository validation
+check: check-dotfiles check-pi
+
+## Run dotfiles and installer validation
+check-dotfiles:
+	./tests/validate.sh
+
+## Run Pi type checks and tests
+check-pi:
+	npm --prefix pi run check

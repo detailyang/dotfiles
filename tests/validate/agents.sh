@@ -1,0 +1,2 @@
+check "project skills resolve through the root .agents symlink" "test -L .agents && [[ \$(readlink .agents) == home/.agents ]]"
+check "agent workflow uses canonical skill names" "test -f .agents/skills/grill/SKILL.md && test -f .agents/skills/to-spec/SKILL.md && test -f .agents/skills/to-issue/SKILL.md && test -f .agents/skills/ship/SKILL.md && test -f .agents/skills/code-review/SKILL.md && ! test -f .agents/skills/think/SKILL.md && ! test -f .agents/skills/to-prd/SKILL.md && ! test -f .agents/skills/to-issues/SKILL.md"

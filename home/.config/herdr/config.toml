@@ -1,0 +1,135 @@
+onboarding = false
+
+[remote]
+manage_ssh_config = true
+
+
+[theme]
+name = "catppuccin-latte"
+
+[terminal]
+default_shell = "fish"
+shell_mode = "login"
+
+[keys]
+# Match the tmux prefix in ~/.tmux.conf.
+prefix = "ctrl+a"
+detach = "prefix+d"
+
+# tmux-like pane navigation.
+focus_pane_left = "prefix+h"
+focus_pane_down = "prefix+j"
+focus_pane_up = "prefix+k"
+focus_pane_right = "prefix+l"
+
+# tmux-like tab/window lifecycle.
+# In your tmux config: prefix+t creates a window, prefix+c kills a window.
+new_tab = "prefix+t"
+close_tab = "prefix+c"
+
+# tmux-like splits.
+# In your tmux config: prefix+| splits left/right, prefix+- splits top/bottom.
+split_vertical = "prefix+|"
+split_horizontal = "prefix+minus"
+
+# Workspace/spaces and agent navigation.
+workspace_picker = ["prefix+w", "ctrl+w"]
+goto = "prefix+g"
+switch_workspace = ["prefix+shift+1..9", "ctrl+1..9"]
+focus_agent = "prefix+alt+1..9"
+previous_workspace = "prefix+shift+left"
+next_workspace = "prefix+shift+right"
+
+# Navigation keys used after entering workspace navigation mode with prefix+w.
+navigate_workspace_up = "k"
+navigate_workspace_down = "j"
+navigate_pane_left = "h"
+navigate_pane_down = "ctrl+j"
+navigate_pane_up = "ctrl+k"
+navigate_pane_right = "l"
+
+# Keep common Herdr actions available without stealing your tmux-like keys.
+reload_config = "prefix+r"
+zoom = "prefix+z"
+close_pane = "prefix+x"
+resize_mode = "prefix+shift+r"
+toggle_sidebar = "prefix+shift+b"
+
+# Avoid default bindings that conflict with your tmux habits.
+next_tab = "prefix+n"
+previous_tab = "prefix+p"
+
+[[keys.command]]
+# Approximation of your tmux popup snippet binding: opens as a temporary Herdr pane.
+key = "prefix+o"
+type = "pane"
+command = "/Users/didi/bin/snippet"
+
+[ui]
+prompt_new_tab_name = false
+pane_borders = true
+pane_gaps = false 
+agent_panel_sort = "priority"
+
+# Keep status colors dynamic while emphasizing identity and de-emphasizing context.
+[ui.sidebar.agents]
+row_gap = 0
+rows = [
+  [
+    { token = "state_icon", bold = true, dim = false },
+    { token = "workspace", fg = "#1e66f5", bold = true, dim = false },
+    { token = "tab", fg = "#7c7f93", bold = false, dim = true },
+  ],
+  [
+    { token = "agent", fg = "#8839ef", bold = true, dim = false },
+  ],
+]
+
+# Agent overrides replace the full layout, so keep these rows in sync with rows above.
+[ui.sidebar.agents.rows_by_agent]
+pi = [
+  [
+    { token = "state_icon", bold = true, dim = false },
+    { token = "workspace", fg = "#1e66f5", bold = true, dim = false },
+    { token = "tab", fg = "#7c7f93", bold = false, dim = true },
+  ],
+  [
+    { token = "agent", fg = "#8839ef", bold = true, dim = false },
+  ],
+]
+claude = [
+  [
+    { token = "state_icon", bold = true, dim = false },
+    { token = "workspace", fg = "#1e66f5", bold = true, dim = false },
+    { token = "tab", fg = "#7c7f93", bold = false, dim = true },
+  ],
+  [
+    { token = "agent", fg = "#1e66f5", bold = true, dim = false },
+  ],
+]
+codex = [
+  [
+    { token = "state_icon", bold = true, dim = false },
+    { token = "workspace", fg = "#1e66f5", bold = true, dim = false },
+    { token = "tab", fg = "#7c7f93", bold = false, dim = true },
+  ],
+  [
+    { token = "agent", fg = "#d20f39", bold = true, dim = false },
+  ],
+]
+
+[ui.sidebar.spaces]
+row_gap = 0
+rows = [
+  [
+    { token = "state_icon", bold = true, dim = false },
+    { token = "workspace", fg = "#1e66f5", bold = true, dim = false },
+  ],
+  [
+    { token = "branch", fg = "#179299", bold = false, dim = true },
+    { token = "git_status", bold = false, dim = true },
+  ],
+]
+
+[ui.sound]
+enabled = false

@@ -1,10 +1,11 @@
+# Repository development artifacts. The deployed ~/.gitignore lives at
+# home/.gitignore and is a separate concern.
 .vagrant/
 .DS_Store
-/.idea
 .idea
 *.swp
 .worktrees/
+.cache/
 node_modules
 package-lock.json
-.pi/agent/models.json
-.pi/agent/auth.json
+home/.codex/.env
