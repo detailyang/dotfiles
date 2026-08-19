@@ -10,10 +10,10 @@
 .PARAMETER Verbose
     Show detailed installation progress
 .EXAMPLE
-    .\install.ps1
+    .\bootstrap.ps1
     Standard installation with git pull
 .EXAMPLE
-    .\install.ps1 -NoPull -Verbose
+    .\bootstrap.ps1 -NoPull -Verbose
     Installation without git pull and detailed output
 #>
 

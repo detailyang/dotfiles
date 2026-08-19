@@ -22,7 +22,7 @@ Every tracked file under `home/` is deployed to the same relative path in
 - `tests/`: validation and test tooling. Not deployed.
 - `docs/`: design documents. Not deployed.
 - `pi/`: TypeScript extensions, skills, prompts, and themes for Pi.
-- `install.ps1`: Windows setup.
+- `bootstrap.ps1`: Windows setup.
 
 ## Unix installation
 
@@ -61,7 +61,7 @@ current checkout unchanged.
 Run from PowerShell:
 
 ```powershell
-.\install.ps1 -NoPull -Verbose
+.\bootstrap.ps1 -NoPull -Verbose
 ```
 
 The Windows installer currently has a smaller scope than the Unix installer

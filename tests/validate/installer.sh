@@ -4,7 +4,7 @@ check "installer advertises explicit Home Manager activation" "./bootstrap.sh --
 check "installer parses the toolchain option" "bash -c 'source ./bootstrap.sh; ybw::plan::reset; ybw::plan::parse --toolchain; [[ \"\$YBW_INSTALL_PLAN_TOOLCHAIN\" == true ]]'"
 check "installer parses the desktop Home Manager profile" "bash -c 'source ./bootstrap.sh; ybw::plan::reset; ybw::plan::parse --home-manager --profile desktop; [[ \"\$YBW_INSTALL_PLAN_HOME_MANAGER\" == true && \"\$YBW_INSTALL_PLAN_HOME_MANAGER_PROFILE\" == desktop ]]'"
 check "installer parses explicit Home Manager activation" "bash -c 'source ./bootstrap.sh; ybw::plan::reset; ybw::plan::parse --home-manager; [[ \"\$YBW_INSTALL_PLAN_HOME_MANAGER\" == true ]]'"
-check "Windows installer deploys from the home mirror" "grep -Fq 'home\\.config\\wezterm' install.ps1 && ! grep -Fq '\\.\\.config\\wezterm' install.ps1"
+check "Windows installer deploys from the home mirror" "grep -Fq 'home\\.config\\wezterm' bootstrap.ps1 && ! grep -Fq '\\.\\.config\\wezterm' bootstrap.ps1"
 check "Nix installer has a non-mutating dry run" "test -x installer/install-nix.sh && ./installer/install-nix.sh --dry-run | grep -Fq 'Would install Nix'"
 check "Nix installer prefers TUNA with official fallback" "grep -Fq 'https://mirrors.tuna.tsinghua.edu.cn/nix/latest/install' installer/install-nix.sh && grep -Fq 'https://nixos.org/nix/install' installer/install-nix.sh"
 check "Nix installer configures Flakes without legacy channels" "grep -Fq -- '--no-channel-add' installer/install-nix.sh && grep -Fq -- '--nix-extra-conf-file \"\$NIX_CONFIG_SOURCE\"' installer/install-nix.sh"

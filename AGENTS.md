@@ -2,14 +2,14 @@
 
 ## Project Structure & Module Organization
 
-This is a personal dotfiles repository organized around one invariant: `home/` mirrors `$HOME`, and every tracked file under `home/` deploys to the same relative path in `$HOME`. Root dotfiles such as `home/.zshrc`, `home/.gitconfig`, `home/.tmux.conf`, and `home/.vimrc` sit at the top of the mirror. Shell config is split between `home/bash/` and `home/fish/`. Application config lives under `home/.config/` for WezTerm, Alacritty, Zed, yazi, Home Manager, and lazygit. Reusable command examples live in `home/snippet/`. Agent material is under `home/.agents/`, `home/skills/`, and `pi/`; the repository root `.agents` is a symlink into `home/.agents` for project-skill discovery. Installer phases live in `installer/`; validation lives in `tests/validate.sh` and `tests/validate/`. Platform setup scripts are `bootstrap.sh` and `install.ps1`.
+This is a personal dotfiles repository organized around one invariant: `home/` mirrors `$HOME`, and every tracked file under `home/` deploys to the same relative path in `$HOME`. Root dotfiles such as `home/.zshrc`, `home/.gitconfig`, `home/.tmux.conf`, and `home/.vimrc` sit at the top of the mirror. Shell config is split between `home/bash/` and `home/fish/`. Application config lives under `home/.config/` for WezTerm, Alacritty, Zed, yazi, Home Manager, and lazygit. Reusable command examples live in `home/snippet/`. Agent material is under `home/.agents/`, `home/skills/`, and `pi/`; the repository root `.agents` is a symlink into `home/.agents` for project-skill discovery. Installer phases live in `installer/`; validation lives in `tests/validate.sh` and `tests/validate/`. Platform setup scripts are `bootstrap.sh` and `bootstrap.ps1`.
 
 ## Build, Test, and Development Commands
 
 - `./tests/validate.sh`: run consistency checks for shell functions, paths, install-script features, and expected removals.
 - `./bootstrap.sh --dry-run`: exercise the Unix installer without applying changes.
 - `./bootstrap.sh --mac-apps --npx --pi`: opt into macOS packages, npm, Go, and Pi extension setup.
-- `./install.ps1 -NoPull -Verbose`: run Windows setup without pulling first.
+- `./bootstrap.ps1 -NoPull -Verbose`: run Windows setup without pulling first.
 - `make help`: list Makefile targets.
 
 ## Coding Style & Naming Conventions
