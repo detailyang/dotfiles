@@ -50,7 +50,7 @@ function paneSplitOutput(): string {
   return JSON.stringify({
     id: "cli:pane:split",
     result: {
-      type: "pane_created",
+      type: "pane_info",
       pane: {
         pane_id: "wH:pN",
         tab_id: "wH:tCurrent",

@@ -104,7 +104,7 @@ function parseTabCreated(stdout: string, workspaceId: string): HerdrTabCreated {
   return { kind: "tab", tabId, paneId };
 }
 
-function parsePaneCreated(stdout: string, workspaceId: string): HerdrPaneCreated {
+function parsePaneSplit(stdout: string, workspaceId: string): HerdrPaneCreated {
   let response: unknown;
   try {
     response = JSON.parse(stdout);
@@ -123,8 +123,8 @@ function parsePaneCreated(stdout: string, workspaceId: string): HerdrPaneCreated
 
   const record = result as Record<string, unknown>;
   const pane = record.pane;
-  if (record.type !== "pane_created" || !pane || typeof pane !== "object") {
-    throw new Error("response is not a pane_created result");
+  if (record.type !== "pane_info" || !pane || typeof pane !== "object") {
+    throw new Error("response is not a pane_info result");
   }
 
   const paneRecord = pane as Record<string, unknown>;
@@ -248,7 +248,7 @@ export function registerHerdrBtwExtension(
           return;
         }
         created = targetKind === "pane"
-          ? parsePaneCreated(createResult.stdout, workspaceId)
+          ? parsePaneSplit(createResult.stdout, workspaceId)
           : parseTabCreated(createResult.stdout, workspaceId);
       } catch (error) {
         report(ctx, `Cannot create Herdr BTW ${targetKind}: ${errorMessage(error)}`, "error");
