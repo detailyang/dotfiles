@@ -1,3 +1,5 @@
+# ADR Workflow Guide
+
 ## Purpose
 
 Treat Architecture Decision Records (ADRs) as executable specifications for coding agents. A human approves the decision; an agent should be able to implement it without relying on undocumented context.

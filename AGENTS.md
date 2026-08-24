@@ -31,3 +31,7 @@ Do not commit secrets, machine-specific tokens, or private hostnames. Treat `.ss
 ## Agent-Specific Instructions
 
 Before editing agent material, read `.agents/AGENTS.md` and the relevant `SKILL.md` files. Keep prompt, skill, and extension changes scoped and verify generated paths with `rg --files`.
+
+## Documentation Index
+
+- **Architecture decisions:** Before architecture-affecting work, read `docs/adr/README.md` and the relevant accepted records in `docs/adr/`. Follow the workflow linked from the index.

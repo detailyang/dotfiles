@@ -2,15 +2,17 @@ import { promises as fs, readFileSync } from "node:fs";
 import path from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-export const ADR_START_MARKER = "<!-- pi-adr:start -->";
-export const ADR_END_MARKER = "<!-- pi-adr:end -->";
-export const ADR_GUIDE_START_MARKER = "<!-- pi-adr-guide:start -->";
-export const ADR_GUIDE_END_MARKER = "<!-- pi-adr-guide:end -->";
-export const ADR_README_PATH = path.join("docs", "adr", "README.md");
-export const ADR_GUIDANCE = readFileSync(new URL("./guidance.md", import.meta.url), "utf-8").trim();
-export const ADR_POINTER = `## Documentation Index
+const LEGACY_ADR_START_MARKER = "<!-- pi-adr:start -->";
+const LEGACY_ADR_END_MARKER = "<!-- pi-adr:end -->";
+const LEGACY_GUIDE_START_MARKER = "<!-- pi-adr-guide:start -->";
+const LEGACY_GUIDE_END_MARKER = "<!-- pi-adr-guide:end -->";
+const LEGACY_INDEX_PLACEHOLDER = "<!-- Add ADR links here in chronological order. -->";
 
-- **Architecture decisions:** Before architecture-affecting work, read \`docs/adr/README.md\` and the relevant accepted records in \`docs/adr/\`. Follow the proposal, confirmation, implementation-plan, and lifecycle requirements documented there.`;
+export const ADR_README_PATH = path.join("docs", "adr", "README.md");
+export const ADR_GUIDE_PATH = path.join("docs", "adr", "GUIDE.md");
+export const ADR_GUIDANCE = readFileSync(new URL("./guidance.md", import.meta.url), "utf-8").trim();
+export const ADR_POINTER = "- **Architecture decisions:** Before architecture-affecting work, read `docs/adr/README.md` and the relevant accepted records in `docs/adr/`. Follow the workflow linked from the index.";
+export const ADR_WORKFLOW_LINK = "Read the [ADR workflow guide](GUIDE.md) before proposing, writing, updating, or implementing an architecture decision.";
 
 export type AdrInjectionAction = "created" | "added" | "updated" | "unchanged";
 
@@ -22,12 +24,7 @@ export interface AdrInjectionResult {
 export interface AdrInitializationResult {
   agents: AdrInjectionResult;
   readme: AdrInjectionResult;
-}
-
-interface ManagedBlockOptions {
-  startMarker: string;
-  endMarker: string;
-  label: string;
+  guide: AdrInjectionResult;
 }
 
 function countOccurrences(text: string, value: string): number {
@@ -42,99 +39,153 @@ function countOccurrences(text: string, value: string): number {
   }
 }
 
-function appendBlock(existing: string, block: string): string {
-  const separator = existing.length === 0
-    ? ""
-    : existing.endsWith("\n\n")
-      ? ""
-      : existing.endsWith("\n")
-        ? "\n"
-        : "\n\n";
-  return `${existing}${separator}${block}\n`;
+function appendSection(existing: string, section: string): string {
+  const trimmed = existing.trimEnd();
+  return trimmed ? `${trimmed}\n\n${section.trim()}\n` : `${section.trim()}\n`;
 }
 
-function upsertManagedBlock(
-  existing: string | null,
-  body: string,
-  options: ManagedBlockOptions,
-): AdrInjectionResult {
-  const block = `${options.startMarker}\n${body.trim()}\n${options.endMarker}`;
-
-  if (existing === null) {
-    return { action: "created", content: `${block}\n` };
-  }
-
-  const startCount = countOccurrences(existing, options.startMarker);
-  const endCount = countOccurrences(existing, options.endMarker);
-
+function removeLegacyBlock(
+  content: string,
+  startMarker: string,
+  endMarker: string,
+  label: string,
+): { content: string; removed: boolean } {
+  const startCount = countOccurrences(content, startMarker);
+  const endCount = countOccurrences(content, endMarker);
   if (startCount !== endCount || startCount > 1) {
-    throw new Error(
-      `${options.label} has invalid ADR markers: expected one matching ${options.startMarker}/${options.endMarker} pair`,
-    );
+    throw new Error(`${label} has invalid legacy ADR markers`);
   }
+  if (startCount === 0) return { content, removed: false };
 
-  if (startCount === 0) {
-    return { action: "added", content: appendBlock(existing, block) };
-  }
+  const start = content.indexOf(startMarker);
+  const end = content.indexOf(endMarker, start + startMarker.length);
+  if (end < start) throw new Error(`${label} has a legacy ADR end marker before its start marker`);
 
-  const start = existing.indexOf(options.startMarker);
-  const end = existing.indexOf(options.endMarker, start + options.startMarker.length);
-  if (end < start) {
-    throw new Error(`${options.label} has an ADR end marker before its start marker`);
-  }
-
-  const blockEnd = end + options.endMarker.length;
-  if (existing.slice(start, blockEnd) === block) {
-    return { action: "unchanged", content: existing };
-  }
-
-  return {
-    action: "updated",
-    content: `${existing.slice(0, start)}${block}${existing.slice(blockEnd)}`,
-  };
+  const before = content.slice(0, start).trimEnd();
+  const after = content.slice(end + endMarker.length).trimStart();
+  const joined = before && after
+    ? `${before}\n\n${after}`
+    : before
+      ? `${before}\n`
+      : after;
+  return { content: joined, removed: true };
 }
 
-export function injectAdrGuidance(
-  existing: string | null,
-  pointer = ADR_POINTER,
-): AdrInjectionResult {
-  return upsertManagedBlock(existing, pointer, {
-    startMarker: ADR_START_MARKER,
-    endMarker: ADR_END_MARKER,
-    label: "AGENTS.md",
-  });
+function findSecondLevelSectionEnd(content: string, headingEnd: number): number {
+  const remaining = content.slice(headingEnd);
+  const nextHeading = /^##\s+/m.exec(remaining);
+  return nextHeading?.index === undefined ? content.length : headingEnd + nextHeading.index;
 }
 
-function hasDecisionIndex(content: string): boolean {
-  return /^##\s+(Decision Index|ADRs|Decisions)\s*$/im.test(content);
+function appendLineToSection(
+  content: string,
+  headingPattern: RegExp,
+  heading: string,
+  line: string,
+): string {
+  const match = headingPattern.exec(content);
+  if (!match || match.index === undefined) {
+    return appendSection(content, `${heading}\n\n${line}`);
+  }
+
+  const headingEnd = match.index + match[0].length;
+  const sectionEnd = findSecondLevelSectionEnd(content, headingEnd);
+  const before = content.slice(0, sectionEnd).trimEnd();
+  const after = content.slice(sectionEnd).trimStart();
+  const withLine = `${before}\n\n${line}`;
+  return after ? `${withLine}\n\n${after}` : `${withLine}\n`;
 }
 
-export function injectAdrReadme(
-  existing: string | null,
-  guidance = ADR_GUIDANCE,
-): AdrInjectionResult {
-  const initial = existing === null ? "# Architecture Decision Records\n" : existing;
-  const managed = upsertManagedBlock(initial, guidance, {
-    startMarker: ADR_GUIDE_START_MARKER,
-    endMarker: ADR_GUIDE_END_MARKER,
-    label: ADR_README_PATH,
-  });
+function insertAfterTitle(content: string, line: string): string {
+  const title = /^#\s+[^\n]+$/m.exec(content);
+  if (!title || title.index === undefined) return `${line}\n\n${content.trimStart()}`;
 
-  let content = managed.content;
-  let addedIndex = false;
-  if (!hasDecisionIndex(content)) {
-    content = appendBlock(
+  const titleEnd = title.index + title[0].length;
+  const before = content.slice(0, titleEnd).trimEnd();
+  const after = content.slice(titleEnd).trimStart();
+  return after ? `${before}\n\n${line}\n\n${after}` : `${before}\n\n${line}\n`;
+}
+
+export function injectAdrGuidance(existing: string | null): AdrInjectionResult {
+  const original = existing;
+  const legacy = removeLegacyBlock(
+    existing ?? "",
+    LEGACY_ADR_START_MARKER,
+    LEGACY_ADR_END_MARKER,
+    "AGENTS.md",
+  );
+  let content = legacy.content;
+
+  const pointerPattern = /^[-*]\s+.*docs\/adr\/README\.md.*$/gm;
+  const matches = [...content.matchAll(pointerPattern)];
+  if (matches.length > 1) {
+    throw new Error("AGENTS.md has multiple ADR index entries");
+  }
+
+  if (matches.length === 1) {
+    content = content.replace(pointerPattern, ADR_POINTER);
+  } else {
+    content = appendLineToSection(
       content,
-      "## Decision Index\n\n<!-- Add ADR links here in chronological order. -->",
+      /^##\s+Documentation Index\s*$/m,
+      "## Documentation Index",
+      ADR_POINTER,
     );
-    addedIndex = true;
   }
 
-  if (existing === null) return { action: "created", content };
-  if (addedIndex && managed.action === "unchanged") {
-    return { action: "updated", content };
+  if (original === null) return { action: "created", content };
+  if (content === original) return { action: "unchanged", content };
+  return { action: legacy.removed || matches.length === 1 ? "updated" : "added", content };
+}
+
+function removeLegacyIndexPlaceholder(content: string): string {
+  return content
+    .split("\n")
+    .filter((line) => line.trim() !== LEGACY_INDEX_PLACEHOLDER)
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n");
+}
+
+export function injectAdrReadme(existing: string | null): AdrInjectionResult {
+  const original = existing;
+  const initial = existing ?? "# Architecture Decision Records\n";
+  const legacy = removeLegacyBlock(
+    initial,
+    LEGACY_GUIDE_START_MARKER,
+    LEGACY_GUIDE_END_MARKER,
+    ADR_README_PATH,
+  );
+  let content = removeLegacyIndexPlaceholder(legacy.content);
+
+  const workflowPattern = /^.*\[ADR workflow guide\]\(GUIDE\.md\).*$/gm;
+  const workflowMatches = [...content.matchAll(workflowPattern)];
+  if (workflowMatches.length > 1) {
+    throw new Error(`${ADR_README_PATH} has multiple ADR workflow links`);
   }
-  return { action: managed.action, content };
+  if (workflowMatches.length === 1) {
+    content = content.replace(workflowPattern, ADR_WORKFLOW_LINK);
+  } else {
+    content = insertAfterTitle(content, ADR_WORKFLOW_LINK);
+  }
+
+  if (!/^##\s+(Decision Index|ADRs|Decisions)\s*$/im.test(content)) {
+    content = appendSection(content, "## Decision Index");
+  }
+  content = `${content.trimEnd()}\n`;
+
+  if (original === null) return { action: "created", content };
+  if (content === original) return { action: "unchanged", content };
+  return { action: legacy.removed || workflowMatches.length === 1 ? "updated" : "added", content };
+}
+
+export function injectAdrGuide(existing: string | null): AdrInjectionResult {
+  const content = `# ADR Workflow Guide\n\n${ADR_GUIDANCE}\n`;
+  if (existing === null) return { action: "created", content };
+  if (existing === content) return { action: "unchanged", content };
+  if (!existing.startsWith("# ADR Workflow Guide\n")) {
+    throw new Error(`${ADR_GUIDE_PATH} already exists and is not managed by the ADR extension`);
+  }
+  return { action: "updated", content };
 }
 
 async function readOptional(filePath: string): Promise<string | null> {
@@ -149,36 +200,40 @@ async function readOptional(filePath: string): Promise<string | null> {
 export async function initializeAdrFiles(cwd: string): Promise<AdrInitializationResult> {
   const agentsPath = path.join(cwd, "AGENTS.md");
   const readmePath = path.join(cwd, ADR_README_PATH);
-  const [existingAgents, existingReadme] = await Promise.all([
+  const guidePath = path.join(cwd, ADR_GUIDE_PATH);
+  const [existingAgents, existingReadme, existingGuide] = await Promise.all([
     readOptional(agentsPath),
     readOptional(readmePath),
+    readOptional(guidePath),
   ]);
 
-  // Compute and validate both updates before writing either file.
+  // Compute and validate every update before writing any file.
   const agents = injectAdrGuidance(existingAgents);
   const readme = injectAdrReadme(existingReadme);
+  const guide = injectAdrGuide(existingGuide);
 
   await fs.mkdir(path.dirname(readmePath), { recursive: true });
-  if (readme.action !== "unchanged") {
-    await fs.writeFile(readmePath, readme.content, "utf-8");
-  }
-  if (agents.action !== "unchanged") {
-    await fs.writeFile(agentsPath, agents.content, "utf-8");
-  }
+  if (guide.action !== "unchanged") await fs.writeFile(guidePath, guide.content, "utf-8");
+  if (readme.action !== "unchanged") await fs.writeFile(readmePath, readme.content, "utf-8");
+  if (agents.action !== "unchanged") await fs.writeFile(agentsPath, agents.content, "utf-8");
 
-  return { agents, readme };
+  return { agents, readme, guide };
 }
 
 function successMessage(result: AdrInitializationResult): string {
-  if (result.agents.action === "unchanged" && result.readme.action === "unchanged") {
-    return "ADR documentation and AGENTS.md index are already current.";
+  if (
+    result.agents.action === "unchanged"
+    && result.readme.action === "unchanged"
+    && result.guide.action === "unchanged"
+  ) {
+    return "ADR index and workflow guide are already current.";
   }
-  return "Initialized ADR documentation in docs/adr/README.md and linked it from AGENTS.md.";
+  return "Initialized the ADR index in docs/adr/ and linked it from AGENTS.md.";
 }
 
 export default function adrExtension(pi: ExtensionAPI): void {
   pi.registerCommand("init-adr", {
-    description: "Initialize ADR docs and link them from this project's AGENTS.md",
+    description: "Initialize an ADR index and workflow guide under docs/adr/",
     handler: async (_args, ctx) => {
       try {
         const result = await initializeAdrFiles(ctx.cwd);
