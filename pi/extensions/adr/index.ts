@@ -8,11 +8,38 @@ const LEGACY_GUIDE_START_MARKER = "<!-- pi-adr-guide:start -->";
 const LEGACY_GUIDE_END_MARKER = "<!-- pi-adr-guide:end -->";
 const LEGACY_INDEX_PLACEHOLDER = "<!-- Add ADR links here in chronological order. -->";
 
+export interface AdrToolkitFile {
+  relativePath: string;
+  content: string;
+}
+
 export const ADR_README_PATH = path.join("docs", "adr", "README.md");
 export const ADR_GUIDE_PATH = path.join("docs", "adr", "GUIDE.md");
+export const ADR_TOOLKIT_PATH = path.join("docs", "adr", "toolkit");
 export const ADR_GUIDANCE = readFileSync(new URL("./guidance.md", import.meta.url), "utf-8").trim();
 export const ADR_POINTER = "- **Architecture decisions:** Before architecture-affecting work, read `docs/adr/README.md` and the relevant accepted records in `docs/adr/`. Follow the workflow linked from the index.";
 export const ADR_WORKFLOW_LINK = "Read the [ADR workflow guide](GUIDE.md) before proposing, writing, updating, or implementing an architecture decision.";
+
+const ADR_TOOLKIT_RELATIVE_PATHS = [
+  "package.json",
+  "assets/templates/adr-madr.md",
+  "assets/templates/adr-readme.md",
+  "assets/templates/adr-simple.md",
+  "references/adr-conventions.md",
+  "references/examples.md",
+  "references/review-checklist.md",
+  "references/template-variants.md",
+  "scripts/bootstrap_adr.js",
+  "scripts/new_adr.js",
+  "scripts/set_adr_status.js",
+] as const;
+
+export const ADR_TOOLKIT_FILES: ReadonlyArray<AdrToolkitFile> = ADR_TOOLKIT_RELATIVE_PATHS.map(
+  (relativePath) => ({
+    relativePath,
+    content: readFileSync(new URL(`./toolkit/${relativePath}`, import.meta.url), "utf-8"),
+  }),
+);
 
 export type AdrInjectionAction = "created" | "added" | "updated" | "unchanged";
 
@@ -25,6 +52,7 @@ export interface AdrInitializationResult {
   agents: AdrInjectionResult;
   readme: AdrInjectionResult;
   guide: AdrInjectionResult;
+  toolkit: Record<string, AdrInjectionResult>;
 }
 
 function countOccurrences(text: string, value: string): number {
@@ -188,6 +216,15 @@ export function injectAdrGuide(existing: string | null): AdrInjectionResult {
   return { action: "updated", content };
 }
 
+export function injectAdrToolkitFile(
+  existing: string | null,
+  bundled: AdrToolkitFile,
+): AdrInjectionResult {
+  if (existing === null) return { action: "created", content: bundled.content };
+  if (existing === bundled.content) return { action: "unchanged", content: existing };
+  return { action: "updated", content: bundled.content };
+}
+
 async function readOptional(filePath: string): Promise<string | null> {
   try {
     return await fs.readFile(filePath, "utf-8");
@@ -201,23 +238,40 @@ export async function initializeAdrFiles(cwd: string): Promise<AdrInitialization
   const agentsPath = path.join(cwd, "AGENTS.md");
   const readmePath = path.join(cwd, ADR_README_PATH);
   const guidePath = path.join(cwd, ADR_GUIDE_PATH);
-  const [existingAgents, existingReadme, existingGuide] = await Promise.all([
+  const toolkitPaths = ADR_TOOLKIT_FILES.map((file) =>
+    path.join(cwd, ADR_TOOLKIT_PATH, file.relativePath)
+  );
+  const [existingAgents, existingReadme, existingGuide, existingToolkit] = await Promise.all([
     readOptional(agentsPath),
     readOptional(readmePath),
     readOptional(guidePath),
+    Promise.all(toolkitPaths.map(readOptional)),
   ]);
 
   // Compute and validate every update before writing any file.
   const agents = injectAdrGuidance(existingAgents);
   const readme = injectAdrReadme(existingReadme);
   const guide = injectAdrGuide(existingGuide);
+  const toolkit: Record<string, AdrInjectionResult> = {};
+  for (let index = 0; index < ADR_TOOLKIT_FILES.length; index++) {
+    const bundled = ADR_TOOLKIT_FILES[index];
+    toolkit[bundled.relativePath] = injectAdrToolkitFile(existingToolkit[index] ?? null, bundled);
+  }
 
   await fs.mkdir(path.dirname(readmePath), { recursive: true });
   if (guide.action !== "unchanged") await fs.writeFile(guidePath, guide.content, "utf-8");
   if (readme.action !== "unchanged") await fs.writeFile(readmePath, readme.content, "utf-8");
   if (agents.action !== "unchanged") await fs.writeFile(agentsPath, agents.content, "utf-8");
+  for (let index = 0; index < ADR_TOOLKIT_FILES.length; index++) {
+    const bundled = ADR_TOOLKIT_FILES[index];
+    const result = toolkit[bundled.relativePath];
+    if (result.action === "unchanged") continue;
+    const targetPath = toolkitPaths[index];
+    await fs.mkdir(path.dirname(targetPath), { recursive: true });
+    await fs.writeFile(targetPath, result.content, "utf-8");
+  }
 
-  return { agents, readme, guide };
+  return { agents, readme, guide, toolkit };
 }
 
 function successMessage(result: AdrInitializationResult): string {
@@ -225,15 +279,16 @@ function successMessage(result: AdrInitializationResult): string {
     result.agents.action === "unchanged"
     && result.readme.action === "unchanged"
     && result.guide.action === "unchanged"
+    && Object.values(result.toolkit).every((item) => item.action === "unchanged")
   ) {
-    return "ADR index and workflow guide are already current.";
+    return "ADR index, workflow guide, and toolkit are already current.";
   }
-  return "Initialized the ADR index in docs/adr/ and linked it from AGENTS.md.";
+  return "Initialized the complete ADR toolkit in docs/adr/ and linked it from AGENTS.md.";
 }
 
 export default function adrExtension(pi: ExtensionAPI): void {
   pi.registerCommand("init-adr", {
-    description: "Initialize an ADR index and workflow guide under docs/adr/",
+    description: "Initialize the complete ADR toolkit under docs/adr/",
     handler: async (_args, ctx) => {
       try {
         const result = await initializeAdrFiles(ctx.cwd);
