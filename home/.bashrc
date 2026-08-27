@@ -6,7 +6,7 @@ fi
 __DOTFILES_BASHRC_LOADED=1
 
 # Login and non-login shells share the same environment setup.
-for file in "$HOME/bash/.path" "$HOME/bash/nix.sh"; do
+for file in "$HOME/bash/.path" "$HOME/bash/nix.sh" "$HOME/.local/bin/env"; do
     [[ -r "$file" && -f "$file" ]] && source "$file"
 done
 
