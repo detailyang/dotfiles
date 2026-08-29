@@ -71,6 +71,14 @@ PROXIES
 EOF
 chmod +x "$temp_dir/scutil"
 
+cat > "$temp_dir/nc" <<'EOF'
+#!/usr/bin/env bash
+
+[[ "$*" == "-z -w 1 127.0.0.1 7890" ]] || exit 1
+[[ "${FAKE_LOCAL_PROXY_ACTIVE:-false}" == "true" ]]
+EOF
+chmod +x "$temp_dir/nc"
+
 clear_proxy_env=(
     -u HTTP_PROXY -u HTTPS_PROXY -u ALL_PROXY -u SOCKS_PROXY -u NO_PROXY
     -u http_proxy -u https_proxy -u all_proxy -u socks_proxy -u no_proxy
@@ -106,6 +114,7 @@ headless_output="$(env "${clear_proxy_env[@]}" \
     FAKE_UNAME=Linux \
     XDG_CURRENT_DESKTOP= \
     DESKTOP_SESSION= \
+    FAKE_LOCAL_PROXY_ACTIVE=true \
     HTTP_PROXY=http://10.0.0.2:3128 \
     HTTPS_PROXY=http://10.0.0.2:3129 \
     ALL_PROXY=socks5://10.0.0.2:1080 \
@@ -114,6 +123,31 @@ headless_output="$(env "${clear_proxy_env[@]}" \
 [[ "$headless_output" == *"set -gx HTTP_PROXY 'http://10.0.0.2:3128'"* ]]
 [[ "$headless_output" == *"set -gx ALL_PROXY 'socks5://10.0.0.2:1080'"* ]]
 [[ "$headless_output" == *"set -gx NO_PROXY 'localhost,127.0.0.1'"* ]]
+
+local_proxy_output="$(env "${clear_proxy_env[@]}" \
+    PATH="$temp_dir:/usr/bin:/bin" \
+    FAKE_UNAME=Linux \
+    FAKE_LOCAL_PROXY_ACTIVE=true \
+    XDG_CURRENT_DESKTOP= \
+    DESKTOP_SESSION= \
+    "$PROXY_ENV" bash autoproxy)"
+[[ "$local_proxy_output" == *'export HTTP_PROXY=http://127.0.0.1:7890'* ]]
+[[ "$local_proxy_output" == *'export HTTPS_PROXY=http://127.0.0.1:7890'* ]]
+[[ "$local_proxy_output" == *'export ALL_PROXY=socks5://127.0.0.1:7890'* ]]
+[[ "$local_proxy_output" == *'export SOCKS_PROXY=socks5://127.0.0.1:7890'* ]]
+
+unsupported_error="$temp_dir/unsupported-error"
+if env "${clear_proxy_env[@]}" \
+    PATH="$temp_dir:/usr/bin:/bin" \
+    FAKE_UNAME=Linux \
+    FAKE_LOCAL_PROXY_ACTIVE=false \
+    XDG_CURRENT_DESKTOP= \
+    DESKTOP_SESSION= \
+    "$PROXY_ENV" bash autoproxy > /dev/null 2> "$unsupported_error"; then
+    echo "unsupported headless configuration unexpectedly succeeded" >&2
+    exit 1
+fi
+grep -Fq 'local proxy on 127.0.0.1:7890' "$unsupported_error"
 
 pac_error="$temp_dir/pac-error"
 if env "${clear_proxy_env[@]}" \

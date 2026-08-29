@@ -355,11 +355,36 @@ emit_environment_auto_proxy() {
         "$no_value"
 }
 
+local_proxy_is_reachable() {
+    if command -v nc >/dev/null 2>&1; then
+        nc -z -w 1 127.0.0.1 7890 >/dev/null 2>&1
+        return
+    fi
+
+    (exec 3<>/dev/tcp/127.0.0.1/7890) 2>/dev/null
+}
+
+emit_local_auto_proxy() {
+    local shell="$1"
+
+    if ! local_proxy_is_reachable; then
+        return 2
+    fi
+
+    emit_resolved_proxy \
+        "$shell" \
+        "http://127.0.0.1:7890" \
+        "http://127.0.0.1:7890" \
+        "socks5://127.0.0.1:7890" \
+        "socks5://127.0.0.1:7890" \
+        ""
+}
+
 emit_linux_auto_proxy() {
     local shell="$1"
     local status
 
-    if command -v gsettings >/dev/null 2>&1; then
+    if is_gnome_desktop && command -v gsettings >/dev/null 2>&1; then
         if emit_gnome_auto_proxy "$shell"; then
             return 0
         else
@@ -379,7 +404,16 @@ emit_linux_auto_proxy() {
         fi
     fi
 
-    echo "no supported Linux proxy configuration found; configure GNOME manual proxy or proxy environment variables" >&2
+    if emit_local_auto_proxy "$shell"; then
+        return 0
+    else
+        status=$?
+        if [[ $status -ne 2 ]]; then
+            return "$status"
+        fi
+    fi
+
+    echo "no supported Linux proxy configuration found; configure GNOME manual proxy, proxy environment variables, or start a local proxy on 127.0.0.1:7890" >&2
     return 1
 }
 
