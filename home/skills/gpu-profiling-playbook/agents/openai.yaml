@@ -1,0 +1,4 @@
+interface:
+  display_name: "GPU Profiling Playbook"
+  short_description: "Find and verify real PyTorch/CUDA bottlenecks"
+  default_prompt: "Use $gpu-profiling-playbook to profile this GPU workload and prioritize the next optimization."
