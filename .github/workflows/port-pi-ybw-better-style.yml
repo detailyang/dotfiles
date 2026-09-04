@@ -1,0 +1,78 @@
+name: Port Pi YBW better style
+
+on:
+  push:
+    branches:
+      - feat/pi-ybw-better-style
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: feat/pi-ybw-better-style
+
+      - name: Vendor approved upstream sources
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          upstream="$(mktemp -d)/pi-cc-extensions"
+          git clone --filter=blob:none --no-checkout https://github.com/minuque/pi-cc-extensions.git "$upstream"
+          git -C "$upstream" checkout 5d7a2666f51da9f450bd019af10200c88cc1df98 -- extensions LICENSE
+
+          target="pi/extensions/ybw/better-style"
+          rm -rf "$target"
+          mkdir -p "$target"
+          cp -R "$upstream/extensions/." "$target/"
+          cp "$upstream/LICENSE" "$target/UPSTREAM_LICENSE"
+
+          rm -f \
+            "$target/feature/context.ts" \
+            "$target/feature/shell/aliases.ts" \
+            "$target/feature/shell/flush-docked-bash.ts" \
+            "$target/feature/shell/startup-header.ts" \
+            "$target/utils/sgr-mouse.ts"
+          rm -rf \
+            "$target/feature/reference" \
+            "$target/renderer/mouse"
+
+          mkdir -p "$target/renderer/mouse"
+          cat > "$target/renderer/mouse/hover.ts" <<'EOF'
+          /** Keyboard-only first release: no terminal mouse reporting or hover state. */
+          export function isToolCallHovered(_toolCallId: string | undefined): boolean {
+            return false;
+          }
+          EOF
+
+          for name in \
+            agent-summary \
+            ansi-color \
+            compact-thinking \
+            format-utils \
+            markdown-enhance \
+            message-display \
+            patch-registry \
+            tool-diff \
+            tool-grouping \
+            working-message
+          do
+            src="$upstream/tests/$name.test.ts"
+            dst="pi/tests/better-style-$name.test.ts"
+            sed 's#../extensions/#../extensions/ybw/better-style/#g' "$src" > "$dst"
+          done
+
+          rm -f .github/workflows/port-pi-ybw-better-style.yml
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "chore(pi): vendor approved better-style sources"
+          git push origin HEAD:feat/pi-ybw-better-style
