@@ -7,6 +7,13 @@ on:
       - .github/workflows/bootstrap-better-style.yml
       - pi/scripts/sync-better-style.mjs
       - pi/scripts/better-style/**
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened]
+    paths:
+      - .github/workflows/bootstrap-better-style.yml
+      - pi/scripts/sync-better-style.mjs
+      - pi/scripts/better-style/**
 
 permissions:
   contents: write
@@ -33,6 +40,35 @@ jobs:
         run: |
           git clone --filter=blob:none https://github.com/minuque/pi-cc-extensions.git /tmp/pi-cc-extensions
           git -C /tmp/pi-cc-extensions checkout --detach "$UPSTREAM_COMMIT"
+
+      - name: Apply keyboard-only vendoring fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("pi/scripts/sync-better-style.mjs")
+          source = path.read_text()
+          old = '''for (const relative of ["renderer/default-mode.ts", "renderer/compact-mode.ts"]) {
+            replaceRequired(relative, 'import { isToolCallHovered } from "./mouse/hover.ts";\\n', "");
+            replaceRequired(relative, "isToolCallHovered(toolCallId)", "false");
+            replaceRequired(relative, "isToolCallHovered(component.toolCallId)", "false");
+          }'''
+          new = '''const hoverExpressions = new Map([
+            ["renderer/default-mode.ts", "isToolCallHovered(toolCallId)"],
+            ["renderer/compact-mode.ts", "isToolCallHovered(component.toolCallId)"],
+          ]);
+          for (const [relative, hoverExpression] of hoverExpressions) {
+            replaceRequired(relative, 'import { isToolCallHovered } from "./mouse/hover.ts";\\n', "");
+            replaceRequired(relative, hoverExpression, "false");
+          }'''
+          if old not in source:
+              raise SystemExit("hover replacement block not found")
+          source = source.replace(old, new)
+          source = source.replace('pkg.peerDependencies[name] = "^0.84.0";', 'pkg.peerDependencies[name] = "^0.84.4";')
+          source = source.replace('assert.equal(version, "^0.84.0");', 'assert.equal(version, "^0.84.4");')
+          source = source.replace('A keyboard-first Pi 0.84 TUI presentation extension', 'A keyboard-first Pi 0.84.4 TUI presentation extension')
+          path.write_text(source)
+          PY
 
       - name: Generate better-style
         run: node pi/scripts/sync-better-style.mjs /tmp/pi-cc-extensions
