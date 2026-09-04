@@ -1,11 +1,11 @@
 ---
 name: to-spec
-description: Convert current context, repo findings, or an existing thinking note into durable product and technical specification markdown under specs/slug/. Use when the user asks to write, generate, update, revise, or turn a plan or discussion into a spec, PRD, product requirements document, or technical proposal.
+description: Convert current context, repository findings, or an approved thinking note into durable product and technical specifications under specs/<slug>/. Use when the user asks to write, generate, revise, or persist a spec, PRD, product requirements document, or technical proposal. Do not use for open-ended discovery or implementation.
 ---
 
 # To Spec
 
-Synthesize a concrete need into durable product and technical specifications. Do not restart the `/grill` interview; use what is already known and ask only when a missing decision would otherwise be invented.
+Synthesize the known need into product and technical contracts without restarting discovery. Ask only when proceeding would invent a decision that changes observable behavior or architecture ownership.
 
 ## Output
 
@@ -16,37 +16,59 @@ specs/<english-kebab-slug>/product.md
 specs/<english-kebab-slug>/tech.md
 ```
 
-Generate the slug from the topic unless the user provides one. Keep paths and filenames in English.
+Generate the slug from the topic unless the user supplies one. Keep paths and filenames in English; match document language to the user or nearby files.
 
-## Process
+## Workflow
 
-1. Gather decisions from the current conversation and any referenced source.
-2. Read `specs/<slug>/thinking.md`, existing spec files, applicable `AGENTS.md`, `CONTEXT.md`, and relevant ADRs.
-3. Explore the repo when current behavior, architecture, feasibility, or test seams matter.
-4. Identify the highest stable seam that proves the behavior. Prefer existing seams and minimize the number of new seams.
-5. If multiple materially different test seams remain plausible, confirm the choice with the user unless it was already confirmed in the supplied context. If one evidence-backed seam is clear, record it and proceed.
-6. If a blocking product or technical decision is missing, ask the minimum necessary question. Otherwise synthesize without another interview.
-7. Write or update both spec files using the references.
-8. Check every requirement against success criteria, testing decisions, non-goals, and unresolved questions.
+1. Gather confirmed decisions, assumptions, and unresolved items from the current context and referenced sources.
+2. Read existing `thinking.md`, product/technical specs, applicable `AGENTS.md`, `CONTEXT.md`, ADRs, and implementation evidence.
+3. Inspect the repository when current behavior, feasibility, boundaries, migration, or test seams matter.
+4. Select the highest stable existing seam that proves the behavior. Introduce a new seam only when the current system cannot express the contract cleanly.
+5. Resolve ordinary design details from evidence. Ask one blocking question only when alternatives materially change product behavior, ownership, compatibility, or risk.
+6. Read both references, then write or update both documents:
+   - `references/product.md`
+   - `references/tech.md`
+7. Run the quality gate and report any remaining unresolved decision explicitly.
 
-## Product and technical split
+A compact flow, state, or ownership diagram is encouraged when it prevents ambiguous prose.
 
-- `product.md` owns the problem, actors, goals, non-goals, flows, requirements, edge cases, and observable success criteria.
-- `tech.md` owns current-system evidence, approach, affected interfaces and state, decisions, migration, risks, and test strategy.
+## Responsibility split
 
-Do not bury product choices in `tech.md`. Avoid brittle line references, code snippets, workflow queues, labels, or status machines.
+`product.md` owns:
 
-## References
+- users and problem
+- goals and non-goals
+- flows and requirements
+- edge cases
+- observable success
 
-Read both references before writing or substantially updating a spec:
+`tech.md` owns:
 
-- `references/product.md`
-- `references/tech.md`
+- current-system evidence
+- proposed architecture and ownership
+- interfaces, state, and data changes
+- migration, compatibility, rollout, and rollback
+- risks and verification strategy
+- suggested vertical implementation slices
+
+Do not hide product decisions in `tech.md`, and do not turn `product.md` into a file-by-file patch plan.
 
 ## Update rules
 
-- Preserve useful history and decisions; add a change note for meaningful revisions.
-- State assumptions and unresolved decisions explicitly.
-- If the spec contradicts code, report the mismatch instead of smoothing it over.
-- If a revision invalidates `issues.md`, say so; do not silently rewrite it.
-- Hand executable specifications to `/to-issue`; do not implement them here.
+- Preserve valid decisions and history; add a concise change note for meaningful revisions.
+- State assumptions and unresolved decisions instead of smoothing them over.
+- Report contradictions between the requested contract, existing specs, and code.
+- Prefer repository vocabulary and stable interfaces over brittle line references.
+- If a revision invalidates `issues.md`, state exactly which issue boundaries or acceptance criteria require regeneration; do not silently rewrite it.
+- Hand executable specs to `/to-issue`; do not implement them here.
+
+## Quality gate
+
+Before completion, verify:
+
+- every product requirement has observable success or acceptance
+- every relevant edge case has defined user/system behavior
+- technical choices trace back to product needs or explicit constraints
+- affected interfaces, state ownership, error paths, and migration are covered
+- the test strategy names seams and what each check proves
+- goals, non-goals, assumptions, and unresolved questions do not contradict each other

@@ -1,15 +1,15 @@
 ---
 name: to-issue
-description: Break a product spec, technical spec, design note, or current plan into one or more dependency-aware, agent-executable issue briefs under specs/slug/issues.md. Use when the user asks to split work into issues, implementation tasks, tickets, milestones, TODOs, or independently verifiable slices.
+description: Split an approved product/technical spec or design into dependency-aware, agent-executable issue briefs under specs/<slug>/issues.md. Use when the user asks for implementation issues, tasks, tickets, milestones, TODOs, or independently verifiable slices. Do not use for brainstorming, writing the source spec, or implementing the resulting issues.
 ---
 
 # To Issue
 
-Turn product or technical context into dependency-aware issue briefs. Each issue must be a durable, independently verifiable vertical slice that a fresh agent can execute.
+Turn durable product and technical context into a dependency graph of independently verifiable vertical slices. A fresh agent should be able to execute each issue without the original chat.
 
 ## Inputs and output
 
-Prefer `specs/<slug>/product.md`, `tech.md`, `thinking.md`, the current conversation, and relevant repo evidence. If the source is too thin to define safe boundaries, stop for the missing decision.
+Prefer `specs/<slug>/product.md`, `tech.md`, `thinking.md`, existing `issues.md`, the current conversation, and relevant repository evidence.
 
 Write or update:
 
@@ -17,17 +17,20 @@ Write or update:
 specs/<english-kebab-slug>/issues.md
 ```
 
-State the source context at the top. Match the language of nearby spec files or the user.
+Match the language of nearby spec files or the user. Record the source documents and their precedence at the top.
 
-## Process
+If context is incomplete but a safe split is still possible, state assumptions and proceed. Ask only when a missing product/architecture decision changes issue boundaries or acceptance.
 
-1. Gather only the context needed to split the work safely.
-2. Explore the code when boundaries depend on real interfaces, callers, shared utilities, tests, or conventions.
-3. Draft tracer-bullet issues that deliver a narrow but complete behavior across every required layer.
-4. Give every issue an explicit `Blocked by` edge. An issue with no blockers belongs to the initial execution frontier.
-5. If materially different granularities or blocking graphs remain plausible, present the numbered breakdown and ask which should win.
-6. Otherwise write the evidence-backed breakdown directly and summarize its titles, blockers, and independently verifiable outcomes.
-7. Write concise briefs using `references/issue-brief.md`.
+## Workflow
+
+1. Read applicable instructions, source specs, existing issues, and implementation state.
+2. Inspect code where real interfaces, callers, tests, or migration constraints determine boundaries.
+3. Map requirements to narrow tracer-bullet outcomes.
+4. Give every issue an explicit `Blocked by` edge; `None` means it belongs to the initial frontier.
+5. Write or update the briefs using `references/issue-brief.md`.
+6. Validate requirement coverage, acceptance, and the dependency graph before finishing.
+
+Choose the evidence-backed granularity yourself. Present alternatives only when they imply materially different contracts, rollout paths, or ownership.
 
 ## Splitting discipline
 
@@ -36,23 +39,36 @@ Prefer issues that:
 - deliver one observable behavior or necessary engineering unlock
 - fit in one fresh context window
 - leave the system working after completion
-- include acceptance criteria and a concrete verification path
+- include binary acceptance and a concrete verification path
 - avoid implementing later issues early
 - declare only blockers that genuinely gate execution
 
-Do not split horizontally into backend, frontend, and tests unless each part is independently valuable and verifiable.
+Do not split horizontally into “backend”, “frontend”, and “tests” unless each slice is independently useful and verifiable.
 
-For a wide mechanical refactor that cannot land green as vertical slices, use expand-contract:
+For a mechanical migration that cannot stay green as vertical slices, use expand-contract:
 
-1. Expand by introducing the new form beside the old.
-2. Migrate callers in independently verifiable batches, each blocked by expand.
-3. Contract by deleting the old form after every migration issue completes.
+```text
+expand new form beside old
+  -> migrate callers in verified batches
+  -> contract old form after every migration completes
+```
 
-## Update rules
+## Update safety
 
-- Read existing `issues.md` before editing and do not silently delete issues.
-- Preserve dependency edges as a directed acyclic graph; reject circular blockers.
-- Add a brief change note when boundaries or dependencies change materially.
-- If implementation has started or completion state is unclear, ask before rewriting issue boundaries.
+- Read existing `issues.md` before editing; never silently delete or renumber active work.
+- Preserve completed issues and evidence.
+- When implementation has started, prefer additive or compatibility-preserving edits. Ask before a destructive boundary rewrite that would invalidate completed or in-progress work.
+- Keep blocker edges acyclic.
+- Add a concise change note when boundaries, acceptance, or dependencies change materially.
 - Do not add owners, estimates, labels, or workflow machinery unless requested.
-- Hand approved issues to `/ship`; do not implement them here.
+- Hand executable issues to `/ship`; do not implement them here.
+
+## Quality gate
+
+Before reporting completion, verify:
+
+- every source requirement maps to an issue or explicit out-of-scope note
+- at least one initial issue has no blockers unless the whole plan is externally blocked
+- every blocker refers to an existing issue and the graph is acyclic
+- each issue has current behavior/context, desired outcome, scope, non-goals, binary acceptance, and verification
+- no issue depends on the original conversation to understand a key decision
