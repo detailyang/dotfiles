@@ -1,0 +1,55 @@
+name: Bootstrap better-style
+
+on:
+  pull_request:
+    branches: [master]
+    paths:
+      - .github/workflows/bootstrap-better-style.yml
+      - pi/scripts/sync-better-style.mjs
+      - pi/scripts/better-style/**
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    if: github.head_ref == 'feat/better-style' && github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      UPSTREAM_COMMIT: 5d7a2666f51da9f450bd019af10200c88cc1df98
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+          cache: npm
+          cache-dependency-path: pi/package.json
+
+      - name: Fetch pinned upstream
+        run: |
+          git clone --filter=blob:none https://github.com/minuque/pi-cc-extensions.git /tmp/pi-cc-extensions
+          git -C /tmp/pi-cc-extensions checkout --detach "$UPSTREAM_COMMIT"
+
+      - name: Generate better-style
+        run: node pi/scripts/sync-better-style.mjs /tmp/pi-cc-extensions
+
+      - name: Install dependencies
+        working-directory: pi
+        run: npm install --no-package-lock
+
+      - name: Validate
+        working-directory: pi
+        run: npm run check
+
+      - name: Commit generated extension
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add pi/package.json pi/extensions/better-style pi/tests/better-style-*.test.ts
+          git diff --cached --stat
+          git commit -m "feat(pi): add better-style TUI extension"
+          git push origin HEAD:${{ github.head_ref }}
