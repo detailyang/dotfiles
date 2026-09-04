@@ -62,7 +62,7 @@ function renderDiffStatBar(stats: DiffStats, width: number, theme: DiffTheme): s
 
 function buildDiffSummaryBasePieces(stats: DiffStats, theme: DiffTheme): string[] {
 	return [
-		theme.fg("toolOutput", `↳ ${emphasis(theme, "diff")}`),
+		theme.fg("text", `↳ ${emphasis(theme, "diff")}`),
 		theme.fg("toolDiffAdded", `+${stats.added}`),
 		theme.fg("toolDiffRemoved", `-${stats.removed}`),
 	];
@@ -131,6 +131,6 @@ export function renderWriteHeader(
 ): string {
 	const actionLabel = headerLabel?.trim() || (wasOverwrite ? "overwritten" : "created");
 	return stabilizeBackgroundResets(
-		truncateToWidth(theme.fg("toolOutput", `↳ ${emphasis(theme, actionLabel)}`), width),
+		truncateToWidth(theme.fg("text", `↳ ${emphasis(theme, actionLabel)}`), width),
 	);
 }

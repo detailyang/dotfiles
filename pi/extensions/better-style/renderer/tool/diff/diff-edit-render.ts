@@ -74,7 +74,7 @@ export function renderEditDiffResult(
 		if (!safeFallbackText.trim()) {
 			return new Text(theme.fg("muted", "↳ edit completed (no diff payload)"), 0, 0);
 		}
-		return new Text(theme.fg("toolOutput", safeFallbackText), 0, 0);
+		return new Text(theme.fg("text", safeFallbackText), 0, 0);
 	}
 
 	let parsed: ParsedDiff;
@@ -131,7 +131,7 @@ export function renderEditDiffResult(
 					clampDiffLinesToWidth(
 						renderSingleDiffRow(
 							buildDiffSummaryText(parsed.stats, safeWidth),
-							"toolOutput",
+							"text",
 							safeWidth,
 							theme,
 						),

@@ -336,7 +336,13 @@ test("consecutive tool-call messages accumulate into one round until the next vi
 			fg: previousTheme?.fg ?? ((_color: string, text: string) => text),
 			bg(slot: string, text: string) {
 				backgroundSlots.push(slot);
-				return text;
+				const color = slot === "toolPendingBg" ? "40;40;50" : "40;50;40";
+				return `\x1b[48;2;${color}m${text}\x1b[49m`;
+			},
+			getBgAnsi(slot: string) {
+				backgroundSlots.push(slot);
+				const color = slot === "toolPendingBg" ? "40;40;50" : "40;50;40";
+				return `\x1b[48;2;${color}m`;
 			},
 		});
 		setMessageDisplayTheme(cardTheme);
@@ -353,7 +359,11 @@ test("consecutive tool-call messages accumulate into one round until the next vi
 			cardLines.slice(1).every((line: string) => visibleWidth(line) === 80),
 			"expanded round is wrapped by one width-safe tool card",
 		);
-		assert.deepEqual(backgroundSlots, [], "expanded compact tool output stays transparent");
+		assert.ok(
+			cardLines.some((line: string) => line.includes("\x1b[48;2;40;40;50m")),
+			"active compact round uses the pending background",
+		);
+		assert.deepEqual([...new Set(backgroundSlots)], ["toolPendingBg"]);
 		setMessageDisplayTheme(previousTheme);
 		assert.deepEqual(renderText(bash), [], "round tools render only inside the summary card");
 		assistant1.setExpanded(false);
@@ -652,7 +662,11 @@ test("compact edit/write keeps the stats header and inherits on-mode diff limits
 			fg: previousTheme?.fg ?? ((_color: string, text: string) => text),
 			bg(slot: string, text: string) {
 				backgroundSlots.push(slot);
-				return text;
+				return `\x1b[48;2;40;50;40m${text}\x1b[49m`;
+			},
+			getBgAnsi(slot: string) {
+				backgroundSlots.push(slot);
+				return "\x1b[48;2;40;50;40m";
 			},
 		});
 		setMessageDisplayTheme(cardTheme);
@@ -674,11 +688,11 @@ test("compact edit/write keeps the stats header and inherits on-mode diff limits
 		assert.match(expanded, /old/);
 		assert.match(expanded, /new/);
 		assert.doesNotMatch(expanded, /Input|Output|Details:/);
-		const userBackground = previousTheme?.getBgAnsi?.("userMessageBg");
 		assert.ok(
-			!userBackground || expandedRaw.every((line: string) => !line.startsWith(userBackground)),
-			"expanded edit card stays transparent",
+			expandedRaw.some((line: string) => line.includes("\x1b[48;2;40;50;40m")),
+			"expanded edit uses the success background",
 		);
+		assert.equal(backgroundSlots.includes("userMessageBg"), false);
 		setMessageDisplayTheme(previousTheme);
 
 		// edit 缺 diff 时统计未知，不能伪报 (+0 -0)。

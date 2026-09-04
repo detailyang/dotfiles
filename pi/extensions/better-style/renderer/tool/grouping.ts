@@ -64,12 +64,20 @@ function previousSibling(
 	return undefined;
 }
 
-type ToolStatus = "pending" | "success" | "error";
+export type ToolStatus = "pending" | "success" | "error";
 
-function status(tool: any): ToolStatus {
+export function toolStatus(tool: any): ToolStatus {
 	if (tool?.result?.isError) return "error";
 	if (tool?.isPartial === true || (tool?.executionStarted && !tool?.result)) return "pending";
 	return tool?.result ? "success" : "pending";
+}
+
+export function toolBackgroundSlot(
+	value: ToolStatus,
+): "toolPendingBg" | "toolSuccessBg" | "toolErrorBg" {
+	if (value === "error") return "toolErrorBg";
+	if (value === "pending") return "toolPendingBg";
+	return "toolSuccessBg";
 }
 
 function statusIcon(value: ToolStatus): string {
@@ -103,11 +111,23 @@ function stripLeadingSpaces(line: string, count: number): string {
 	return ansi + line.slice(offset);
 }
 
-/** Pad a row to a stable width while removing inherited background colors. */
-export function paddedTransparentRow(content: string, width: number): string {
+/** Pad a row to a stable width under one theme-owned status background. */
+export function paddedBackgroundRow(
+	theme: any,
+	slot: "toolPendingBg" | "toolSuccessBg" | "toolErrorBg",
+	content: string,
+	width: number,
+): string {
 	const innerWidth = Math.max(0, width - 2);
 	const clipped = truncateToWidth(stripBackgroundAnsi(content), innerWidth, "");
-	return ` ${clipped}${" ".repeat(Math.max(0, innerWidth - visibleWidth(clipped)))} `;
+	const row = ` ${clipped}${" ".repeat(Math.max(0, innerWidth - visibleWidth(clipped)))} `;
+	const bgAnsi =
+		typeof theme?.getBgAnsi === "function" ? String(theme.getBgAnsi(slot) ?? "") : "";
+	if (bgAnsi) {
+		const stable = row.replace(/\x1b\[(?:0)?m/g, (reset) => reset + bgAnsi);
+		return `${bgAnsi}${stable}\x1b[49m`;
+	}
+	return typeof theme?.bg === "function" ? theme.bg(slot, row) : row;
 }
 
 function toolSummary(tool: any): { main: string; detail: string } {
@@ -233,7 +253,7 @@ export class ToolGroupComponent extends Container {
 				cache.children[i] !== tool ||
 				cache.args[i] !== tool?.args ||
 				cache.results[i] !== tool?.result ||
-				status(tool) === "pending"
+				toolStatus(tool) === "pending"
 			) {
 				return;
 			}
@@ -260,7 +280,7 @@ export class ToolGroupComponent extends Container {
 		const theme = this.patch.theme;
 		const fg = (color: string, text: string) => theme?.fg?.(color, text) ?? text;
 		const counts = { pending: 0, success: 0, error: 0 };
-		for (const tool of this.children) counts[status(tool)]++;
+		for (const tool of this.children) counts[toolStatus(tool)]++;
 		const countText = (["pending", "success", "error"] as const)
 			.filter((key) => counts[key])
 			.map((key) => {
@@ -289,15 +309,15 @@ export class ToolGroupComponent extends Container {
 		const expandedLines: string[] = [];
 		for (let index = 0; index < total; index++) {
 			const tool = this.children[index];
-			const toolStatus = status(tool);
-			const color = toolStatus === "pending" ? "accent" : toolStatus;
+			const toolStatusValue = toolStatus(tool);
+			const color = toolStatusValue === "pending" ? "accent" : toolStatusValue;
 			const branch = index === total - 1 ? "└" : "├";
 			const continuation = index === total - 1 ? "  " : "│ ";
 			if (!this._expanded) {
 				const summary = toolSummary(tool);
 				lines.push(
 					truncateToWidth(
-						` ${fg("dim", branch)} ${fg(color, statusIcon(toolStatus))} ${fg("toolTitle", summary.main)}${fg("dim", summary.detail)}`,
+						` ${fg("dim", branch)} ${fg(color, statusIcon(toolStatusValue))} ${fg("toolTitle", summary.main)}${fg("dim", summary.detail)}`,
 						width,
 						"…",
 					),
@@ -317,16 +337,17 @@ export class ToolGroupComponent extends Container {
 					lineIndex === 0 ? childLines[lineIndex] : stripLeadingSpaces(childLines[lineIndex], 1);
 				const prefix =
 					lineIndex === 0
-						? `${fg("dim", branch)} ${fg(color, statusIcon(toolStatus))} `
+						? `${fg("dim", branch)} ${fg(color, statusIcon(toolStatusValue))} `
 						: fg("dim", continuation);
 				expandedLines.push(prefix + content);
 			}
 		}
 		if (this._expanded) {
+			const backgroundSlot = toolBackgroundSlot(overall);
 			for (const line of expandedLines) {
-				lines.push(paddedTransparentRow(line, width));
+				lines.push(paddedBackgroundRow(theme, backgroundSlot, line, width));
 			}
-			lines.push(paddedTransparentRow("", width));
+			lines.push(paddedBackgroundRow(theme, backgroundSlot, "", width));
 		} else if (counts.pending === 0) {
 			this.storeSettledCache(width, lines);
 		}

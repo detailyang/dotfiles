@@ -31,9 +31,11 @@ import {
 	toolViewportWidth,
 } from "./tool/result.ts";
 import { oneLine } from "../utils/format.ts";
+import { toolBackgroundSlot, toolStatus } from "./tool/grouping.ts";
 import { showMoreHintText } from "./tool/show-more-hint.ts";
 import { countWriteDiffStats } from "./tool/diff/diff-renderer.ts";
 import { renderRichToolResult, type WriteExecutionMetadataStore } from "./tool/diff/index.ts";
+import { getMessageDisplayTheme } from "./tool/message-display.ts";
 import { humanizeToolLabel, toolCallSummary } from "./tool/names.ts";
 
 // 成功勾：亮绿 truecolor（与 message-display 一致）
@@ -555,7 +557,7 @@ function deactivateGlobalToolRendering(patch: GlobalToolRenderPatch): void {
 	}
 }
 
-/** 展开面板保持透明；折叠行保持原生状态色。
+/** 展开面板使用工具状态背景；折叠行保持原生状态色。
  *  必须在 compact-mode 之后安装，shutdown 时先于 compact-mode 释放。 */
 export function installToolExpandedBackground(): () => void {
 	const previous = patchRegistry.get<ToolExpandedBackgroundPatch>(TOOL_EXPANDED_BACKGROUND_PATCH);
@@ -568,12 +570,14 @@ export function installToolExpandedBackground(): () => void {
 		installed: function (this: any) {
 			original.call(this);
 			if (!patch.active || config.mode !== "on" || !this.expanded) return;
+			const theme = getMessageDisplayTheme();
+			if (!theme?.bg) return;
 			const box = this.contentBox;
-			// Keep expanded tool output readable across themes.
 			if (box) {
 				box.paddingX = 1;
 				box.paddingY = 1;
-				box.setBgFn?.(undefined);
+				const slot = toolBackgroundSlot(toolStatus(this));
+				box.setBgFn?.((text: string) => theme.bg(slot, text));
 			}
 		},
 		original,

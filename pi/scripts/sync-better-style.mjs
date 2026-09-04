@@ -11,7 +11,7 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, join, resolve } from "node:path";
+import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const UPSTREAM_COMMIT = "5d7a2666f51da9f450bd019af10200c88cc1df98";
@@ -120,8 +120,8 @@ export function preservesOriginalRenderer(
 
 replaceRequired(
   "renderer/default-mode.ts",
-  'import { getMessageDisplayTheme } from "./tool/message-display.ts";\n',
-  "",
+  'import { oneLine } from "../utils/format.ts";\n',
+  'import { oneLine } from "../utils/format.ts";\nimport { toolBackgroundSlot, toolStatus } from "./tool/grouping.ts";\n',
 );
 replaceRequired(
   "renderer/default-mode.ts",
@@ -134,19 +134,21 @@ replaceRequired(
 \t\t\t\tbox.paddingY = 1;
 \t\t\t\tif (box.setBgFn) box.setBgFn((text: string) => theme.bg("userMessageBg", text));
 \t\t\t}`,
-  `\t\t\tconst box = this.contentBox;
-\t\t\t// Keep expanded tool output readable across themes.
+  `\t\t\tconst theme = getMessageDisplayTheme();
+\t\t\tif (!theme?.bg) return;
+\t\t\tconst box = this.contentBox;
 \t\t\tif (box) {
 \t\t\t\tbox.paddingX = 1;
 \t\t\t\tbox.paddingY = 1;
-\t\t\t\tbox.setBgFn?.(undefined);
+\t\t\t\tconst slot = toolBackgroundSlot(toolStatus(this));
+\t\t\t\tbox.setBgFn?.((text: string) => theme.bg(slot, text));
 \t\t\t}`,
 );
 
 replaceRequired(
   "renderer/default-mode.ts",
   "/** 展开面板背景统一为 user message 背景色；折叠行保持原生状态色。",
-  "/** 展开面板保持透明；折叠行保持原生状态色。",
+  "/** 展开面板使用工具状态背景；折叠行保持原生状态色。",
 );
 replaceRequired(
   "renderer/default-mode.ts",
@@ -188,7 +190,13 @@ export function formatDuration(ms: number): string {
   const end = source.indexOf("export function pendingIcon", start);
   if (start < 0 || end < 0) fail(`${relative}: animation scheduler not found`);
   source = source.slice(0, start) + source.slice(end);
-  source = source.replace("\tif (visualState !== \"pending\") clearAnimation(context);\n", "");
+  source = source
+    .replace("\tif (visualState !== \"pending\") clearAnimation(context);\n", "")
+    .replaceAll('"toolOutput"', '"text"')
+    .replace('if (!match) return theme.fg("muted", rawLine);', 'if (!match) return theme.fg("text", rawLine);')
+    .replace('theme.fg("muted", rest ?? "")', 'theme.fg("text", rest ?? "")')
+    .replace('theme.fg("muted", match[3] ?? "")', 'theme.fg("text", match[3] ?? "")')
+    .replace('theme.fg("muted", source)', 'theme.fg("text", source)');
   write(relative, source);
 }
 
@@ -217,16 +225,50 @@ export function formatDuration(ms: number): string {
     .replace("\t\tif (previous.animationTimer) clearTimeout(previous.animationTimer);\n\t\tprevious.animationTimer = null;\n", "")
     .replace("\t\tanimationTimer: null,\n", "")
     .replace("\t\t\tif (patch.animationTimer) clearTimeout(patch.animationTimer);\n\t\t\tpatch.animationTimer = null;\n", "");
+  source = source
+    .replace(
+      "type ToolStatus = \"pending\" | \"success\" | \"error\";",
+      "export type ToolStatus = \"pending\" | \"success\" | \"error\";",
+    )
+    .replace("function status(tool: any): ToolStatus {", "export function toolStatus(tool: any): ToolStatus {")
+    .replaceAll("status(tool)", "toolStatus(tool)")
+    .replace(
+      "function statusIcon(value: ToolStatus): string {",
+      `export function toolBackgroundSlot(
+\tvalue: ToolStatus,
+): "toolPendingBg" | "toolSuccessBg" | "toolErrorBg" {
+\tif (value === "error") return "toolErrorBg";
+\tif (value === "pending") return "toolPendingBg";
+\treturn "toolSuccessBg";
+}
+
+function statusIcon(value: ToolStatus): string {`,
+    )
+    .replace("\t\t\tconst toolStatus = toolStatus(tool);", "\t\t\tconst toolStatusValue = toolStatus(tool);")
+    .replace("const color = toolStatus === \"pending\" ? \"accent\" : toolStatus;", "const color = toolStatusValue === \"pending\" ? \"accent\" : toolStatusValue;")
+    .replaceAll("statusIcon(toolStatus)", "statusIcon(toolStatusValue)");
   const start = source.indexOf("/** 生成一行铺满 width 的 slot 背景行");
   const end = source.indexOf("\n\nfunction toolSummary", start);
   if (start < 0 || end < 0) fail(`${relative}: padded row helper not found`);
   source =
     source.slice(0, start) +
-    `/** Pad a row to a stable width while removing inherited background colors. */
-export function paddedTransparentRow(content: string, width: number): string {
+    `/** Pad a row to a stable width under one theme-owned status background. */
+export function paddedBackgroundRow(
+\ttheme: any,
+\tslot: "toolPendingBg" | "toolSuccessBg" | "toolErrorBg",
+\tcontent: string,
+\twidth: number,
+): string {
 \tconst innerWidth = Math.max(0, width - 2);
 \tconst clipped = truncateToWidth(stripBackgroundAnsi(content), innerWidth, "");
-\treturn \` \${clipped}\${" ".repeat(Math.max(0, innerWidth - visibleWidth(clipped)))} \`;
+\tconst row = \` \${clipped}\${" ".repeat(Math.max(0, innerWidth - visibleWidth(clipped)))} \`;
+\tconst bgAnsi =
+\t\ttypeof theme?.getBgAnsi === "function" ? String(theme.getBgAnsi(slot) ?? "") : "";
+\tif (bgAnsi) {
+\t\tconst stable = row.replace(/\\x1b\\[(?:0)?m/g, (reset) => reset + bgAnsi);
+\t\treturn \`\${bgAnsi}\${stable}\\x1b[49m\`;
+\t}
+\treturn typeof theme?.bg === "function" ? theme.bg(slot, row) : row;
 }` +
     source.slice(end);
   const expandedFrom = `\t\tif (this._expanded) {
@@ -238,10 +280,11 @@ export function paddedTransparentRow(content: string, width: number): string {
 \t\t\tlines.push(paddedBackgroundRow(theme, backgroundSlot, "", width));
 \t\t} else if (counts.pending === 0) {`;
   const expandedTo = `\t\tif (this._expanded) {
+\t\t\tconst backgroundSlot = toolBackgroundSlot(overall);
 \t\t\tfor (const line of expandedLines) {
-\t\t\t\tlines.push(paddedTransparentRow(line, width));
+\t\t\t\tlines.push(paddedBackgroundRow(theme, backgroundSlot, line, width));
 \t\t\t}
-\t\t\tlines.push(paddedTransparentRow("", width));
+\t\t\tlines.push(paddedBackgroundRow(theme, backgroundSlot, "", width));
 \t\t} else if (counts.pending === 0) {`;
   if (!source.includes(expandedFrom)) fail(`${relative}: expanded background block not found`);
   write(relative, source.replace(expandedFrom, expandedTo));
@@ -252,17 +295,27 @@ export function paddedTransparentRow(content: string, width: number): string {
   let source = read(relative);
   source = source.replace(
     'import { paddedBackgroundRow } from "./tool/grouping.ts";',
-    'import { paddedTransparentRow } from "./tool/grouping.ts";',
+    `import {
+\tpaddedBackgroundRow,
+\ttoolBackgroundSlot,
+\ttoolStatus,
+\ttype ToolStatus,
+} from "./tool/grouping.ts";`,
   );
   const start = source.indexOf("/** RGB → HSL");
   const end = source.indexOf("\nfunction compactRoundCard(", start);
   if (start < 0 || end < 0) fail(`${relative}: expanded card helpers not found`);
-  const replacement = `/** edit/write expanded cards keep spacing but do not reuse user-message colors. */
-function editWriteExpandedCard(_theme: any): any {
-\treturn new Box(1, 1);
+  const replacement = `/** edit/write expanded cards use their current tool status background. */
+function editWriteExpandedCard(theme: any, status: ToolStatus): any {
+\tconst slot = toolBackgroundSlot(status);
+\treturn new Box(
+\t\t1,
+\t\t1,
+\t\ttypeof theme?.bg === "function" ? (text: string) => theme.bg(slot, text) : undefined,
+\t);
 }
 
-function transparentToolCardRow(line: string, width: number): string {
+function nestedToolCardRow(line: string, width: number): string {
 \tconst leftInset = 2;
 \tconst rightInset = 3;
 \tconst contentWidth = Math.max(0, width - leftInset - rightInset);
@@ -273,17 +326,17 @@ function transparentToolCardRow(line: string, width: number): string {
 \treturn \`\${" ".repeat(leftInset)} \${clipped}\${" ".repeat(pad)} \${" ".repeat(rightInset)}\`;
 }
 
-/** Render expanded compact tool output without imposing a theme background. */
 function layoutExpandedToolCard(
-\t_theme: any,
+\ttheme: any,
 \tchildren: any[],
 \twidth: number,
+\tbackgroundSlot: "toolPendingBg" | "toolSuccessBg" | "toolErrorBg",
 ): { lines: string[]; hits: Array<{ child: any; start: number; end: number }> } {
 \tconst innerWidth = Math.max(0, width - 2);
 \tconst lines: string[] = [];
 \tconst hits: Array<{ child: any; start: number; end: number }> = [];
 \tconst isThinkingPreview = (child: any) => typeof child?.setHintHovered === "function";
-\tlines.push(paddedTransparentRow("", width));
+\tlines.push(paddedBackgroundRow(theme, backgroundSlot, "", width));
 \tlet skipLeadingBlank = true;
 \tfor (const child of children) {
 \t\tconst childLines = child.render(innerWidth);
@@ -296,7 +349,7 @@ function layoutExpandedToolCard(
 \t\t\t}
 \t\t\tconst rangeStart = lines.length;
 \t\t\tfor (let i = start; i < childLines.length; i++) {
-\t\t\t\tlines.push(paddedTransparentRow(childLines[i], width));
+\t\t\t\tlines.push(paddedBackgroundRow(theme, backgroundSlot, childLines[i], width));
 \t\t\t}
 \t\t\tif (lines.length > rangeStart) hits.push({ child, start: rangeStart, end: lines.length });
 \t\t\tcontinue;
@@ -311,19 +364,23 @@ function layoutExpandedToolCard(
 \t\t\t}
 \t\t}
 \t\tif (first < 0) {
-\t\t\tfor (const line of childLines) lines.push(paddedTransparentRow(line, width));
+\t\t\tfor (const line of childLines) {
+\t\t\t\tlines.push(paddedBackgroundRow(theme, backgroundSlot, line, width));
+\t\t\t}
 \t\t\tcontinue;
 \t\t}
-\t\tlines.push(paddedTransparentRow("", width));
+\t\tlines.push(paddedBackgroundRow(theme, backgroundSlot, "", width));
 \t\tconst rangeStart = lines.length;
-\t\tlines.push(transparentToolCardRow("", width));
+\t\tlines.push(paddedBackgroundRow(theme, backgroundSlot, nestedToolCardRow("", width), width));
 \t\tfor (let i = first; i <= last; i++) {
-\t\t\tlines.push(transparentToolCardRow(childLines[i], width));
+\t\t\tlines.push(
+\t\t\t\tpaddedBackgroundRow(theme, backgroundSlot, nestedToolCardRow(childLines[i], width), width),
+\t\t\t);
 \t\t}
-\t\tlines.push(transparentToolCardRow("", width));
+\t\tlines.push(paddedBackgroundRow(theme, backgroundSlot, nestedToolCardRow("", width), width));
 \t\tif (isThinkingPreview(child)) hits.push({ child, start: rangeStart, end: lines.length });
 \t}
-\tlines.push(paddedTransparentRow("", width));
+\tlines.push(paddedBackgroundRow(theme, backgroundSlot, "", width));
 \treturn { lines, hits };
 }
 `;
@@ -456,6 +513,68 @@ export function buildMessageSummary(message: any): string {
     "assistant summary mount",
   );
   replaceRange(
+    "function compactRoundCard(",
+    "function isAssistantComponent",
+    `function compactRoundCard(
+\tcardItems: Array<{ child?: any; tool?: any }>,
+\ttoolRender: (tool: any, width: number) => string[],
+\tisRoundActive: () => boolean,
+): any {
+\tconst children: any[] = [];
+\tfor (const item of cardItems) {
+\t\tif (item.child) children.push(item.child);
+\t\telse if (item.tool) {
+\t\t\tconst tool = item.tool;
+\t\t\tchildren.push({
+\t\t\t\t__ccToolCard: true,
+\t\t\t\trender: (innerWidth: number) => toolRender(tool, innerWidth),
+\t\t\t\tinvalidate: () => tool.invalidate?.(),
+\t\t\t});
+\t\t}
+\t}
+\tconst backgroundSlot = () => {
+\t\tconst statuses = cardItems
+\t\t\t.filter((item) => item.tool)
+\t\t\t.map((item) => toolStatus(item.tool));
+\t\tconst status: ToolStatus = statuses.includes("error")
+\t\t\t? "error"
+\t\t\t: isRoundActive() || statuses.includes("pending")
+\t\t\t\t? "pending"
+\t\t\t\t: "success";
+\t\treturn toolBackgroundSlot(status);
+\t};
+\treturn {
+\t\tchildren,
+\t\trender(width: number): string[] {
+\t\t\treturn [
+\t\t\t\t"",
+\t\t\t\t...layoutExpandedToolCard(themeOf(), children, width, backgroundSlot()).lines,
+\t\t\t];
+\t\t},
+\t\tchildAtRow(localRow: number, width: number) {
+\t\t\tif (localRow < 1) return null;
+\t\t\tconst row = localRow - 1;
+\t\t\tconst { hits } = layoutExpandedToolCard(
+\t\t\t\tthemeOf(),
+\t\t\t\tchildren,
+\t\t\t\twidth,
+\t\t\t\tbackgroundSlot(),
+\t\t\t);
+\t\t\tfor (const hit of hits) {
+\t\t\t\tif (row >= hit.start && row < hit.end) return hit.child;
+\t\t\t}
+\t\t\treturn null;
+\t\t},
+\t\tinvalidate() {
+\t\t\tfor (const child of children) child.invalidate?.();
+\t\t},
+\t};
+}
+
+`,
+    "compact round background",
+  );
+  replaceRange(
     "\ttype CompactRound = {",
     "\tconst renderAssistantWithoutThinking",
     `\ttype CompactRound = {
@@ -529,6 +648,20 @@ export function buildMessageSummary(message: any): string {
       `\t\tif (EDIT_WRITE_TOOLS.has(name)) {
 \t\t\treturn compactEditWriteLines(this, width, deps.writeMetadata);
 \t\t}`,
+    )
+    .replace(
+      "\tconst box = editWriteExpandedCard(theme);",
+      "\tconst box = editWriteExpandedCard(theme, toolStatus(component));",
+    )
+    .replace(
+      `\t\t\t\tcompactRoundCard(cardItems, (tool, innerWidth) =>
+\t\t\t\t\tpatch.toolOriginalRender.call(tool, innerWidth),
+\t\t\t\t),`,
+      `\t\t\t\tcompactRoundCard(
+\t\t\t\t\tcardItems,
+\t\t\t\t\t(tool, innerWidth) => patch.toolOriginalRender.call(tool, innerWidth),
+\t\t\t\t\t() => round.active,
+\t\t\t\t),`,
     )
     .replace("\t\t\tuiRef = ctx?.ui;\n", "");
   write(relative, source);
@@ -827,6 +960,9 @@ function walkFiles(root) {
 
 for (const file of walkFiles(outputRoot).filter((path) => path.endsWith(".ts"))) {
   let source = readFileSync(file, "utf8");
+  if (file.includes(join("renderer", "tool", "diff") + sep)) {
+    source = source.replaceAll('"toolOutput"', '"text"');
+  }
   source = source
     .replaceAll("pi.ccstyle.", "pi.better-style.")
     .replaceAll("/ccstyle", "/better-style")
@@ -866,6 +1002,8 @@ const forbiddenSourcePatterns = [
   /animationIntervalMs/,
   /enableWorkingMessage/,
   /formatDuration/,
+  /paddedTransparentRow/,
+  /toolOutput/,
   /DURATION_ENTRY_TYPE/,
   /Thought for /,
   /Ran for /,
@@ -885,7 +1023,7 @@ cpSync(join(sourceRoot, "LICENSE"), join(outputRoot, "LICENSE.upstream"));
 
 writeFileSync(
   join(outputRoot, "README.md"),
-  `# better-style\n\nA keyboard-first Pi 0.84 TUI presentation extension derived from \`pi-cc-extensions\`.\n\n- Configure with \`/better-style\` or \`/better-style [on|compact|off|status]\`.\n- Persistent settings: \`~/.pi/agent/better-style.json\`.\n- Expand tools and thinking with Pi's native \`app.tools.expand\` keybinding.\n- No mouse input interception and no \`/context\` command are registered by this extension.\n\nSee [UPSTREAM.md](./UPSTREAM.md) for scope and attribution.\n`,
+  `# better-style\n\nA keyboard-first Pi 0.84 TUI presentation extension derived from \`pi-cc-extensions\`.\n\n- Configure with \`/better-style\` or \`/better-style [on|compact|off|status]\`.\n- Persistent settings: \`~/.pi/agent/better-style.json\`.\n- Expand tools and thinking with Pi's native \`app.tools.expand\` keybinding.\n- Expanded tool output uses Pi's status backgrounds with the readable \`text\` foreground.\n- No mouse input interception and no \`/context\` command are registered by this extension.\n\nSee [UPSTREAM.md](./UPSTREAM.md) for scope and attribution.\n`,
 );
 
 const targetTests = join(PI_ROOT, "tests");

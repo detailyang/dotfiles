@@ -312,7 +312,7 @@ export class ExpandedToolIoView {
 		const railWidth = visibleWidth(rail);
 		const bodyWidth = toolViewportWidth(safeWidth);
 		const contentWidth = Math.max(1, bodyWidth - railWidth);
-		const bodyColor = this.isError ? "error" : "toolOutput";
+		const bodyColor = this.isError ? "error" : "text";
 		const lines: string[] = [];
 		this.truncated = { input: false, output: false };
 		this.showMoreHeaderRows = {};
@@ -339,9 +339,9 @@ export class ExpandedToolIoView {
 		/** Style `key: value` input rows — dim keys, readable values. */
 		const styleInputLine = (rawLine: string): string => {
 			const match = rawLine.match(/^([A-Za-z_][\w.-]*)(:\s*)(.*)$/);
-			if (!match) return theme.fg("muted", rawLine);
+			if (!match) return theme.fg("text", rawLine);
 			const [, key, sep, rest] = match;
-			return theme.fg("dim", key + sep) + theme.fg("muted", rest ?? "");
+			return theme.fg("dim", key + sep) + theme.fg("text", rest ?? "");
 		};
 
 		const pushBody = (
@@ -456,7 +456,7 @@ function bodyExceedsLineLimit(
 	contentWidth: number,
 	asInput: boolean,
 	theme: any,
-	bodyColor = "toolOutput",
+	bodyColor = "text",
 ): boolean {
 	const raw = body.replace(/\t/g, "   ").replace(/\n+$/, "");
 	if (!raw.trim()) return false;
@@ -468,8 +468,8 @@ function bodyExceedsLineLimit(
 		if (asInput) {
 			const match = source.match(/^([A-Za-z_][\w.-]*)(:\s*)(.*)$/);
 			styled = match
-				? theme.fg("dim", match[1] + match[2]) + theme.fg("muted", match[3] ?? "")
-				: theme.fg("muted", source);
+				? theme.fg("dim", match[1] + match[2]) + theme.fg("text", match[3] ?? "")
+				: theme.fg("text", source);
 		} else {
 			styled = theme.fg(bodyColor, source);
 		}

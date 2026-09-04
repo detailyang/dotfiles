@@ -7,7 +7,13 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import { Container, Spacer } from "@earendil-works/pi-tui";
-import { installToolGrouping, ToolGroupComponent } from "../extensions/better-style/renderer/tool/grouping.ts";
+import {
+	installToolGrouping,
+	toolBackgroundSlot,
+	toolStatus,
+	ToolGroupComponent,
+} from "../extensions/better-style/renderer/tool/grouping.ts";
+import { ExpandedToolIoView } from "../extensions/better-style/renderer/tool/result.ts";
 
 initTheme("dark");
 const ui = { theme: { fg: (_color: string, text: string) => text }, requestRender() {} } as any;
@@ -20,6 +26,15 @@ function started(name: string, id: string, args: any = {}) {
 	component.markExecutionStarted();
 	return component;
 }
+
+test("tool status selects the matching theme background", () => {
+	assert.equal(toolBackgroundSlot("pending"), "toolPendingBg");
+	assert.equal(toolBackgroundSlot("success"), "toolSuccessBg");
+	assert.equal(toolBackgroundSlot("error"), "toolErrorBg");
+	assert.equal(toolStatus({ executionStarted: true }), "pending");
+	assert.equal(toolStatus({ result: { isError: false } }), "success");
+	assert.equal(toolStatus({ result: { isError: true } }), "error");
+});
 
 test("restored tools still render as running with the braille loader", () => {
 	const hooks = installToolGrouping(() => true);
@@ -113,11 +128,20 @@ test("expanded native cards align nested trees through interleaved ANSI padding"
 		const bash = started("bash", "bash");
 		parent.addChild(read);
 		parent.addChild(bash);
+		read.updateResult({ content: [], isError: false });
+		bash.updateResult({ content: [], isError: false });
 		const group = parent.children[0] as ToolGroupComponent;
+		const backgroundSlots: string[] = [];
 		hooks.setTheme({
 			fg: (_color: string, text: string) => text,
-			bg: (_color: string, text: string) => `\x1b[48;2;10;20;30m${text}\x1b[49m`,
-			getBgAnsi: () => "\x1b[48;2;10;20;30m",
+			bg: (slot: string, text: string) => {
+				backgroundSlots.push(slot);
+				return `\x1b[48;2;10;20;30m${text}\x1b[49m`;
+			},
+			getBgAnsi: (slot: string) => {
+				backgroundSlots.push(slot);
+				return "\x1b[48;2;10;20;30m";
+			},
 		});
 		group.setExpanded(true);
 		read.render = (width: number) => {
@@ -134,12 +158,13 @@ test("expanded native cards align nested trees through interleaved ANSI padding"
 		const stripAnsi = (line: string) => line.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "");
 		const inputLine = rendered.find((line: string) => stripAnsi(line).includes("Input")) ?? "";
 		const backgroundIndex = inputLine.indexOf("\x1b[48;");
-		assert.equal(backgroundIndex, -1, "expanded tool output stays transparent");
-		assert.doesNotMatch(rendered.join("\n"), /\x1b\[48;/);
+		assert.equal(backgroundIndex, 0, "expanded tool output has a visible status background");
+		assert.ok(backgroundSlots.includes("toolSuccessBg"));
+		assert.doesNotMatch(rendered.join("\n"), /\x1b\[48;2;20;20;20m/);
 		assert.match(
 			stripAnsi(rendered[2]),
-			/^ ├ [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Read/,
-			"panel starts directly with the loading tool",
+			/^ ├ ✓ Read/,
+			"panel starts directly with the completed tool",
 		);
 		assert.equal(
 			stripAnsi(rendered.at(-1) ?? "").length,
@@ -149,7 +174,7 @@ test("expanded native cards align nested trees through interleaved ANSI padding"
 		const expanded = rendered.map(stripAnsi).join("\n");
 		assert.match(
 			expanded,
-			/^ ├ [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Read sample\.ts\s*$/m,
+			/^ ├ ✓ Read sample\.ts\s*$/m,
 			"expanded branch matches collapsed position",
 		);
 		assert.match(expanded, /^ │ ├ Input\s*$/m, "nested tree aligns with the status dot");
@@ -158,6 +183,23 @@ test("expanded native cards align nested trees through interleaved ANSI padding"
 	} finally {
 		hooks.shutdown();
 	}
+});
+
+test("expanded tool values and output use the readable text color", () => {
+	const theme = {
+		fg: (color: string, text: string) => `<${color}>${text}</${color}>`,
+		bold: (text: string) => text,
+	};
+	const view = new ExpandedToolIoView(
+		theme,
+		"path: src/example.ts",
+		"readable output",
+		false,
+	);
+	const rendered = view.render(100).join("\n");
+	assert.match(rendered, /<text>src\/example\.ts<\/text>/);
+	assert.match(rendered, /<text>readable output<\/text>/);
+	assert.doesNotMatch(rendered, /<toolOutput>|<muted>readable output/);
 });
 
 test("external task, skill, and plan tools keep reference summaries in groups", () => {

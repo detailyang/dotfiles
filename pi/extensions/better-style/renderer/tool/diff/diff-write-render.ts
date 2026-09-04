@@ -366,7 +366,7 @@ export function renderWriteDiffResult(
 		if (!safeFallbackText.trim()) {
 			return new Text(theme.fg("muted", "↳ write completed"), 0, 0);
 		}
-		return new Text(theme.fg("toolOutput", safeFallbackText), 0, 0);
+		return new Text(theme.fg("text", safeFallbackText), 0, 0);
 	}
 
 	const filePath = options.filePath?.trim() || "(unknown path)";
@@ -484,7 +484,7 @@ export function renderWriteDiffResult(
 								header,
 								...renderSingleDiffRow(
 									buildDiffSummaryText(approximateStats, safeWidth),
-									"toolOutput",
+									"text",
 									safeWidth,
 									theme,
 								),

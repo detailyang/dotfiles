@@ -36,7 +36,12 @@ import { renderRichToolResult } from "./tool/diff/index.ts";
 import type { WriteExecutionMetadataStore } from "./tool/diff/write-execution.ts";
 import { insetComponent, renderExpandedToolResult } from "./tool/result.ts";
 import { oneLine } from "../utils/format.ts";
-import { paddedTransparentRow } from "./tool/grouping.ts";
+import {
+	paddedBackgroundRow,
+	toolBackgroundSlot,
+	toolStatus,
+	type ToolStatus,
+} from "./tool/grouping.ts";
 import { hasVisibleText, stripBackgroundAnsi } from "../utils/ansi-text.ts";
 import { walkComponentTree } from "../utils/component-tree.ts";
 import {
@@ -135,12 +140,17 @@ function themeOf(): any {
 	return getMessageDisplayTheme() ?? fallbackTheme();
 }
 
-/** edit/write expanded cards keep spacing but do not reuse user-message colors. */
-function editWriteExpandedCard(_theme: any): any {
-	return new Box(1, 1);
+/** edit/write expanded cards use their current tool status background. */
+function editWriteExpandedCard(theme: any, status: ToolStatus): any {
+	const slot = toolBackgroundSlot(status);
+	return new Box(
+		1,
+		1,
+		typeof theme?.bg === "function" ? (text: string) => theme.bg(slot, text) : undefined,
+	);
 }
 
-function transparentToolCardRow(line: string, width: number): string {
+function nestedToolCardRow(line: string, width: number): string {
 	const leftInset = 2;
 	const rightInset = 3;
 	const contentWidth = Math.max(0, width - leftInset - rightInset);
@@ -151,17 +161,17 @@ function transparentToolCardRow(line: string, width: number): string {
 	return `${" ".repeat(leftInset)} ${clipped}${" ".repeat(pad)} ${" ".repeat(rightInset)}`;
 }
 
-/** Render expanded compact tool output without imposing a theme background. */
 function layoutExpandedToolCard(
-	_theme: any,
+	theme: any,
 	children: any[],
 	width: number,
+	backgroundSlot: "toolPendingBg" | "toolSuccessBg" | "toolErrorBg",
 ): { lines: string[]; hits: Array<{ child: any; start: number; end: number }> } {
 	const innerWidth = Math.max(0, width - 2);
 	const lines: string[] = [];
 	const hits: Array<{ child: any; start: number; end: number }> = [];
 	const isThinkingPreview = (child: any) => typeof child?.setHintHovered === "function";
-	lines.push(paddedTransparentRow("", width));
+	lines.push(paddedBackgroundRow(theme, backgroundSlot, "", width));
 	let skipLeadingBlank = true;
 	for (const child of children) {
 		const childLines = child.render(innerWidth);
@@ -174,7 +184,7 @@ function layoutExpandedToolCard(
 			}
 			const rangeStart = lines.length;
 			for (let i = start; i < childLines.length; i++) {
-				lines.push(paddedTransparentRow(childLines[i], width));
+				lines.push(paddedBackgroundRow(theme, backgroundSlot, childLines[i], width));
 			}
 			if (lines.length > rangeStart) hits.push({ child, start: rangeStart, end: lines.length });
 			continue;
@@ -189,25 +199,30 @@ function layoutExpandedToolCard(
 			}
 		}
 		if (first < 0) {
-			for (const line of childLines) lines.push(paddedTransparentRow(line, width));
+			for (const line of childLines) {
+				lines.push(paddedBackgroundRow(theme, backgroundSlot, line, width));
+			}
 			continue;
 		}
-		lines.push(paddedTransparentRow("", width));
+		lines.push(paddedBackgroundRow(theme, backgroundSlot, "", width));
 		const rangeStart = lines.length;
-		lines.push(transparentToolCardRow("", width));
+		lines.push(paddedBackgroundRow(theme, backgroundSlot, nestedToolCardRow("", width), width));
 		for (let i = first; i <= last; i++) {
-			lines.push(transparentToolCardRow(childLines[i], width));
+			lines.push(
+				paddedBackgroundRow(theme, backgroundSlot, nestedToolCardRow(childLines[i], width), width),
+			);
 		}
-		lines.push(transparentToolCardRow("", width));
+		lines.push(paddedBackgroundRow(theme, backgroundSlot, nestedToolCardRow("", width), width));
 		if (isThinkingPreview(child)) hits.push({ child, start: rangeStart, end: lines.length });
 	}
-	lines.push(paddedTransparentRow("", width));
+	lines.push(paddedBackgroundRow(theme, backgroundSlot, "", width));
 	return { lines, hits };
 }
 
 function compactRoundCard(
 	cardItems: Array<{ child?: any; tool?: any }>,
 	toolRender: (tool: any, width: number) => string[],
+	isRoundActive: () => boolean,
 ): any {
 	const children: any[] = [];
 	for (const item of cardItems) {
@@ -221,15 +236,34 @@ function compactRoundCard(
 			});
 		}
 	}
+	const backgroundSlot = () => {
+		const statuses = cardItems
+			.filter((item) => item.tool)
+			.map((item) => toolStatus(item.tool));
+		const status: ToolStatus = statuses.includes("error")
+			? "error"
+			: isRoundActive() || statuses.includes("pending")
+				? "pending"
+				: "success";
+		return toolBackgroundSlot(status);
+	};
 	return {
 		children,
 		render(width: number): string[] {
-			return ["", ...layoutExpandedToolCard(themeOf(), children, width).lines];
+			return [
+				"",
+				...layoutExpandedToolCard(themeOf(), children, width, backgroundSlot()).lines,
+			];
 		},
 		childAtRow(localRow: number, width: number) {
 			if (localRow < 1) return null;
 			const row = localRow - 1;
-			const { hits } = layoutExpandedToolCard(themeOf(), children, width);
+			const { hits } = layoutExpandedToolCard(
+				themeOf(),
+				children,
+				width,
+				backgroundSlot(),
+			);
 			for (const hit of hits) {
 				if (row >= hit.start && row < hit.end) return hit.child;
 			}
@@ -452,7 +486,7 @@ function compactEditWriteLines(
 		return [...title, ...detail.render(width)];
 	}
 
-	const box = editWriteExpandedCard(theme);
+	const box = editWriteExpandedCard(theme, toolStatus(component));
 	box.addChild({
 		render(innerWidth: number): string[] {
 			return compactEditWriteLine(component, innerWidth, writeMetadata, {
@@ -763,8 +797,10 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 				}
 			}
 			round.anchor.contentContainer.addChild(
-				compactRoundCard(cardItems, (tool, innerWidth) =>
-					patch.toolOriginalRender.call(tool, innerWidth),
+				compactRoundCard(
+					cardItems,
+					(tool, innerWidth) => patch.toolOriginalRender.call(tool, innerWidth),
+					() => round.active,
 				),
 			);
 			// 展开卡内工具会显示 error，外层仍挂 abort/length，避免只藏在折叠工具里。
