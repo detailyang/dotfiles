@@ -1,44 +1,76 @@
 ---
 name: grill
-description: Relentlessly clarify a fuzzy engineering or product plan one decision at a time while maintaining durable domain language and architectural decisions. Use when the user wants to grill, stress-test, think through, or sharpen a plan, design, feature, trade-off, or architecture choice before writing a spec or code.
+description: Clarify or stress-test a fuzzy engineering or product decision before specification or implementation. Use when the user asks to grill, challenge, interrogate, sharpen, or think through a plan, feature, trade-off, or architecture. Do not use for a finished spec, straightforward implementation, or ordinary code review.
 ---
 
 # Grill
 
-Turn an unclear request into shared understanding before implementation. Explore facts independently, put decisions to the user one at a time, and capture durable language or decisions as they crystallize.
+Turn ambiguity into explicit, evidence-backed decisions. Explore facts independently; reserve questions for choices that genuinely belong to the user. Do not implement the plan.
 
-## Interview loop
+## Choose the mode
 
-1. State the current assumptions and any plausible interpretations that would change the recommendation.
-2. Explore the repo for facts instead of asking the user. Read applicable `AGENTS.md`, existing specs, `CONTEXT.md`, ADRs, relevant interfaces, callers, and tests.
-3. Walk the decision tree in dependency order. Ask exactly one decision question at a time.
-4. For every question, give a recommended answer, its reasoning, the trade-off, and what would change the recommendation.
-5. Wait for the user's answer before continuing. Decisions belong to the user.
+- **Interactive interview** — use when the user wants to discover the direction together. Ask exactly one decision question at a time and wait for the answer.
+- **One-pass stress test** — use when the user supplies an artifact or asks for a review/challenge. Return the strongest objections, decisions, and recommendation in one response. Do not pause for non-blocking questions.
 
-Do not write implementation code or start the work until the user confirms shared understanding.
+State the chosen mode only when it is not obvious.
 
-## Coverage
+## Evidence first
 
-Resolve only branches that materially affect the outcome:
+Before asking anything:
 
-- goal, actors, and observable success
-- non-goals and ownership boundaries
-- state or data lifecycle
-- failure, retry, cancellation, and concurrency behavior
-- compatibility, migration, rollout, and rollback
-- module interfaces and the highest useful test seam
-- risks and verification
+1. Read applicable `AGENTS.md`, source documents, existing specs, `CONTEXT.md`, ADRs, relevant interfaces, direct callers, and tests.
+2. Separate confirmed facts, assumptions, and missing observations.
+3. Resolve repository facts yourself. Do not ask the user for information available locally.
+4. Identify the earliest unresolved decision that changes downstream choices.
 
-Use concrete scenarios to expose hidden assumptions. Stop when the goal, constraints, main decisions, risks, and verification path are clear enough for `/to-spec`.
+## Decision order
+
+Cover only branches that materially affect the outcome, usually in this order:
+
+1. users, problem, and observable success
+2. scope, non-goals, and ownership
+3. state or data lifecycle
+4. failure, retry, cancellation, and concurrency
+5. compatibility, migration, rollout, and rollback
+6. interfaces, test seams, risks, and verification
+
+Use concrete scenarios to expose hidden assumptions. Skip dimensions that do not affect this decision.
+
+## Question contract
+
+Ask only when the answer would change the recommendation or make proceeding unsafe. Every question must include:
+
+```text
+Decision: <what must be chosen>
+Evidence: <known facts and uncertainty>
+Recommendation: <preferred option and why>
+Trade-off: <what it gives up>
+Question: <one answerable choice>
+```
+
+If a decision is not blocking, state the working assumption and continue. Do not turn ordinary implementation details into user decisions.
+
+## One-pass stress-test output
+
+When not interviewing, return:
+
+- current framing and assumptions
+- strongest failure paths or counterexamples
+- decisions already implied by the artifact
+- unresolved decisions, ranked by impact
+- recommended direction and rejected alternatives
+- verification that would falsify the recommendation
+
+Prefer a small decision tree or flow sketch when it reduces prose.
 
 ## Durable documentation
 
-Use the repo's canonical vocabulary. If the user's wording conflicts with `CONTEXT.md` or code, surface the contradiction immediately.
+Use the repository's canonical vocabulary.
 
-- When a domain term becomes precise and reusable, propose the exact `CONTEXT.md` change. Write it only when the user asked to persist decisions or explicitly approves. Keep implementation details out of the glossary.
-- Propose an ADR only when the decision is hard to reverse, surprising without context, and the result of a real trade-off. After explicit approval, create or update it using the repository's ADR convention.
-- If the user asks to save the broader discussion, create or append `specs/<english-kebab-slug>/thinking.md`; preserve prior decisions and unresolved questions.
+- Propose a `CONTEXT.md` update when a domain term becomes precise and reusable. Write it only when persistence was requested or approved.
+- Propose an ADR only for a hard-to-reverse, surprising decision with a real trade-off. Follow the repository's ADR convention after approval.
+- When asked to preserve the broader discussion, create or update `specs/<english-kebab-slug>/thinking.md`, retaining prior decisions and unresolved questions.
 
-## Close
+## Done
 
-Summarize confirmed decisions, unresolved questions, excluded options, risks, and the recommended next action. Do not claim readiness for `/to-spec` while a blocking decision remains.
+Close with confirmed decisions, assumptions still in force, unresolved blockers, excluded options, risks, and the next appropriate workflow. Do not claim readiness for `/to-spec` while a product or architecture decision that changes the contract remains unresolved.

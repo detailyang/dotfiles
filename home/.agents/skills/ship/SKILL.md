@@ -1,102 +1,92 @@
 ---
 name: ship
-description: Implement the user's current engineering task with minimal, verified changes, test-driven discipline, and a final code review. Use when the user asks Codex to build, fix, implement, modify code, execute a concrete task, or complete work from specs/slug/issues.md.
+description: Implement a concrete engineering task with minimal, verified changes and a final diff review. Use when the user asks to build, fix, implement, modify code, execute an approved issue, or complete work from specs/<slug>/issues.md. Do not use for brainstorming, specification writing, planning-only requests, or review-only work.
 ---
 
 # Ship
 
-Execute the current task with the smallest safe, verified change. Prefer a vertical slice through the real system over broad setup work.
+Deliver the requested behavior through the smallest production-shaped change. Keep every changed line traceable to the task and make verification evidence visible.
 
 ## Operating contract
 
-- State assumptions, intended behavior, and success criteria before editing.
-- If the boundary is unclear, list the plausible interpretations and ask the minimum necessary question.
-- Keep every changed line traceable to the user's request.
-- Do not clean up, rename, reformat, or refactor unrelated code.
-- Do not claim tests passed unless they were run in this turn.
+- State only assumptions that affect behavior, safety, or scope.
+- Resolve repository facts before asking the user.
+- Ask only when a missing decision changes the public contract or safe implementation path; otherwise choose the evidence-backed default and continue.
+- Preserve unrelated work and existing style.
+- Do not claim tests passed unless they ran in the current work.
+- Do not commit, push, merge, or amend unless the user explicitly requested it.
 
 ## Before editing
 
-1. Read applicable `AGENTS.md` instructions.
-2. Inspect relevant exports, direct callers, shared utilities, tests, and existing style.
-3. If the task references `specs/<slug>/`, read relevant `thinking.md`, `product.md`, `tech.md`, and `issues.md`.
-4. Identify the highest useful test seam before writing behavior code.
-5. Record the review fixed point (`git rev-parse HEAD`) and `git status --short` before editing. If the task must touch a path that is already dirty, stop and ask how the user wants that overlap handled.
-6. Track the paths changed for this task so `/code-review` can exclude unrelated pre-existing work.
-7. Choose the smallest implementation path and the validation command that proves it.
+1. Read applicable `AGENTS.md` and any referenced `specs/<slug>/` files.
+2. Inspect the real entry point, direct callers, shared utilities, tests, and adjacent conventions.
+3. Record the review fixed point with `git rev-parse HEAD` and the initial `git status --short`.
+4. Identify task-owned paths and the highest stable seam that can prove the requested behavior.
+5. Choose the smallest vertical slice and its validation command.
 
-For multi-step work, use a short plan where each step has a verification checkpoint.
+A dirty worktree is not an automatic blocker. Preserve pre-existing changes, compare overlapping hunks, and continue when the task can be isolated safely. Stop only when ownership cannot be separated without risking user work.
 
-## Issue execution scope
+For multi-step work, use a short plan with one observable checkpoint per step.
 
-When working from `specs/<slug>/issues.md`, the default scope is all incomplete issues unless the user explicitly names a narrower issue or range. An issue may start only when every issue in its `Blocked by` list is complete; choose from the current dependency frontier.
+## TDD for behavior changes
 
-- Do not stop after completing a single issue.
-- Continue selecting the next incomplete issue, implementing it, and verifying it.
-- Mark acceptance criteria complete only after recording verification evidence in `operation.md`.
-- Stop only when all applicable issues are complete, a hard blocker is reached, or the user-defined scope is finished.
-- If blocked, record completed issues, remaining issues, the blocking observation, and the smallest user decision needed.
+For business logic, data transforms, API/CLI/UI behavior, state transitions, retries, bug fixes, or regressions:
 
-## TDD is mandatory for behavior changes
+1. **Red** — add or modify the smallest test that fails for the missing behavior.
+2. Run it and confirm the failure is specific to that behavior.
+3. **Green** — implement the minimum change that passes.
+4. Run the focused test and adjacent checks.
+5. **Refactor** — improve touched structure only after green, then rerun tests.
 
-For behavior changes, bug fixes, business logic, data transforms, API behavior, CLI behavior, or user-visible UI behavior:
+Read `references/tdd.md` for the cycle, `references/testing.md` for seam selection and mocking, and `references/refactoring.md` before structural cleanup.
 
-1. **Red** — write or modify a test that fails for the missing behavior.
-2. Run it and confirm the expected failure.
-3. **Green** — implement the smallest change that passes.
-4. Run the relevant tests.
-5. **Refactor** — improve structure only after green.
-6. Run tests again after refactor.
+When no reasonable automated seam exists, do not fabricate one or halt by default. Use the strongest deterministic alternative—rendering, parsing, type checking, a focused harness, or a reproducible smoke check—and state what remains unproved. Never replace deterministic routing, validation, retry, transformation, or state-machine behavior with LLM judgment.
 
-If no reasonable test seam exists, stop and ask before coding. Do not replace deterministic logic, routing, retry, data transform, or state-machine behavior with LLM judgment.
-
-For docs, comments, pure formatting, static config, generated snapshots, or tiny edits in a repo with no usable test infrastructure, TDD may not apply. Say why and perform the cheapest meaningful alternative verification, such as rendering, parsing, typechecking, linting, or diff inspection.
+Docs, comments, static configuration, generated snapshots, and formatting-only changes may use an appropriate non-TDD check.
 
 ## Implementation shape
 
-Do not build isolated layers that cannot be verified independently. Prefer tracer bullets and vertical slices:
+Prefer a tracer bullet through the real system:
 
-- smallest end-to-end path first
-- one observable behavior at a time
-- tests through public interfaces
-- internal design evolves under green tests
+```text
+real entry point
+  -> real validation or policy
+  -> real state transition
+  -> observable API / CLI / UI result
+  -> test at the public seam
+```
 
-When scope is uncertain, build the thinnest production-shaped tracer bullet through the real system:
+Avoid isolated layers that cannot be exercised, speculative abstractions, compatibility fallbacks not required by a contract, and unrelated cleanup.
 
-- real entry point
-- real validation path if relevant
-- real state transition if relevant
-- minimal UI/API/CLI surface
-- enough test coverage to lock the behavior
+## Issue execution
 
-The tracer bullet should be production-shaped, not throwaway architecture.
+When executing `specs/<slug>/issues.md`, the default scope is every incomplete issue whose blockers are complete unless the user names a narrower range.
 
-Read `references/tdd.md` when choosing or running a TDD cycle. Read `references/testing.md` when selecting a seam or deciding what to mock. Read `references/refactoring.md` before any structural cleanup.
+- Work from the current dependency frontier.
+- Complete and verify one issue before advancing.
+- Record acceptance evidence in `specs/<slug>/operation.md`.
+- Continue automatically until the selected scope is complete or a hard blocker is observed.
+- Do not mark acceptance complete from intent, code inspection alone, or an unrun command.
 
-## Review gate
+## Final review gate
 
-After implementation and required validation pass, run `/code-review` against the fixed point recorded before editing.
+Review the complete task-owned diff against the fixed point:
 
-- Treat confirmed spec gaps, correctness risks, and hard standards violations as unfinished work.
-- Fix in-scope defects with the same test-first discipline, rerun validation, and review the affected diff again.
-- Ask before making a scope-expanding architectural change for a judgement-call smell.
-- Do not commit, push, merge, or amend unless the user explicitly requested it.
+1. trace each requirement and acceptance criterion to code and evidence
+2. inspect correctness, error paths, state transitions, concurrency, compatibility, and permissions as relevant
+3. remove unrelated edits and temporary probes
+4. rerun checks affected by any review fix
+5. inspect `git diff --check` and final status
+
+Use a dedicated review skill when one is available, but do not depend on a particular optional skill name. Treat confirmed correctness or specification gaps as unfinished work.
 
 ## Operation log
 
-When working from `specs/<slug>/`, create or update:
+For work under `specs/<slug>/`, create or update `specs/<slug>/operation.md` with:
 
-```text
-specs/<slug>/operation.md
-```
-
-Record:
-
-- task executed
-- review fixed point and pre-existing worktree changes
-- task-owned paths
-- files changed
-- tests/commands run and results
-- code-review findings and disposition
-- deviations from specs
-- follow-ups
+- task and fixed point
+- pre-existing worktree changes
+- task-owned paths and files changed
+- commands run and observed results
+- final-review findings and disposition
+- deviations, residual risks, and follow-ups

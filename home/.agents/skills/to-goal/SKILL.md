@@ -1,153 +1,155 @@
 ---
 name: to-goal
-description: Convert a finished spec or design document into a right-sized execution plan and /goal starter for Codex. Use when the user has a completed spec/design and wants phases, a phased plan, an execution checklist or JSON ledger, a progress file, hard acceptance criteria, batch-processing lists, or a /goal prompt. Triggers include "基于这个 spec 写 /goal plan", "把设计文档拆成可执行 phase", "生成 phased plan 和 progress 文件", "逆向清单做成 checklist 分批处理". Routes small tasks to a lighter ledger instead of full phases. Not for brainstorming, writing the original spec, or implementing the plan.
+description: Convert a finished spec or design into a right-sized execution plan, durable progress ledger, and copy-ready Codex /goal starter. Use when the user asks for phases, an execution checklist, progress JSON, batch processing, or a /goal plan. Do not use for brainstorming, writing the original spec, or implementing the work.
 ---
 
 # To Goal
 
-Use this skill after a spec/design is already written and the user wants to make it executable, usually through Codex `/goal`. Do not implement the work. Produce the plan, the execution ledger, and the starter prompt.
+Make an approved specification executable across fresh contexts. Produce planning artifacts and a `/goal` starter; do not implement the plan.
 
 ```text
-spec or design document
--> this skill: spec review + task sizing + plan + execution ledger + /goal starter
--> /goal execution
+finished spec/design
+  -> executable plan + durable ledger + /goal starter
+  -> later execution
 ```
 
-## How /goal Actually Works
+## Inputs
 
-Facts every plan must respect (Codex >= 0.133, goals enabled by default):
+Require a selected spec/design path or supplied text. Also determine the intended scope, source-of-truth documents, target base ref, and whether files should be written or only proposed.
 
-- A goal objective is at most 4,000 characters. Point the objective at the plan file instead of embedding the plan.
-- Codex stores the goal outside the conversation and re-injects the full objective every time the thread goes idle. Goals survive context compaction and session resume. Do not design the ledger around "the goal might be lost"; design it around "the working context will be lost".
-- The official goal continuation prompt already enforces: evidence-based completion audit, no shrinking the objective to an easier task, blocked status only after the same blocker repeats for three turns, and using `update_plan` for multi-step work. Do not repeat these instructions in the starter prompt.
-- Plan mode suspends goal continuation, and ephemeral (unsaved) sessions cannot hold goals.
+If the source is still a fuzzy idea, route back to discovery or specification instead of disguising uncertainty as a plan.
 
-## Required Inputs
+## Codex compatibility
 
-- The spec/design document: a path, pasted text, or clearly selected text. If absent, ask for it. This skill is not for free-form planning from a vague idea.
-- The intended scope, any source-of-truth docs, and whether to write files or only propose in chat.
+The installed client and current official documentation are authoritative for version-sensitive `/goal` behavior. Verify them when accessible rather than relying on memory.
+
+The current known objective limit is 4,000 characters; keep the starter much shorter and point it to repository files. Design the ledger for context loss and handoff regardless of how the client persists goals.
 
 ## Workflow
 
-### 1. Read And Anchor
+### 1. Anchor and review the spec
 
-Read the spec and every source-of-truth doc it references. In a repo, also read local project rules such as `AGENTS.md` or `CLAUDE.md` when present. Treat the latest user-confirmed direction as the source of truth; long plans drift when older wording survives.
+Read the source spec, every document it references, applicable repository rules, and relevant implementation evidence.
 
-### 2. Spec Review Gate
+Report whether the spec is executable. Proceed with explicit assumptions for non-blocking gaps. Stop only for a missing decision that changes product behavior, architecture ownership, migration, or acceptance.
 
-Before writing a plan, review whether the spec is executable. Report: ready yes/no, blocking gaps, drift risks, required fixes. If a blocking decision is missing, stop and ask for that decision. Do not hide uncertainty inside a phase plan.
+### 2. Size the work
 
-### 3. Size The Task
+Choose one level and give a one-line reason:
 
-Route the work before writing anything. Report the chosen level with a one-line reason; the user can override it.
+- **S — direct execution**: one small coherent change, roughly 1–3 places, comfortably one session. Recommend `/ship`; create no worktree or ledger unless the user still requests one.
+- **M — flat checklist**: 2–10 independently verifiable work units without natural phase boundaries. Read `references/checklist-ledger.md`.
+- **L — phased plan**: multiple subsystems, natural delivery stages, more than 10 work units, or likely context handoff. Read `references/phased-plan.md`.
 
-- **S — recommend direct execution.** The diff is describable in one sentence, touches roughly 1-3 places, and fits comfortably in one session. Tell the user the planning overhead would exceed the task and recommend doing it directly without `/goal`. If the user still wants a plan, produce the M output — never a phased plan.
-- **M — flat checklist.** 2-10 verifiable work units, no natural stage boundaries, unlikely to span sessions. Read `references/checklist-ledger.md` now and produce a single-layer ledger: no phases, no phase gates.
-- **L — phased plan.** Any of: multiple subsystems, natural stage boundaries, more than 10 work units, or work expected to span sessions or context compaction. Read `references/phased-plan.md` now and produce the full phased plan plus progress file.
-- **Batch inventory** is an orthogonal dimension: when the work is a large list of similar items (reverse engineering, migrations, audits, extraction), use the batch ledger shape in `references/checklist-ledger.md`, either standalone or embedded inside one phase of an L plan.
+A large enumerable inventory is a **batch** dimension. Use the batch ledger from `references/checklist-ledger.md`, standalone or inside one L phase.
 
-If the spec covers several independent subsystems that ship separately, propose splitting it into separate plans instead of one oversized plan.
+Split independent subsystems into separate plans when they can ship separately.
 
-### 4. Map Implementation Surface
+### 3. Map the implementation surface
 
-Make the plan concrete enough that a fresh worker can execute it without guessing:
+Ground the plan in real repository evidence:
 
-- Existing files, modules, routes, tools, data models, tests, or docs likely to change, and new artifacts to create.
-- Existing capabilities to reuse instead of rebuild.
-- Interfaces and boundaries: what each component owns, receives, returns, and must not know.
-- Data or state flow for any non-trivial workflow, as a simple ASCII diagram when it clarifies ownership and direction.
+- existing entry points, modules, routes, tools, models, tests, and docs
+- capabilities to reuse
+- interfaces and ownership boundaries
+- data/state/control flow
+- discovery tasks only where exact paths genuinely cannot yet be known
 
-If the repo is available, inspect enough code to avoid inventing file paths, framework names, or test commands. If exact paths cannot be known yet, say so and make discovery the first work unit.
+Use a small ASCII or Mermaid diagram when it makes ownership or order unambiguous.
 
-### 5. Plan-Writing Principles
+### 4. Define work units
 
-Resolve ordinary planning decisions yourself; only stop for decisions that would change the user's stated direction.
+Split by independently verifiable outcomes, not microscopic editing steps or document sections.
 
-- Complete beats shortcut: cover real edge cases, not only the demo path.
-- Reuse existing capability when the repo already has a pattern, helper, or service for the job.
-- Explicit beats clever: choose the approach a new contributor understands quickly.
-- Split by independently verifiable outcomes, not microscopic operations. A work unit is a chunk worth verifying and committing, such as "Implement the entry flow UI and routing", never "read file A, edit file A, run test".
-- Every new user flow, code path, error path, and LLM/prompt change needs a matching automated test, browser check, or eval where practical.
-- For each critical path, name one realistic failure mode and whether the user sees a clear recovery or a silent failure. A silent failure with no planned test is a plan gap.
-- Record meaningful tradeoffs in a short decision log (decision, reason, rejected alternatives, source). Log choices that affect architecture, scope, tests, or flow — not tiny choices.
+Each work unit must state:
 
-### 6. Hard Acceptance
+- observable result
+- in-scope surfaces and explicit non-goals
+- prerequisites
+- realistic failure mode
+- binary acceptance
+- exact command/check and expected result
+- commit boundary
 
-Acceptance must be binary and checkable:
+Every new user flow, code path, error path, and prompt behavior needs an automated check, browser check, or eval where practical.
+
+### 5. Establish execution isolation
+
+Every M/L plan must record:
+
+- dedicated worktree path
+- dedicated branch
+- base ref
+- baseline smoke command
+- plan and ledger paths
+
+Execution rules:
+
+1. Create the worktree before implementation; keep the primary checkout read-only.
+2. If planning files are absent from the worktree, copy them and make a clean-start commit containing only those artifacts.
+3. Execute every task, check, and commit inside the worktree.
+4. Commit each verified work unit together with its progress update and include the task ID in the message.
+5. Never commit failed verification; never push, merge, or amend automatically.
+6. Advance after verified tasks/phases without confirmation pauses.
+
+S-level work keeps normal repository behavior: no automatic worktree or commit.
+
+### 6. Make the ledger durable
+
+Prefer JSON when an agent will update state repeatedly. Task definitions, acceptance, worktree, branch, base ref, and execution rules are immutable during execution. The worker may update only status, evidence, verification, decision log, and turn log fields defined by the selected template.
+
+The ledger must answer:
+
+- current task and next allowed action
+- done, pending, and blocked items
+- evidence for each completed item
+- baseline and residual risk
+- where execution must occur
+
+Use Git history linked by task ID as the commit audit trail; do not hand-copy commit hashes into the ledger.
+
+### 7. Self-review
+
+Before reporting readiness, verify:
+
+- every source requirement maps to a task or explicit out-of-scope entry
+- no `TBD`, `TODO`, “later”, “add tests”, or other placeholder acceptance remains
+- paths, commands, names, and dependencies are internally consistent
+- acceptance is binary and commands plausibly exist
+- no stale wording conflicts with the latest direction
+- phases advance automatically after evidence is recorded
+- the primary checkout cannot be edited accidentally
+
+Fix ordinary gaps directly. Ask only if the correction changes the approved direction.
+
+## /goal starter
+
+End with a copy-ready starter, normally under 1,000 characters:
 
 ```text
-Weak: 测试通过。
-Hard: `npm run test:server` exits 0 and the result is recorded in the progress file.
-```
-
-Every code phase or work unit needs at least one automated check unless the repo has no runnable test surface; UI work needs browser verification at named viewports; document-only work needs file assertions and conflict review. Never write "tests pass" without naming what can actually run.
-
-### 7. Git Worktree And Commit Rules
-
-Write these rules into every M/L plan and ledger:
-
-- Before execution starts: create a dedicated Git worktree with a dedicated branch from the target base ref, normally with `git worktree add -b <branch> <worktree_path> <base_ref>`. Never run a ledger in the primary checkout or on the main branch.
-- Record `worktree_path`, `branch`, and `base_ref` in the plan/ledger. Use a predictable path outside the repo root, such as `../<repo>-<topic>-worktree`, unless the repo has its own worktree convention.
-- If the plan/progress files were generated in the primary checkout and are not present in the worktree, copy them into the worktree and make the clean-start commit there before implementation. That commit must contain only plan/ledger/progress bootstrap files, not feature changes.
-- Run every `/goal` turn, edit, verification command, and commit inside the dedicated worktree.
-- Commit each verified work unit in a single commit that contains both the code change and the progress-file update, with the task id in the commit message (for example `feat: entry flow [task 1.2]`). Do not record commit hashes in the progress file; `git log` linked by task id is the audit trail. This keeps one commit per work unit instead of a paired bookkeeping commit.
-- Never commit when required verification fails.
-- Never push, merge, or amend automatically. Merging into the main branch requires the user's review.
-- S-level work keeps default behavior: do not auto-create a worktree or auto-commit; suggest a commit when done.
-
-### 8. Progress File Rules
-
-- Prefer JSON for anything the executing agent must update repeatedly; models corrupt structured JSON less than prose.
-- The executing agent may only flip status, evidence, and log fields. It must not add, remove, or rewrite task definitions or acceptance criteria.
-- The file must answer: dedicated worktree path, branch, base ref, current phase/task, next allowed action, which items are done/pending/blocked, which verification proves each done item, and what residual risk remains. The commit history, linked by task id, shows which commit completed each item.
-- Concrete templates live in the reference file for the chosen ledger shape.
-
-### 9. Plan Self-Review
-
-Before reporting the plan ready, check:
-
-- Every spec requirement maps to a work unit, checklist item, or explicit out-of-scope entry with rationale.
-- No placeholder language: `TBD`, `TODO`, `later`, `add tests`, `similar to`, or vague equivalents.
-- Paths, commands, names, and acceptance wording are consistent and realistic for the repo.
-- Acceptance is binary; verification commands actually exist.
-- No stale wording conflicts with the latest direction.
-- The plan forbids confirmation pauses between verified phases.
-
-Fix issues inline. If a fix would change the user's stated direction, stop and ask instead.
-
-### 10. /goal Starter
-
-End with a copy-ready starter. Use repo-relative plan/progress paths so the same paths resolve inside the dedicated worktree; avoid absolute paths that point back to the primary checkout. Keep it under roughly 1,000 characters — the hard limit is 4,000 — and keep it about the ledger protocol only; the official goal prompt already handles completion auditing and goal fidelity.
-
-```text
-/goal Implement <plan-path> using <progress-path>. Use repo-relative paths only.
+/goal Implement <plan-path> using <progress-path>. Use repo-relative paths.
 
 Each turn:
-1. Read <progress-path>. If its worktree is missing, run `git worktree add -b <branch> <worktree_path> <base_ref>`, copy plan/progress there if absent, make the clean-start commit, then work only inside that worktree.
-2. In the worktree, read the current task/batch in <plan-path>.
-3. Run `git log --oneline -15` and the smoke check; repair broken state before new work.
-4. Do only the current work unit/batch.
-5. After verification passes, update <progress-path> status/evidence/log only and commit code + progress together with the task id. Never commit failed verification; never push, merge, or amend.
-6. Continue verified phases automatically.
+1. Read <progress-path> and work only in its dedicated worktree.
+2. Read the current task in <plan-path>, recent git log, and baseline status.
+3. Repair broken baseline state before starting new work.
+4. Complete only the current unit, run its named verification, then update allowed ledger fields.
+5. Commit code and progress together with the task ID only after verification passes.
+6. Continue automatically until all acceptance is evidenced.
 
-Done when every item and acceptance check is proven and <progress-path> records final status/risk.
-
-Stop if a decision is missing, the plan conflicts with latest direction, the primary checkout would be edited, or the worktree has unrelated changes.
+Never edit the primary checkout; never commit failed checks; never push, merge, or amend. Stop only for a real plan conflict, unsafe unrelated changes, or a decision absent from the approved spec.
 ```
 
-## Output Format
+## Output
 
-When the user asks for a proposal first, respond in chat with: spec review, task size and reason, implementation map, ledger choice, plan outline, file paths, dedicated worktree path, branch/base ref, /goal starter, open questions. When asked to write files, create the plan/ledger and progress files, then report created paths, dedicated worktree path, branch/base ref, review result, and whether it is ready to start.
+When proposing in chat, report: spec readiness, size, implementation map, ledger choice, outline, artifact paths, worktree/branch/base, and starter.
+
+When writing files, create the selected plan and ledger/progress artifacts, then report their paths, validation performed, remaining risks, and whether execution can start.
 
 ## Guardrails
 
-- Do not write implementation code and do not start `/goal` yourself.
-- Do not compress unclear decisions into vague acceptance criteria, and do not downgrade the spec into an MVP unless asked.
-- Do not ask for phase-boundary confirmation; verified phases advance automatically. Ask only when the spec is blocked or the plan would change the user's stated direction.
-- Do not hand-maintain large inventories a script can generate.
-- Do not rely on chat memory for long work; write stable files.
-- Preserve unrelated user changes when editing inside a repo.
-
-## Non-Triggers
-
-Brainstorming a direction, writing the original spec, implementing an existing plan, code review, and ordinary todo lists belong to other workflows.
+- Do not implement or start `/goal`.
+- Do not downgrade an approved scope into an MVP unless requested.
+- Do not hand-maintain a large inventory a script can generate.
+- Do not rely on chat memory for durable execution state.
+- Preserve unrelated user changes.

@@ -1,86 +1,69 @@
 ---
 name: improve
-description: Analyze and improve codebase architecture or maintainability. Use when the user asks to improve, refactor, simplify, deepen, decouple, reduce technical debt, make code easier to test, or review architecture and module boundaries.
+description: Analyze or apply maintainability and architecture improvements in an existing codebase. Use when the user asks to improve, refactor, simplify, deepen, decouple, reduce technical debt, clarify module boundaries, or make code easier to test. Do not use for a narrowly specified feature/bug fix or a review that should not propose structural change.
 ---
 
 # Improve
 
-Find maintainability improvements, expose the trade-offs, and apply only the changes the user selects.
+Find the smallest high-leverage maintainability changes, explain their trade-offs, and apply them when the user requested edits.
 
-## Use this skill for
+## Select the mode
 
-- open-ended maintainability or architecture improvement requests
-- refactors where the target design is not yet obvious
-- module boundary, interface, coupling, or testability reviews
-- requests to simplify, deepen, decouple, or reduce technical debt
+- **Audit mode** — for “review”, “analyze”, or “find improvements”. Report evidence-backed candidates without editing.
+- **Apply mode** — for “improve”, “optimize”, “refactor”, or an explicit request to modify the repository. Apply the highest-confidence in-scope candidates autonomously.
 
-If the user asks for a concrete implementation or bug fix with a clear scope, use the normal ship/debug workflow instead. If an improvement becomes a behavior change or bug fix, switch to that workflow before editing.
+Ask before editing only when competing options materially change public behavior, architecture ownership, migration cost, or blast radius. Otherwise state assumptions and proceed.
 
-## Process
+## Workflow
 
-1. State assumptions, success criteria, and the smallest useful scope.
-2. Explore relevant exports, direct callers, tests, docs, and domain language.
-3. Map modules, interfaces, seams, dependencies, and ownership boundaries.
-4. Identify candidate improvements with evidence, impact, risk, confidence, and order.
-5. Recommend a small set of high-signal candidates and ask which to apply.
-6. For each selected candidate, make the smallest coherent change and verify it independently.
+1. Read applicable `AGENTS.md` and define the requested boundary and observable success.
+2. Inspect relevant exports, direct callers, tests, docs, state ownership, and existing vocabulary.
+3. Map dependencies and the highest stable verification seam.
+4. Identify only candidates supported by concrete evidence.
+5. Rank candidates by expected maintainability gain, verification cost, confidence, and blast radius.
+6. In audit mode, report the best 3–5. In apply mode, make each selected change as a separate coherent step and verify it before continuing.
+7. Review the final diff for behavior drift and unrelated cleanup.
 
-Do not silently apply candidates unless the user explicitly asked for edits. If the user asks to "improve this" without specifying whether to edit, report candidates first and wait.
+Prefer a shallow dependency, ownership, or before/after tree when it makes the recommendation clearer.
 
-## Candidate types
+## Candidate quality bar
 
-Look for:
+Useful candidates include:
 
-- duplicated behavior
-- high coupling
+- duplicated policy or behavior
+- unclear ownership or dependency direction
 - hidden mutable state
-- unclear ownership boundaries
-- shallow wrappers
+- shallow wrappers that leak sequencing
 - hard-to-test interfaces
-- over-designed abstractions
-- feature envy
-- primitive obsession
-- error paths without clear semantics
-- dependencies crossing the wrong seam
+- primitive obsession or repeated parsing/validation
+- error paths with ambiguous semantics
+- over-designed abstractions or speculative generality
 
-Use `references/deepening.md` when the likely fix is to move complexity behind a smaller interface. Use `references/interface-design.md` when designing or comparing module interfaces.
+Do not report generic style preferences, deterministic lint findings, or pre-existing issues outside the requested boundary.
 
-## Candidate report
+For each reported candidate include:
 
-For each candidate, include:
-
-- title
-- problem
-- evidence from code/docs
+- problem and concrete evidence
 - recommended change
 - expected benefit
-- risk
+- behavior impact
+- risk and confidence
 - verification strategy
-- whether behavior changes
+- ordering or dependency on other candidates
 
-Prefer 3-5 high-signal candidates over a generic list. Rank them by expected maintainability gain, verification cost, and blast radius.
+Read `references/deepening.md` when moving complexity behind a smaller interface. Read `references/interface-design.md` when comparing interface shapes.
 
 ## Editing rules
 
-- Do not mix unrelated improvements in one change.
-- Do not reformat unrelated files.
-- Behavior changes must follow the test-first workflow.
-- Behavior-preserving refactors still require verification.
-- Stop if the selected improvement expands beyond the agreed scope.
-- If multiple candidates conflict, resolve order with the user.
-- Preserve existing naming and project vocabulary unless it is actively misleading.
-- Do not introduce abstractions until at least two concrete callers, adapters, or policies justify the seam.
+- Keep every changed line traceable to the request.
+- Do not mix unrelated improvements, broad renames, reformatting, or cleanup.
+- Preserve project vocabulary unless it is actively misleading.
+- Do not introduce a seam for a hypothetical future caller; require at least two concrete policies, callers, or adapters unless an external boundary already justifies it.
+- Treat any behavior change or bug fix as implementation work and use the repository's behavior-change discipline.
+- Preserve unrelated user changes. Stop only when an overlapping change cannot be separated safely.
 
 ## Verification
 
-- Start with the narrowest test or typecheck that exercises the changed seam.
-- Add or update tests only when they encode why the behavior or boundary matters.
-- For behavior-preserving refactors, compare public behavior before and after through existing tests or focused smoke checks.
-- If verification cannot run, state what was not run, why, and the smallest command the user can run.
+Start at the narrowest existing public seam that proves the boundary. Run focused tests or type checks after each coherent change, then the smallest broader check that catches integration drift.
 
-## References
-
-Use as needed:
-
-- `references/deepening.md`
-- `references/interface-design.md`
+When no automated seam exists, use the strongest deterministic alternative available and state the remaining gap. Never claim a command passed unless it ran in the current work.

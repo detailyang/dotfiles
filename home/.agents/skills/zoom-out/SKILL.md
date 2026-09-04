@@ -1,40 +1,57 @@
 ---
 name: zoom-out
-description: Give a higher-level map of an unfamiliar code area, including relevant modules, callers, boundaries, and domain vocabulary. Use when the user asks to zoom out, understand how code fits together, or get broader context before changing code.
+description: Map an unfamiliar code area one abstraction level above the current file, including modules, callers, boundaries, flow, vocabulary, and test seams. Use when the user asks to zoom out, understand how code fits together, trace a subsystem, or get context before changing it. Do not use to implement or broadly refactor the area.
 ---
 
 # Zoom Out
 
-Help the user understand an unfamiliar area of code by moving one layer up in abstraction.
-
-Do not start changing code. This skill is for orientation and system mapping.
+Orient the user in an unfamiliar subsystem without changing code. Prefer a compact evidence-backed map over a file-by-file tour.
 
 ## Process
 
-1. Read applicable `AGENTS.md` instructions.
-2. Inspect the requested file, module, route, command, or concept.
-3. Trace direct callers and callees.
-4. Identify the neighboring modules and ownership boundaries.
-5. Check README/docs/specs/ADR/glossary/context files when present.
-6. Explain the area using the repo's existing domain vocabulary.
+1. Read applicable `AGENTS.md`.
+2. Start from the requested file, symbol, route, command, or concept.
+3. Trace direct callers and callees until ownership and the public boundary are clear.
+4. Inspect neighboring modules, state/data ownership, external adapters, and tests.
+5. Read relevant README, specs, ADRs, glossary, or context documents.
+6. Separate confirmed structure from inference and missing observation.
+
+Stop tracing when another layer would not change the user's decision or next action.
+
+## Visual first when useful
+
+Choose the smallest representation that clarifies the shape:
+
+```text
+entry point
+  -> orchestration
+    -> domain policy
+      -> adapter / persistence
+```
+
+Use a shallow file tree for responsibility, a call tree for control flow, or Mermaid only when multiple participants or state transitions would be hard to follow in text. Include only relevant nodes and real repository names.
 
 ## Output
 
-Give a compact map:
+Return:
 
-- **What this area is for** — one or two sentences.
-- **Main modules / concepts** — grouped by responsibility.
-- **Call flow** — how control/data moves through the area.
-- **Boundaries** — external systems, adapters, persistence, UI/API edges.
-- **Important callers** — who depends on this behavior.
-- **Tests / verification seams** — where behavior is currently protected.
-- **Risks / unclear parts** — what should be checked before editing.
-- **Suggested next step** — what to inspect or change next, if relevant.
+- **Purpose** — what the area owns and why it exists
+- **Map** — main modules/concepts grouped by responsibility
+- **Flow** — how control, data, or state moves
+- **Boundaries** — UI/API, persistence, external systems, and adapters
+- **Callers** — who depends on the behavior
+- **Verification seams** — where current behavior is protected
+- **Vocabulary** — local meanings of overloaded or important terms
+- **Risk / uncertainty** — evidence gaps that matter before editing
+- **Next action** — the smallest useful inspection or change, when relevant
+
+Cite paths, symbols, tests, or docs for non-obvious claims.
 
 ## Rules
 
-- Prefer repo facts over guesses.
-- If the map is uncertain, mark the uncertainty explicitly.
-- Do not over-focus on line-by-line details; the point is structure.
-- Do not propose large refactors unless the user asks for `/improve`.
-- If a term is overloaded, call it out and explain the local meaning.
+- Repository evidence outranks generic architecture expectations.
+- Do not invent paths, ownership, or runtime flow.
+- Do not drown the map in line-level detail.
+- Do not propose a broad refactor unless the user explicitly asks for improvement analysis.
+- If a term is overloaded, explain the repository-local meaning.
+- Mark confidence only where uncertainty affects the conclusion.
