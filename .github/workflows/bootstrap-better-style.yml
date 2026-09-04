@@ -1,0 +1,91 @@
+name: Bootstrap better-style
+
+on:
+  push:
+    branches: [feat/better-style]
+    paths:
+      - .github/workflows/bootstrap-better-style.yml
+      - pi/scripts/sync-better-style.mjs
+      - pi/scripts/better-style/**
+  pull_request:
+    branches: [master]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths:
+      - .github/workflows/bootstrap-better-style.yml
+      - pi/scripts/sync-better-style.mjs
+      - pi/scripts/better-style/**
+
+permissions:
+  contents: write
+
+jobs:
+  vendor:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      UPSTREAM_COMMIT: 5d7a2666f51da9f450bd019af10200c88cc1df98
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/better-style
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.19.0'
+          cache: npm
+          cache-dependency-path: pi/package.json
+
+      - name: Fetch pinned upstream
+        run: |
+          git clone --filter=blob:none https://github.com/minuque/pi-cc-extensions.git /tmp/pi-cc-extensions
+          git -C /tmp/pi-cc-extensions checkout --detach "$UPSTREAM_COMMIT"
+
+      - name: Apply keyboard-only vendoring fixes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+
+          path = Path("pi/scripts/sync-better-style.mjs")
+          source = path.read_text()
+          old = '''for (const relative of ["renderer/default-mode.ts", "renderer/compact-mode.ts"]) {
+            replaceRequired(relative, 'import { isToolCallHovered } from "./mouse/hover.ts";\\n', "");
+            replaceRequired(relative, "isToolCallHovered(toolCallId)", "false");
+            replaceRequired(relative, "isToolCallHovered(component.toolCallId)", "false");
+          }'''
+          new = '''const hoverExpressions = new Map([
+            ["renderer/default-mode.ts", "isToolCallHovered(toolCallId)"],
+            ["renderer/compact-mode.ts", "isToolCallHovered(component.toolCallId)"],
+          ]);
+          for (const [relative, hoverExpression] of hoverExpressions) {
+            replaceRequired(relative, 'import { isToolCallHovered } from "./mouse/hover.ts";\\n', "");
+            replaceRequired(relative, hoverExpression, "false");
+          }'''
+          if old not in source:
+              raise SystemExit("hover replacement block not found")
+          source = source.replace(old, new)
+          source = source.replace('pkg.peerDependencies[name] = "^0.84.0";', 'pkg.peerDependencies[name] = "^0.84.4";')
+          source = source.replace('assert.equal(version, "^0.84.0");', 'assert.equal(version, "^0.84.4");')
+          source = source.replace('A keyboard-first Pi 0.84 TUI presentation extension', 'A keyboard-first Pi 0.84.4 TUI presentation extension')
+          path.write_text(source)
+          PY
+
+      - name: Generate better-style
+        run: node pi/scripts/sync-better-style.mjs /tmp/pi-cc-extensions
+
+      - name: Install dependencies
+        working-directory: pi
+        run: npm install --no-package-lock
+
+      - name: Validate
+        working-directory: pi
+        run: npm run check
+
+      - name: Commit generated extension
+        run: |
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git add pi/package.json pi/extensions/better-style pi/tests/better-style-*.test.ts
+          git diff --cached --stat
+          git commit -m "feat(pi): add better-style TUI extension"
+          git push origin HEAD:feat/better-style
