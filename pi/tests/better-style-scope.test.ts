@@ -19,6 +19,7 @@ test("better-style excludes context and mouse behavior", () => {
   assert.equal(existsSync(join(ROOT, "feature", "reference")), false);
   assert.equal(existsSync(join(ROOT, "renderer", "mouse")), false);
   assert.equal(existsSync(join(ROOT, "utils", "sgr-mouse.ts")), false);
+  assert.equal(existsSync(join(ROOT, "feature", "shell", "working-message.ts")), false);
   const source = files(ROOT).filter((file) => file.endsWith(".ts")).map((file) => readFileSync(file, "utf8")).join("\n");
   assert.doesNotMatch(source, /from ["']pi-cc-extensions\//);
   assert.doesNotMatch(source, /registerCommand\(["']context["']\)/);

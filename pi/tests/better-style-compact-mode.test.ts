@@ -111,10 +111,7 @@ function toolCallMessage(timestamp: number, name = "bash") {
 	} as unknown as AssistantMessage;
 }
 
-test("buildMessageSummary: duration first, read dedup by path, counts, first-seen order, edit/write excluded", () => {
-	const query = {
-		getMessageThinkingDurationMs: (timestamp: number) => (timestamp === 1 ? 8500 : undefined),
-	};
+test("buildMessageSummary deduplicates reads, counts tools, and excludes edit/write", () => {
 	const message = {
 		timestamp: 1,
 		content: [
@@ -127,45 +124,27 @@ test("buildMessageSummary: duration first, read dedup by path, counts, first-see
 			{ type: "toolCall", id: "g1", name: "grep", arguments: { pattern: "x" } },
 		],
 	};
-	assert.equal(buildMessageSummary(message, query), "Ran for 9s, read×2, bash×1, grep×1");
+	assert.equal(buildMessageSummary(message), "read×2, bash×1, grep×1");
+	assert.equal(buildMessageSummary({ timestamp: 2, content: [] }), "");
 	assert.equal(
-		buildMessageSummary(message, {
-			getMessageThinkingDurationMs: () => 8500,
-			isMessageThinkingActive: () => true,
+		buildMessageSummary({
+			timestamp: 3,
+			content: [{ type: "toolCall", name: "bash", arguments: {} }],
 		}),
-		"Running... · 9s, read×2, bash×1, grep×1",
-	);
-	// 显式挂钟覆盖 thinking query
-	assert.equal(buildMessageSummary(message, query, 15_000), "Ran for 15s, read×2, bash×1, grep×1");
-	// 新 message 独立：计数不跨消息累积；无时长无工具时为空串。
-	assert.equal(buildMessageSummary({ timestamp: 2, content: [] }, query), "");
-	assert.equal(
-		buildMessageSummary(
-			{ timestamp: 3, content: [] },
-			{ getMessageThinkingDurationMs: () => undefined },
-		),
-		"",
-	);
-	assert.equal(
-		buildMessageSummary(
-			{ timestamp: 3, content: [{ type: "toolCall", name: "bash", arguments: {} }] },
-			query,
-		),
 		"bash×1",
 	);
-	// read 空路径不按路径去重（计入计数）。
 	assert.equal(
-		buildMessageSummary(
-			{ timestamp: 4, content: [{ type: "toolCall", name: "read", arguments: {} }] },
-			query,
-		),
+		buildMessageSummary({
+			timestamp: 4,
+			content: [{ type: "toolCall", name: "read", arguments: {} }],
+		}),
 		"read×1",
 	);
 	assert.doesNotMatch(
-		buildMessageSummary(
-			{ timestamp: 5, content: [{ type: "toolCall", name: "bad\x1b]8;;https://x\x07tool" }] },
-			query,
-		),
+		buildMessageSummary({
+			timestamp: 5,
+			content: [{ type: "toolCall", name: "bad\x1b]8;;https://x\x07tool" }],
+		}),
 		/[\x1b\x07]/,
 	);
 });
@@ -291,20 +270,7 @@ test("consecutive tool-call messages accumulate into one round until the next vi
 	const previousMode = config.mode;
 	const previousTheme = getMessageDisplayTheme();
 	config.mode = "compact";
-	const durations = new Map([
-		[1, 400],
-		[2, 500],
-		[3, 600],
-		[4, 3000],
-	]);
-	let activeTimestamp: number | undefined;
-	let animationFrame = 0;
 	const hooks = installCompactMode({
-		query: {
-			getMessageThinkingDurationMs: (timestamp) => durations.get(timestamp),
-			isMessageThinkingActive: (timestamp) => timestamp === activeTimestamp,
-			getThinkingAnimationFrame: () => animationFrame,
-		},
 		writeMetadata: new WriteExecutionMetadataStore(),
 	});
 	try {
@@ -336,7 +302,6 @@ test("consecutive tool-call messages accumulate into one round until the next vi
 		};
 		const assistant1 = new AssistantMessageComponent(message1 as any, true) as any;
 		assistant1.updateContent(message1);
-		activeTimestamp = 2;
 		const message2Thinking = {
 			role: "assistant",
 			timestamp: 2,
@@ -344,12 +309,10 @@ test("consecutive tool-call messages accumulate into one round until the next vi
 		};
 		const assistant2 = new AssistantMessageComponent(message2Thinking as any, true) as any;
 		assistant2.updateContent(message2Thinking as any);
-		assert.match(renderText(assistant1).join("\n"), /^Running\.\.\. · 900ms, bash×1/);
-		assert.doesNotMatch(renderText(assistant1).join("\n"), /Ran for/);
-		animationFrame = 1;
-		assert.match(renderText(assistant1).join("\n"), /^Running\.\.\. · 900ms, bash×1/);
+		assert.match(renderText(assistant1).join("\n"), /^Running\.\.\., bash×1/);
+		assert.doesNotMatch(renderText(assistant1).join("\n"), /\d+(?:ms|s|m)/);
+		assert.match(renderText(assistant1).join("\n"), /^Running\.\.\., bash×1/);
 
-		activeTimestamp = undefined;
 		assistant2.updateContent(message2);
 		const assistant3 = new AssistantMessageComponent(message3 as any, true) as any;
 		assistant3.updateContent(message3);
@@ -358,7 +321,7 @@ test("consecutive tool-call messages accumulate into one round until the next vi
 		assert.deepEqual(renderText(assistant3), []);
 		assert.match(
 			renderText(assistant1).join("\n"),
-			/^Running\.\.\. · 2s, bash×2, fffind×1, read×1/,
+			/^Running\.\.\., bash×2, fffind×1, read×1/,
 		);
 
 		const bash = tool("bash", "b1", { command: "one" });
@@ -390,7 +353,7 @@ test("consecutive tool-call messages accumulate into one round until the next vi
 			cardLines.slice(1).every((line: string) => visibleWidth(line) === 80),
 			"expanded round is wrapped by one width-safe tool card",
 		);
-		assert.deepEqual([...new Set(backgroundSlots)], ["userMessageBg"]);
+		assert.deepEqual(backgroundSlots, [], "expanded compact tool output stays transparent");
 		setMessageDisplayTheme(previousTheme);
 		assert.deepEqual(renderText(bash), [], "round tools render only inside the summary card");
 		assistant1.setExpanded(false);
@@ -404,7 +367,6 @@ test("consecutive tool-call messages accumulate into one round until the next vi
 				{ type: "text", text: "final answer" },
 			],
 		};
-		activeTimestamp = 4;
 		const finalThinking = {
 			role: "assistant",
 			timestamp: 4,
@@ -412,11 +374,10 @@ test("consecutive tool-call messages accumulate into one round until the next vi
 		};
 		const final = new AssistantMessageComponent(finalThinking as any, true) as any;
 		final.updateContent(finalThinking as any);
-		assert.match(renderText(assistant1).join("\n"), /^Running\.\.\. · 5s, bash×2/);
+		assert.match(renderText(assistant1).join("\n"), /^Running\.\.\., bash×2/);
 
-		activeTimestamp = undefined;
 		final.updateContent(finalMessage);
-		assert.match(renderText(assistant1).join("\n"), /^Ran for 5s, bash×2/);
+		assert.match(renderText(assistant1).join("\n"), /^bash×2, fffind×1, read×1/);
 		assert.match(renderText(final).join("\n"), /final answer/);
 		assert.doesNotMatch(renderText(final).join("\n"), /Thought|final thought/);
 
@@ -432,9 +393,10 @@ test("consecutive tool-call messages accumulate into one round until the next vi
 		next.updateContent(nextMessage);
 		const nextLines = renderText(next).join("\n");
 		assert.match(nextLines, /next round/);
-		assert.match(nextLines, /Running\.\.\.(?: · \d+ms)?, grep×1/);
+		assert.match(nextLines, /Running\.\.\., grep×1/);
+		assert.doesNotMatch(nextLines, /\d+(?:ms|s|m)/);
 		assert.doesNotMatch(nextLines, /bash×2/);
-		assert.match(renderText(assistant1).join("\n"), /^Ran for 5s, bash×2/);
+		assert.match(renderText(assistant1).join("\n"), /^bash×2, fffind×1, read×1/);
 	} finally {
 		setMessageDisplayTheme(previousTheme);
 		config.mode = previousMode;
@@ -452,7 +414,6 @@ test("expanded running round keeps thinking and tools in transcript order", () =
 	installCompactThinking(pi, {
 		useSummaryTitlesAsThinkingTitle: false,
 		previewLines: 3,
-		animationIntervalMs: 30,
 	});
 	emit("session_start", {}, ctx);
 	const hooks = installCompactMode({ writeMetadata: new WriteExecutionMetadataStore() });
@@ -501,15 +462,10 @@ test("expanded running round keeps thinking and tools in transcript order", () =
 	}
 });
 
-test("Running duration recomputes on each render via round wall clock", () => {
+test("Running summary does not expose elapsed time", () => {
 	const previousMode = config.mode;
 	config.mode = "compact";
 	const hooks = installCompactMode({
-		query: {
-			getMessageThinkingDurationMs: () => undefined,
-			isMessageThinkingActive: () => false,
-			getThinkingAnimationFrame: () => 0,
-		},
 		writeMetadata: new WriteExecutionMetadataStore(),
 	});
 	const realNow = Date.now;
@@ -526,7 +482,9 @@ test("Running duration recomputes on each render via round wall clock", () => {
 		assert.match(renderText(assistant).join("\n"), /Running\.\.\./);
 
 		now += 1100;
-		assert.match(renderText(assistant).join("\n"), /Running\.\.\. · [1-9]\d*s, bash×1/);
+		const rendered = renderText(assistant).join("\n");
+		assert.match(rendered, /Running\.\.\., bash×1/);
+		assert.doesNotMatch(rendered, /\d+(?:ms|s|m)/);
 	} finally {
 		Date.now = realNow;
 		config.mode = previousMode;
@@ -538,10 +496,6 @@ test("compact folds Agent/Task tools always; no pending outer flash", () => {
 	const previousMode = config.mode;
 	config.mode = "compact";
 	const hooks = installCompactMode({
-		query: {
-			getMessageThinkingDurationMs: () => 1000,
-			isMessageThinkingActive: () => false,
-		},
 		writeMetadata: new WriteExecutionMetadataStore(),
 	});
 	try {
@@ -610,10 +564,6 @@ test("compact surfaces abort outside folded tools", () => {
 	const previousMode = config.mode;
 	config.mode = "compact";
 	const hooks = installCompactMode({
-		query: {
-			getMessageThinkingDurationMs: () => 2000,
-			isMessageThinkingActive: () => false,
-		},
 		writeMetadata: new WriteExecutionMetadataStore(),
 	});
 	try {
@@ -634,7 +584,7 @@ test("compact surfaces abort outside folded tools", () => {
 
 		const lines = renderText(assistant);
 		assert.ok(
-			lines.some((line) => /Ran for |Running\.\.\./.test(line) && /bash×1/.test(line)),
+			lines.some((line) => /bash×1/.test(line)),
 			`summary present, got: ${JSON.stringify(lines)}`,
 		);
 		assert.ok(
@@ -724,7 +674,11 @@ test("compact edit/write keeps the stats header and inherits on-mode diff limits
 		assert.match(expanded, /old/);
 		assert.match(expanded, /new/);
 		assert.doesNotMatch(expanded, /Input|Output|Details:/);
-		assert.ok(backgroundSlots.includes("userMessageBg"));
+		const userBackground = previousTheme?.getBgAnsi?.("userMessageBg");
+		assert.ok(
+			!userBackground || expandedRaw.every((line: string) => !line.startsWith(userBackground)),
+			"expanded edit card stays transparent",
+		);
 		setMessageDisplayTheme(previousTheme);
 
 		// edit 缺 diff 时统计未知，不能伪报 (+0 -0)。
@@ -967,7 +921,6 @@ test("refreshMountedTranscript asserts compact ownership before redraw (resume w
 		installCompactThinking(pi, {
 			useSummaryTitlesAsThinkingTitle: false,
 			previewLines: 0,
-			animationIntervalMs: 30,
 		});
 		await emit("session_start", {}, ctx);
 		// 不等 renderer 的 setTimeout(syncCompactMode)：模拟无新消息的 resume。
@@ -1005,7 +958,6 @@ test("session_start and session_tree keep the compact patch outermost over compa
 		installCompactThinking(pi, {
 			useSummaryTitlesAsThinkingTitle: false,
 			previewLines: 0,
-			animationIntervalMs: 30,
 		});
 		await emit("session_start", {}, ctx);
 		// renderer 的 session_start 先于 compact-thinking 执行；延迟 sync 重新认领。
@@ -1055,7 +1007,6 @@ test("isStreaming survives the compact + compact-thinking patch chain (mermaid f
 		installCompactThinking(pi, {
 			useSummaryTitlesAsThinkingTitle: false,
 			previewLines: 0,
-			animationIntervalMs: 30,
 		});
 		// 真实链序：compact-thinking 先装，compact-mode 在其外层再装。
 		await emit("session_start", {}, ctx);

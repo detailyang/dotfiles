@@ -24,7 +24,6 @@ import {
 	renderCollapsedToolResultToWidth,
 	renderExpandedToolResult,
 	resolveToolVisualState,
-	scheduleAnimation,
 	settledIcon,
 	setToolVisualState,
 	textFromResult,
@@ -35,7 +34,6 @@ import { oneLine } from "../utils/format.ts";
 import { showMoreHintText } from "./tool/show-more-hint.ts";
 import { countWriteDiffStats } from "./tool/diff/diff-renderer.ts";
 import { renderRichToolResult, type WriteExecutionMetadataStore } from "./tool/diff/index.ts";
-import { getMessageDisplayTheme } from "./tool/message-display.ts";
 import { humanizeToolLabel, toolCallSummary } from "./tool/names.ts";
 
 // 成功勾：亮绿 truecolor（与 message-display 一致）
@@ -230,7 +228,6 @@ function createCcstyleTool(
 			const isPending =
 				visualState === "pending" ||
 				(!visualState && (context?.isPartial || context?.executionStarted));
-			if (isPending && context?.executionStarted) scheduleAnimation(context);
 			const rawIcon = isPending ? pendingIcon(toolName) : settledIcon(toolName, visualState);
 			const icon =
 				visualState === "success"
@@ -558,7 +555,7 @@ function deactivateGlobalToolRendering(patch: GlobalToolRenderPatch): void {
 	}
 }
 
-/** 展开面板背景统一为 user message 背景色；折叠行保持原生状态色。
+/** 展开面板保持透明；折叠行保持原生状态色。
  *  必须在 compact-mode 之后安装，shutdown 时先于 compact-mode 释放。 */
 export function installToolExpandedBackground(): () => void {
 	const previous = patchRegistry.get<ToolExpandedBackgroundPatch>(TOOL_EXPANDED_BACKGROUND_PATCH);
@@ -571,14 +568,12 @@ export function installToolExpandedBackground(): () => void {
 		installed: function (this: any) {
 			original.call(this);
 			if (!patch.active || config.mode !== "on" || !this.expanded) return;
-			const theme = getMessageDisplayTheme();
-			if (!theme?.bg) return;
 			const box = this.contentBox;
-			// 展开最外层卡片：上下左右内间距 1 格
+			// Keep expanded tool output readable across themes.
 			if (box) {
 				box.paddingX = 1;
 				box.paddingY = 1;
-				if (box.setBgFn) box.setBgFn((text: string) => theme.bg("userMessageBg", text));
+				box.setBgFn?.(undefined);
 			}
 		},
 		original,

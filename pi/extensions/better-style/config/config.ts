@@ -42,11 +42,9 @@ export type Config = {
   inputClip: number;
   useSummaryTitlesAsThinkingTitle: boolean;
   previewLines: number;
-  animationIntervalMs: number;
   dimThinkingText: boolean;
   enableMarkdownEnhance: boolean;
   enableAgentSummary: boolean;
-  enableWorkingMessage: boolean;
 };
 
 const AGENT_DIR = process.env.PI_CODING_AGENT_DIR ?? join(homedir(), ".pi", "agent");
@@ -62,7 +60,6 @@ export const EXPANDED_INPUT_MAX_LINES_VALUES = ["5", "10", "20", "40", "80"];
 export const EXPANDED_OUTPUT_MAX_LINES_VALUES = ["10", "20", "40", "80", "120"];
 export const INPUT_CLIP_VALUES = ["40", "60", "80", "100", "120", "160"];
 export const THINKING_PREVIEW_LINES_VALUES = ["0", "1", "3", "5", "10"];
-export const THINKING_ANIMATION_INTERVAL_VALUES = ["40", "60", "90", "120", "180"];
 export const EXCLUDE_RENDERER_CANDIDATES = [
   "bash",
   "read",
@@ -90,11 +87,9 @@ export const DEFAULT_CONFIG: Config = {
   inputClip: 100,
   useSummaryTitlesAsThinkingTitle: true,
   previewLines: 3,
-  animationIntervalMs: 90,
   dimThinkingText: false,
   enableMarkdownEnhance: true,
   enableAgentSummary: true,
-  enableWorkingMessage: true,
 };
 
 function pickEnum<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
@@ -107,11 +102,6 @@ export function pickPositiveInt(value: unknown, fallback: number, min = 1, max =
   const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   if (!Number.isFinite(parsed)) return fallback;
   return Math.min(max, Math.max(min, Math.floor(parsed)));
-}
-
-export function pickPositiveNumber(value: unknown, fallback: number, min = 1): number {
-  const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
-  return Number.isFinite(parsed) ? Math.max(min, parsed) : fallback;
 }
 
 export function normalizeConfig(input: unknown): Config {
@@ -134,11 +124,9 @@ export function normalizeConfig(input: unknown): Config {
     inputClip: pickPositiveInt(source.inputClip, DEFAULT_CONFIG.inputClip, 8, 500),
     useSummaryTitlesAsThinkingTitle: source.useSummaryTitlesAsThinkingTitle !== false,
     previewLines: pickPositiveInt(source.previewLines, DEFAULT_CONFIG.previewLines, 0, Number.MAX_SAFE_INTEGER),
-    animationIntervalMs: pickPositiveNumber(source.animationIntervalMs, DEFAULT_CONFIG.animationIntervalMs),
     dimThinkingText: source.dimThinkingText === true,
     enableMarkdownEnhance: source.enableMarkdownEnhance !== false,
     enableAgentSummary: source.enableAgentSummary !== false,
-    enableWorkingMessage: source.enableWorkingMessage !== false,
   };
 }
 
@@ -146,7 +134,6 @@ export function getCompactThinkingConfig(source: Config = config): CompactThinki
   return {
     useSummaryTitlesAsThinkingTitle: source.useSummaryTitlesAsThinkingTitle,
     previewLines: source.previewLines,
-    animationIntervalMs: source.animationIntervalMs,
   };
 }
 
@@ -182,11 +169,9 @@ export function formatConfigStatus(source: Config = config): string {
     `inputClip=${source.inputClip}`,
     `thinkingTitle=${source.useSummaryTitlesAsThinkingTitle ? "summary" : "default"}`,
     `thinkingPreview=${source.previewLines}`,
-    `thinkingAnimation=${source.animationIntervalMs}ms`,
     `thinkingDim=${source.dimThinkingText ? "on" : "off"}`,
     `markdown=${source.enableMarkdownEnhance ? "on" : "off"}`,
     `agentSummary=${source.enableAgentSummary ? "on" : "off"}`,
-    `workingMsg=${source.enableWorkingMessage ? "on" : "off"}`,
   ].join(" · ");
 }
 

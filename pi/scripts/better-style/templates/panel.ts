@@ -12,7 +12,6 @@ import {
   EXPANDED_PREVIEW_MAX_LINES_VALUES,
   getCompactThinkingConfig,
   INPUT_CLIP_VALUES,
-  THINKING_ANIMATION_INTERVAL_VALUES,
   THINKING_PREVIEW_LINES_VALUES,
   updateConfig,
   WRITE_DIFF_COLLAPSED_LINES_VALUES,
@@ -55,11 +54,9 @@ export async function showBetterStylePanel(
       `Tool input clip: ${config.inputClip}`,
       `Thinking title: ${config.useSummaryTitlesAsThinkingTitle ? "summary" : "default"}`,
       `Thinking preview lines: ${config.previewLines}`,
-      `Thinking animation: ${config.animationIntervalMs}ms`,
       `Thinking dim text: ${config.dimThinkingText ? "on" : "off"}`,
       `Markdown enhancement: ${config.enableMarkdownEnhance ? "on" : "off"}`,
       `Agent summary: ${config.enableAgentSummary ? "on" : "off"}`,
-      `Working status: ${config.enableWorkingMessage ? "on" : "off"}`,
       `Native renderers: ${config.excludeRenderers.join(", ") || "none"}`,
       "Done",
     ]);
@@ -102,17 +99,12 @@ export async function showBetterStylePanel(
     } else if (action.startsWith("Thinking preview lines:")) {
       const value = await selectValue(ctx, "Thinking preview lines", THINKING_PREVIEW_LINES_VALUES);
       if (value) refresh({ previewLines: Number(value) });
-    } else if (action.startsWith("Thinking animation:")) {
-      const value = await selectValue(ctx, "Thinking animation interval", THINKING_ANIMATION_INTERVAL_VALUES);
-      if (value) refresh({ animationIntervalMs: Number(value) });
     } else if (action.startsWith("Thinking dim text:")) {
       refresh({ dimThinkingText: !config.dimThinkingText });
     } else if (action.startsWith("Markdown enhancement:")) {
       refresh({ enableMarkdownEnhance: !config.enableMarkdownEnhance });
     } else if (action.startsWith("Agent summary:")) {
       refresh({ enableAgentSummary: !config.enableAgentSummary });
-    } else if (action.startsWith("Working status:")) {
-      refresh({ enableWorkingMessage: !config.enableWorkingMessage });
     } else if (action.startsWith("Native renderers:")) {
       const labels = EXCLUDE_RENDERER_CANDIDATES.map((name) => `${name} — ${config.excludeRenderers.includes(name) ? "native" : "styled"}`);
       const selected = await ctx.ui.select("Toggle native renderer", labels);

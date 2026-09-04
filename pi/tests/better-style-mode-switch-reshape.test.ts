@@ -87,10 +87,6 @@ test("on → compact reshapes to summary; compact → on restores tool cards", (
 	const previous = config.mode;
 	config.mode = "on";
 	const hooks = installCompactMode({
-		query: {
-			getMessageThinkingDurationMs: (ts) => (ts === 1 ? 9000 : undefined),
-			isMessageThinkingActive: () => false,
-		},
 		writeMetadata: new WriteExecutionMetadataStore(),
 	});
 	try {
@@ -121,11 +117,11 @@ test("on → compact reshapes to summary; compact → on restores tool cards", (
 
 		// on：工具卡可见，无 compact 摘要
 		assert.ok(renderText(bash).length > 0);
-		assert.ok(!renderText(a1).some((l) => /Ran for .*bash×/.test(l)));
+		assert.ok(!renderText(a1).some((l) => /bash×/.test(l)));
 
 		// → compact：对齐 docs compact
 		switchMode("compact", hooks, root);
-		assert.match(renderText(a1).join("\n"), /^Ran for 9s, bash×1, read×2, grep×1/);
+		assert.match(renderText(a1).join("\n"), /^bash×1, read×2, grep×1/);
 		assert.match(renderText(a1).join("\n"), /ctrl\+o to show more/);
 		assert.deepEqual(renderText(bash), []);
 		assert.match(renderText(edit).join("\n"), /edit sample\.ts \(\+1 -1\)/);
@@ -134,11 +130,11 @@ test("on → compact reshapes to summary; compact → on restores tool cards", (
 		// → on：工具卡恢复，摘要消失
 		switchMode("on", hooks, root);
 		assert.ok(renderText(bash).length > 0);
-		assert.ok(!renderText(a1).some((l) => /Ran for 9s, bash×1/.test(l)));
+		assert.ok(!renderText(a1).some((l) => /bash×1/.test(l)));
 
 		// → compact 再来一轮（所有权不得因 on 释放而丢）
 		switchMode("compact", hooks, root);
-		assert.match(renderText(a1).join("\n"), /^Ran for 9s, bash×1, read×2, grep×1/);
+		assert.match(renderText(a1).join("\n"), /^bash×1, read×2, grep×1/);
 		assert.deepEqual(renderText(bash), []);
 	} finally {
 		config.mode = previous;
@@ -150,10 +146,6 @@ test("panel empty-root scan keeps live tracking (no /reload required)", () => {
 	const previous = config.mode;
 	config.mode = "on";
 	const hooks = installCompactMode({
-		query: {
-			getMessageThinkingDurationMs: () => 4000,
-			isMessageThinkingActive: () => false,
-		},
 		writeMetadata: new WriteExecutionMetadataStore(),
 	});
 	try {
@@ -170,7 +162,7 @@ test("panel empty-root scan keeps live tracking (no /reload required)", () => {
 		hooks.refresh();
 
 		// 无最终文本时 round 仍 active → Running...；关键是计数与工具隐藏仍在。
-		assert.match(renderText(a1).join("\n"), /4s, bash×1/);
+		assert.match(renderText(a1).join("\n"), /^Running\.\.\., bash×1/);
 		assert.deepEqual(renderText(bash), []);
 	} finally {
 		config.mode = previous;
@@ -182,10 +174,6 @@ test("round accumulation survives on → compact switch", () => {
 	const previous = config.mode;
 	config.mode = "on";
 	const hooks = installCompactMode({
-		query: {
-			getMessageThinkingDurationMs: (ts) => ({ 1: 400, 2: 500, 3: 600 })[ts],
-			isMessageThinkingActive: () => false,
-		},
 		writeMetadata: new WriteExecutionMetadataStore(),
 	});
 	try {
@@ -205,7 +193,10 @@ test("round accumulation survives on → compact switch", () => {
 		const root = { children: [a1, a2, a3] };
 
 		switchMode("compact", hooks, root);
-		assert.match(renderText(a1).join("\n"), /2s, bash×2, fffind×1, read×1/);
+		assert.match(
+			renderText(a1).join("\n"),
+			/^Running\.\.\., bash×2, fffind×1, read×1/,
+		);
 		assert.deepEqual(renderText(a2), []);
 		assert.deepEqual(renderText(a3), []);
 	} finally {
@@ -218,10 +209,6 @@ test("messages created while mode=on stay tracked for later compact switch", () 
 	const previous = config.mode;
 	config.mode = "on";
 	const hooks = installCompactMode({
-		query: {
-			getMessageThinkingDurationMs: () => 1000,
-			isMessageThinkingActive: () => false,
-		},
 		writeMetadata: new WriteExecutionMetadataStore(),
 	});
 	try {
@@ -242,7 +229,7 @@ test("messages created while mode=on stay tracked for later compact switch", () 
 		hooks.sync({ ui });
 		hooks.refresh();
 
-		assert.match(renderText(a1).join("\n"), /1s, grep×1/);
+		assert.match(renderText(a1).join("\n"), /^Running\.\.\., grep×1/);
 		assert.deepEqual(renderText(grep), []);
 	} finally {
 		config.mode = previous;

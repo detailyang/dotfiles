@@ -11,9 +11,8 @@ import {
   type CompactStyleMode,
   type Config,
 } from "../config/config.ts";
-import { installCompactMode, refreshCompactModeComponents, type CompactModeHooks, type CompactThinkingQuery } from "./compact-mode.ts";
+import { installCompactMode, refreshCompactModeComponents, type CompactModeHooks } from "./compact-mode.ts";
 import { installDefaultMode, installToolExpandedBackground, type DefaultModeHooks } from "./default-mode.ts";
-import { clearAllAnimations } from "./tool/result.ts";
 import { installToolGrouping, type ToolGroupingHooks } from "./tool/grouping.ts";
 import { installWriteOverride, WriteExecutionMetadataStore } from "./tool/diff/index.ts";
 import { installMessageDisplayRendering, refreshMessageDisplays, setMessageDisplayTheme } from "./tool/message-display.ts";
@@ -70,7 +69,6 @@ export default function (
     const defaultMode = installDefaultMode(writeExecutionMetadata);
     const toolGrouping = installToolGrouping(() => config.mode === "on");
     const compactMode = installCompactMode({
-      query: compactThinking as CompactThinkingQuery | undefined,
       writeMetadata: writeExecutionMetadata,
     });
     compactModeHooks = compactMode;
@@ -184,7 +182,6 @@ export default function (
     current.compactMode.shutdown();
     compactModeHooks = undefined;
     current.disposeMessageDisplay();
-    clearAllAnimations();
     installation = undefined;
   });
 }

@@ -2,7 +2,7 @@ import { Text, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil
 import { inspect } from "node:util";
 import { config } from "../../config/config.ts";
 import { showMoreHintText } from "./show-more-hint.ts";
-import { TOOL_LOADING_INTERVAL_MS, toolLoadingIcon } from "../../utils/tool-loading-icon.ts";
+import { toolLoadingIcon } from "../../utils/tool-loading-icon.ts";
 import { sanitizeToolResultText } from "../../utils/tool-result-sanitize.ts";
 
 const TOOL_VIEWPORT_WIDTH_RATIO = 0.8;
@@ -66,48 +66,6 @@ function hasExpandableResult(text: string): boolean {
 	return countLines(text) > 1;
 }
 
-const activeAnimationContexts = new Set<any>();
-let sharedAnimationTimer: ReturnType<typeof setTimeout> | null = null;
-
-function clearAnimation(context: any) {
-	if (!context?.state?.betterStyleAnimationScheduled) return;
-	context.state.betterStyleAnimationScheduled = false;
-	activeAnimationContexts.delete(context);
-	if (activeAnimationContexts.size === 0 && sharedAnimationTimer) {
-		clearTimeout(sharedAnimationTimer);
-		sharedAnimationTimer = null;
-	}
-}
-
-export function clearAllAnimations() {
-	for (const ctx of activeAnimationContexts) {
-		ctx.state.betterStyleAnimationScheduled = false;
-	}
-	activeAnimationContexts.clear();
-	if (sharedAnimationTimer) {
-		clearTimeout(sharedAnimationTimer);
-		sharedAnimationTimer = null;
-	}
-}
-
-export function scheduleAnimation(context: any, intervalMs = TOOL_LOADING_INTERVAL_MS) {
-	const state = (context.state ??= {});
-	if (state.betterStyleAnimationScheduled) return;
-	state.betterStyleAnimationScheduled = true;
-	activeAnimationContexts.add(context);
-	if (!sharedAnimationTimer) {
-		sharedAnimationTimer = setTimeout(() => {
-			sharedAnimationTimer = null;
-			const contexts = Array.from(activeAnimationContexts);
-			activeAnimationContexts.clear();
-			for (const ctx of contexts) {
-				ctx.state.betterStyleAnimationScheduled = false;
-				ctx.invalidate?.();
-			}
-		}, intervalMs);
-	}
-}
-
 export function pendingIcon(_name: string): string {
 	return toolLoadingIcon();
 }
@@ -123,7 +81,6 @@ export function settledIcon(name: string, state: ToolVisualState | undefined): s
 
 export function setToolVisualState(context: any, visualState: ToolVisualState) {
 	const state = (context.state ??= {});
-	if (visualState !== "pending") clearAnimation(context);
 	if (state.ccstyleToolVisualState === visualState) return;
 	state.ccstyleToolVisualState = visualState;
 	// Do not invalidate synchronously from renderResult. Pi is already rendering

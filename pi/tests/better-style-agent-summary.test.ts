@@ -28,7 +28,7 @@ test("classifyTool：bash/read/edit/write/other", () => {
 });
 
 test("AgentRunSummary：bash/powershell 计数；read/edit/write 按路径去重；other 计数", () => {
-	const summary = new AgentRunSummary(1_000);
+	const summary = new AgentRunSummary();
 	summary.recordToolStart("bash", { command: "npm test" });
 	summary.recordToolStart("powershell", { command: "Get-ChildItem" });
 	summary.recordToolStart("bash", { command: "ls" });
@@ -43,7 +43,7 @@ test("AgentRunSummary：bash/powershell 计数；read/edit/write 按路径去重
 	summary.recordToolResult(false);
 
 	assert.equal(summary.toolCount, 10);
-	const data = summary.snapshot(61_000);
+	const data = summary.snapshot();
 	assert.deepEqual(data, {
 		commands: 3,
 		reads: 2,
@@ -51,7 +51,6 @@ test("AgentRunSummary：bash/powershell 计数；read/edit/write 按路径去重
 		writes: 1,
 		others: 1,
 		failed: 1,
-		durationMs: 60_000,
 	} satisfies AgentSummaryData);
 });
 
@@ -63,11 +62,10 @@ test("summaryMarkdown renders the agent summary entry", () => {
 		writes: 1,
 		others: 0,
 		failed: 0,
-		durationMs: 42_000,
 	};
 	assert.equal(
 		summaryMarkdown(data),
-		"> *Ran 3 commands, read 2 files, edited 1 file, wrote 1 file · 42s*",
+		"> *Ran 3 commands, read 2 files, edited 1 file, wrote 1 file*",
 	);
 	assert.equal(summaryMarkdown({ ...data, commands: 0, reads: 0, edits: 0, writes: 0 }), "");
 });
@@ -109,7 +107,6 @@ test("bindAgentSummary 事件绑定：agent_start 重置、agent_end 回调", as
 		writes: 0,
 		others: 1,
 		failed: 0,
-		durationMs: calls[1].durationMs,
 	});
 });
 
@@ -155,7 +152,6 @@ test("agent-summary 注册 renderer，agent_end 输出引用块", async () => {
 					writes: 0,
 					others: 0,
 					failed: 0,
-					durationMs: 0,
 				},
 			},
 			{ expanded: false },

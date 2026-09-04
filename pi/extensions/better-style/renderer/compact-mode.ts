@@ -1,6 +1,6 @@
 /**
  * Compact mode：每条含 toolCall 的 assistant message 折叠为一条逐步累加的摘要行
- * （`Ran for 8s, bash×2, read×2`），edit/write 独立标题行（`✓ write <path> (+25 -0)`），
+ * （`Running..., bash×2, read×2`），edit/write 独立标题行（`✓ write <path> (+25 -0)`），
  * 普通工具折叠时不显示独立行；展开（Ctrl+O / fullscreen 点击）在单个工具卡中恢复
  * compact-thinking/Pi 原生或专用 renderer。edit/write 复用 mode=on 的 rich diff
  * 与 `editDiffCollapsedLines` / `writeDiffCollapsedLines` / `expandedPreviewMaxLines`。
@@ -8,7 +8,7 @@
  * 底部 Agents/Tasks 面板由 pi-subagents/pi-tasks 独立 widget 负责，不经 tool 卡外置。
  *
  * 工具计数：read 按非空路径去重、其余按调用计数（首次出现顺序）；edit/write 不进摘要。
- * 时长 = 回合流逝挂钟；进行中 Running...，结束 Ran for。
+ * 进行中显示静态 Running...，结束后仅保留工具计数。
  * abort/error/length 状态行挂在摘要外层，避免被折叠吞掉。
  * 最终 agent 回合摘要由 feature/agent-summary 独占（bash/read/edit/write/other）。
  *
@@ -34,9 +34,9 @@ import {
 } from "./tool/diff/diff-renderer.ts";
 import { renderRichToolResult } from "./tool/diff/index.ts";
 import type { WriteExecutionMetadataStore } from "./tool/diff/write-execution.ts";
-import { insetComponent, renderExpandedToolResult, scheduleAnimation } from "./tool/result.ts";
+import { insetComponent, renderExpandedToolResult } from "./tool/result.ts";
 import { oneLine } from "../utils/format.ts";
-import { paddedBackgroundRow } from "./tool/grouping.ts";
+import { paddedTransparentRow } from "./tool/grouping.ts";
 import { hasVisibleText, stripBackgroundAnsi } from "../utils/ansi-text.ts";
 import { walkComponentTree } from "../utils/component-tree.ts";
 import {
@@ -48,14 +48,6 @@ import {
 	patchRegistry,
 	PROTOTYPE_ORIGINAL_KEY,
 } from "../utils/patch-keys.ts";
-
-/** compact 渲染层对 compact-thinking 的只读查询面（不建第二套计时器）。 */
-export type CompactThinkingQuery = {
-	getMessageThinkingDurationMs(messageTimestamp: number): number | undefined;
-	isMessageThinkingActive?(messageTimestamp: number): boolean;
-	getThinkingAnimationFrame?(): number;
-	setCompactSummaryActive?(active: boolean): void;
-};
 
 const EDIT_WRITE_TOOLS = new Set(["edit", "write"]);
 
@@ -73,56 +65,6 @@ export function styleCompactThinkingText(
 	const weighted = bold && typeof theme.bold === "function" ? theme.bold(colored) : colored;
 	return typeof theme.italic === "function" ? theme.italic(weighted) : weighted;
 }
-
-/** 与 compact-thinking 主渲染器共用的活动思考扫光动画。 */
-export function animateCompactThinkingText(
-	text: string,
-	theme: CompactThinkingTheme | undefined,
-	animationFrame: number,
-	boldBase = false,
-): string {
-	if (!theme) return text;
-	const characters = Array.from(text);
-	if (characters.length === 0) return "";
-	const highlightWidth = Math.max(1, Math.min(5, Math.ceil(characters.length * 0.28)));
-	const start = (animationFrame % (characters.length + highlightWidth)) - highlightWidth;
-	const end = start + highlightWidth;
-	const before = characters.slice(0, Math.max(0, start)).join("");
-	const highlighted = characters
-		.slice(Math.max(0, start), Math.min(characters.length, end))
-		.join("");
-	const after = characters.slice(Math.max(0, end)).join("");
-	const highlightedColored =
-		highlighted && typeof theme.fg === "function" ? theme.fg("text", highlighted) : highlighted;
-	const highlightedWeighted =
-		highlightedColored && typeof theme.bold === "function"
-			? theme.bold(highlightedColored)
-			: highlightedColored;
-	const highlightedText =
-		highlightedWeighted && typeof theme.italic === "function"
-			? theme.italic(highlightedWeighted)
-			: highlightedWeighted;
-
-	return (
-		styleCompactThinkingText(before, theme, boldBase) +
-		highlightedText +
-		styleCompactThinkingText(after, theme, boldBase)
-	);
-}
-
-function formatThoughtDuration(durationMs: number) {
-	if (durationMs < 1_000) {
-		return `${Math.max(1, Math.round(durationMs))}ms`;
-	}
-
-	const totalSeconds = Math.max(1, Math.round(durationMs / 1_000));
-	const minutes = Math.floor(totalSeconds / 60);
-	const seconds = totalSeconds % 60;
-	if (minutes === 0) return `${seconds}s`;
-	return seconds === 0 ? `${minutes}m` : `${minutes}m ${seconds}s`;
-}
-
-export { formatThoughtDuration };
 
 /** assistant stopReason → 外层状态文案（与 Pi 原生口径对齐）。 */
 export function messageStopStatus(message: any): string | undefined {
@@ -149,30 +91,12 @@ function roundStopStatus(messages: Iterable<any>): string | undefined {
 	return undefined;
 }
 
-/**
- * 逐条 assistant message 的摘要文本（无工具计数时可为空串）：
- * 时长 = max(thinking query, durationFloorMs 挂钟)；工具首次出现顺序；read 路径去重。
- */
-function buildMessagesSummary(
-	messages: Iterable<any>,
-	query?: CompactThinkingQuery,
-	runningActiveOverride?: boolean,
-	durationFloorMs?: number,
-): string {
+/** Build a compact summary without elapsed-time tracking. */
+function buildMessagesSummary(messages: Iterable<any>, runningActive = false): string {
 	const parts: string[] = [];
 	const counts = new Map<string, number>();
 	const readPaths = new Set<string>();
-	const durationTimestamps = new Set<number>();
-	let durationMs = 0;
-	let runningActive = false;
-
 	for (const message of messages) {
-		if (typeof message?.timestamp === "number" && !durationTimestamps.has(message.timestamp)) {
-			durationTimestamps.add(message.timestamp);
-			if (query?.isMessageThinkingActive?.(message.timestamp)) runningActive = true;
-			const value = query?.getMessageThinkingDurationMs(message.timestamp);
-			if (typeof value === "number" && Number.isFinite(value) && value > 0) durationMs += value;
-		}
 		const content = Array.isArray(message?.content) ? message.content : [];
 		for (const item of content) {
 			if (item?.type !== "toolCall") continue;
@@ -190,29 +114,13 @@ function buildMessagesSummary(
 			counts.set(name, (counts.get(name) ?? 0) + 1);
 		}
 	}
-
-	if (
-		typeof durationFloorMs === "number" &&
-		Number.isFinite(durationFloorMs) &&
-		durationFloorMs > durationMs
-	) {
-		durationMs = durationFloorMs;
-	}
-
-	runningActive = runningActiveOverride ?? runningActive;
-	if (runningActive) {
-		parts.push(durationMs > 0 ? `Running... · ${formatThoughtDuration(durationMs)}` : "Running...");
-	} else if (durationMs > 0) parts.push(`Ran for ${formatThoughtDuration(durationMs)}`);
+	if (runningActive) parts.push("Running...");
 	for (const [name, count] of counts) parts.push(`${name}×${count}`);
 	return parts.join(", ");
 }
 
-export function buildMessageSummary(
-	message: any,
-	query?: CompactThinkingQuery,
-	durationFloorMs?: number,
-): string {
-	return buildMessagesSummary([message], query, undefined, durationFloorMs);
+export function buildMessageSummary(message: any): string {
+	return buildMessagesSummary([message]);
 }
 
 function fallbackTheme(): any {
@@ -227,118 +135,36 @@ function themeOf(): any {
 	return getMessageDisplayTheme() ?? fallbackTheme();
 }
 
-/** RGB → HSL（h∈[0,1), l/s∈[0,1]）。 */
-function rgbToHsl(r: number, g: number, b: number): [number, number, number] {
-	r /= 255;
-	g /= 255;
-	b /= 255;
-	const max = Math.max(r, g, b);
-	const min = Math.min(r, g, b);
-	const l = (max + min) / 2;
-	if (max === min) return [0, 0, l];
-	const d = max - min;
-	const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-	let h: number;
-	switch (max) {
-		case r:
-			h = (g - b) / d + (g < b ? 6 : 0);
-			break;
-		case g:
-			h = (b - r) / d + 2;
-			break;
-		default:
-			h = (r - g) / d + 4;
-	}
-	return [h / 6, l, s];
+/** edit/write expanded cards keep spacing but do not reuse user-message colors. */
+function editWriteExpandedCard(_theme: any): any {
+	return new Box(1, 1);
 }
 
-/** HSL → RGB（h∈[0,1)，l/s∈[0,1]）。 */
-function hslToRgb(h: number, l: number, s: number): [number, number, number] {
-	if (s === 0) {
-		const v = Math.round(l * 255);
-		return [v, v, v];
-	}
-	const hue2rgb = (p: number, q: number, t: number): number => {
-		if (t < 0) t += 1;
-		if (t > 1) t -= 1;
-		if (t < 1 / 6) return p + (q - p) * 6 * t;
-		if (t < 1 / 2) return q;
-		if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
-		return p;
-	};
-	const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
-	const p = 2 * l - q;
-	return [
-		Math.round(hue2rgb(p, q, h + 1 / 3) * 255),
-		Math.round(hue2rgb(p, q, h) * 255),
-		Math.round(hue2rgb(p, q, h - 1 / 3) * 255),
-	];
-}
-
-/** 内部 tool call card 背景：在 userMessageBg 基础上按 HSL 变暗（l×0.7），
- *  与外卡片形成嵌套层次；非 RGB 色或已足够暗时原样返回。 */
-function darkenBgAnsi(theme: any, slot: string): string {
-	const prefix = typeof theme?.getBgAnsi === "function" ? String(theme.getBgAnsi(slot)) : "";
-	const m = prefix.match(/48;2;(\d+);(\d+);(\d+)/);
-	if (!m) return prefix;
-	const [h, l, s] = rgbToHsl(Number(m[1]), Number(m[2]), Number(m[3]));
-	if (l <= 0.05) return prefix; // 已足够暗，不再变暗
-	const [r, g, b] = hslToRgb(h, l * 0.7, s);
-	return `\x1b[48;2;${r};${g};${b}m`;
-}
-
-/** 工具卡深色行：左右内缩（左 2 右 3 格，含工具卡自身 padding），背景只到内容区，
- *  修复行尾 reset 截断。 */
-function toolCardBgRow(
-	theme: any,
-	slot: string,
-	bgAnsi: string,
-	line: string,
-	width: number,
-): string {
+function transparentToolCardRow(line: string, width: number): string {
 	const leftInset = 2;
 	const rightInset = 3;
 	const contentWidth = Math.max(0, width - leftInset - rightInset);
-	// 深色块内左右各 1 格内部 padding；去掉行首原有空格后重新对齐
 	const text = stripBackgroundAnsi(line).replace(/^ +/, "");
 	const innerPad = 2;
 	const clipped = truncateToWidth(text, Math.max(0, contentWidth - innerPad), "");
 	const pad = Math.max(0, contentWidth - innerPad - visibleWidth(clipped));
-	const body = ` ${clipped}${" ".repeat(pad)} `;
-	const stable = body.replace(/\x1b\[(?:0)?m/g, (reset) => reset + bgAnsi);
-	const outerBg = typeof theme?.getBgAnsi === "function" ? String(theme.getBgAnsi(slot)) : "";
-	const inset = (n: number) => (outerBg ? `${outerBg}${" ".repeat(n)}\x1b[49m` : " ".repeat(n));
-	return `${inset(leftInset)}${bgAnsi}${stable}\x1b[49m${inset(rightInset)}`;
-}
-/** edit/write 展开卡：保持原样式（userMessageBg Box），不应用工具卡深色/间距改动。 */
-function editWriteExpandedCard(theme: any): any {
-	return new Box(
-		1,
-		1,
-		typeof theme.bg === "function" ? (text: string) => theme.bg("userMessageBg", text) : undefined,
-	);
+	return `${" ".repeat(leftInset)} ${clipped}${" ".repeat(pad)} ${" ".repeat(rightInset)}`;
 }
 
-/** compact 展开卡：外卡片保持 userMessageBg 原色；内部 tool call card
- *  背景更深一层且只覆盖内容区（左右内缩、上下限首尾文本行），形成嵌套层次。
- *  hits：非工具子卡（thinking）的行区间，供展开后点击 hint。 */
+/** Render expanded compact tool output without imposing a theme background. */
 function layoutExpandedToolCard(
-	theme: any,
+	_theme: any,
 	children: any[],
 	width: number,
 ): { lines: string[]; hits: Array<{ child: any; start: number; end: number }> } {
-	const slot = "userMessageBg";
-	const toolBgAnsi = darkenBgAnsi(theme, slot);
 	const innerWidth = Math.max(0, width - 2);
 	const lines: string[] = [];
 	const hits: Array<{ child: any; start: number; end: number }> = [];
 	const isThinkingPreview = (child: any) => typeof child?.setHintHovered === "function";
-	lines.push(paddedBackgroundRow(theme, slot, "", width));
-	// 展开不再显示摘要行：跳过第一个 child 的首行空白，避免白占一行
+	lines.push(paddedTransparentRow("", width));
 	let skipLeadingBlank = true;
 	for (const child of children) {
 		const childLines = child.render(innerWidth);
-		// 展开的 thinking 与 tool 一样走嵌套深色卡，避免贴在外卡同色底上看不见。
 		const nest = child.__ccToolCard || (isThinkingPreview(child) && child.expanded === true);
 		if (!nest) {
 			let start = 0;
@@ -348,13 +174,11 @@ function layoutExpandedToolCard(
 			}
 			const rangeStart = lines.length;
 			for (let i = start; i < childLines.length; i++) {
-				lines.push(paddedBackgroundRow(theme, slot, childLines[i], width));
+				lines.push(paddedTransparentRow(childLines[i], width));
 			}
 			if (lines.length > rangeStart) hits.push({ child, start: rangeStart, end: lines.length });
 			continue;
 		}
-		// 工具卡：前导 1 空行 + 首尾文本行之间的内容区（深色）；不保留尾随，
-		// 相邻工具卡之间正好 1 空行，底部由卡片 padding 收尾。
 		skipLeadingBlank = false;
 		let first = -1;
 		let last = -1;
@@ -365,22 +189,19 @@ function layoutExpandedToolCard(
 			}
 		}
 		if (first < 0) {
-			for (const line of childLines) {
-				lines.push(paddedBackgroundRow(theme, slot, line, width));
-			}
+			for (const line of childLines) lines.push(paddedTransparentRow(line, width));
 			continue;
 		}
-		lines.push(paddedBackgroundRow(theme, slot, "", width));
+		lines.push(paddedTransparentRow("", width));
 		const rangeStart = lines.length;
-		// 子卡片内部上下各 1 行深色 padding
-		lines.push(toolCardBgRow(theme, slot, toolBgAnsi, "", width));
+		lines.push(transparentToolCardRow("", width));
 		for (let i = first; i <= last; i++) {
-			lines.push(toolCardBgRow(theme, slot, toolBgAnsi, childLines[i], width));
+			lines.push(transparentToolCardRow(childLines[i], width));
 		}
-		lines.push(toolCardBgRow(theme, slot, toolBgAnsi, "", width));
+		lines.push(transparentToolCardRow("", width));
 		if (isThinkingPreview(child)) hits.push({ child, start: rangeStart, end: lines.length });
 	}
-	lines.push(paddedBackgroundRow(theme, slot, "", width));
+	lines.push(paddedTransparentRow("", width));
 	return { lines, hits };
 }
 
@@ -464,7 +285,6 @@ export type CompactModeHooks = {
 };
 
 type CompactModeInstallDeps = {
-	query?: CompactThinkingQuery;
 	writeMetadata: WriteExecutionMetadataStore;
 };
 
@@ -649,9 +469,7 @@ function compactEditWriteLines(
 
 function compactAssistantLineComponent(
 	component: any,
-	/** 静态串或每次 render 重算（Running 时长需逐步跳动）。 */
 	summary: string | (() => string),
-	query?: CompactThinkingQuery,
 	options: { hint?: boolean; leadingBlank?: boolean; pad?: number } = {},
 ): any {
 	const self = component as any;
@@ -663,25 +481,13 @@ function compactAssistantLineComponent(
 			const hintText = options.hint === false ? "" : ` • ${showMoreHintText()}`;
 			const summaryWidth = Math.max(0, available - visibleWidth(hintText));
 			const resolved = typeof summary === "function" ? summary() : summary;
-			const runningActive = resolved.startsWith("Running...");
 			const plainText = truncateToWidth(resolved, summaryWidth, "…");
 			let text = theme.fg("muted", plainText);
-			if (runningActive || plainText.startsWith("Ran for ")) {
+			if (plainText.startsWith("Running...")) {
 				const separator = plainText.indexOf(", ");
 				const heading = separator < 0 ? plainText : plainText.slice(0, separator);
 				const tools = separator < 0 ? "" : plainText.slice(separator);
-				if (runningActive) {
-					const durationSeparator = heading.indexOf(" · ");
-					const label = durationSeparator < 0 ? heading : heading.slice(0, durationSeparator);
-					const duration = durationSeparator < 0 ? "" : heading.slice(durationSeparator);
-					text = `${animateCompactThinkingText(
-						label,
-						theme,
-						query?.getThinkingAnimationFrame?.() ?? 0,
-					)}${styleCompactThinkingText(duration, theme)}${theme.fg("muted", tools)}`;
-				} else {
-					text = `${styleCompactThinkingText(heading, theme)}${theme.fg("muted", tools)}`;
-				}
+				text = `${styleCompactThinkingText(heading, theme)}${theme.fg("muted", tools)}`;
 			}
 			const hintColor = hoveredAssistantComponent === component ? "text" : "dim";
 			const line = `${text}${hintText ? theme.fg(hintColor, hintText) : ""}`;
@@ -704,14 +510,9 @@ function compactStopStatusLine(status: string, pad = 0): any {
 	};
 }
 
-function compactAssistantLine(
-	component: any,
-	summary: string | (() => string),
-	query?: CompactThinkingQuery,
-): void {
-	// 空静态串跳过；getter 留给 render 判断（Running 可能稍后才有时长）。
+function compactAssistantLine(component: any, summary: string | (() => string)): void {
 	if (typeof summary === "string" && !summary) return;
-	component.contentContainer.addChild(compactAssistantLineComponent(component, summary, query));
+	component.contentContainer.addChild(compactAssistantLineComponent(component, summary));
 }
 
 function appendStopStatus(component: any, status: string | undefined): void {
@@ -815,61 +616,18 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 		detachedMessages: any[];
 		active: boolean;
 		suppressedToolIds: Set<string>;
-		/** 回合挂钟起点，保证 Running 时长连续递增。 */
-		startedAt: number;
-		endedAt?: number;
 	};
 	let activeRound: CompactRound | undefined;
 	let roundByComponent = new WeakMap<object, CompactRound>();
 	const expandedRoundToolIds = new Set<string>();
-	let uiRef: { requestRender?: (force?: boolean) => void } | undefined;
-	let roundTickTimer: ReturnType<typeof setInterval> | undefined;
 
-	const roundWallMs = (round: CompactRound): number => {
-		const end = round.active ? Date.now() : (round.endedAt ?? Date.now());
-		return Math.max(1, end - round.startedAt);
-	};
+	const summarize = (messages: Iterable<any>, runningActive = false) =>
+		buildMessagesSummary(messages, runningActive);
 
-	const summarize = (messages: Iterable<any>, runningActive?: boolean, round?: CompactRound) =>
-		buildMessagesSummary(
-			messages,
-			deps.query,
-			runningActive,
-			round ? roundWallMs(round) : undefined,
-		);
-
-	const stopRoundTick = (): void => {
-		if (!roundTickTimer) return;
-		clearInterval(roundTickTimer);
-		roundTickTimer = undefined;
-	};
-
-	// 自备 tick：getter 在 render 重算挂钟；兼驱动 Running 扫光（setCompactSummaryActive）。
-	const ensureRoundTick = (): void => {
-		if (roundTickTimer) return;
-		roundTickTimer = setInterval(() => {
-			if (!patch.active || !activeRound?.active) {
-				stopRoundTick();
-				return;
-			}
-			try {
-				// 非 force：保留 fullscreen 布局缓存和差分绘制。
-				uiRef?.requestRender?.();
-			} catch {
-				/* 无 UI */
-			}
-		}, 250);
-	};
-
-	/** 结束回合活动态；可选立即重绘。 */
+	/** End the active round; event-driven renders update the static summary. */
 	const endRound = (round: CompactRound, render = false): void => {
 		round.active = false;
-		if (round.endedAt === undefined) round.endedAt = Date.now();
-		if (activeRound === round) {
-			activeRound = undefined;
-			deps.query?.setCompactSummaryActive?.(false);
-			stopRoundTick();
-		}
+		if (activeRound === round) activeRound = undefined;
 		if (render) renderRound(round);
 	};
 
@@ -910,8 +668,7 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 		const messages = roundMessages(round);
 		const stopStatus = roundStopStatus(messages);
 		if (stopStatus) endRound(round);
-		// Running 时每次 render 重算时长（含挂钟下限）；结束后固定。
-		const getSummary = () => summarize(roundMessages(round), round.active, round);
+		const getSummary = () => summarize(roundMessages(round), round.active);
 		const summary = getSummary();
 		for (const id of round.suppressedToolIds) expandedRoundToolIds.delete(id);
 		round.suppressedToolIds.clear();
@@ -1019,7 +776,7 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 			if (component === round.anchor) {
 				renderAssistantWithoutThinking(component, message);
 				// 空摘要不挂行（getter 在 Running 启动瞬间也可能短暂为空）
-				if (summary || round.active) compactAssistantLine(component, getSummary, deps.query);
+				if (summary || round.active) compactAssistantLine(component, getSummary);
 				// 折叠时工具行被隐藏：abort/error/length 必须挂在摘要外层。
 				appendStopStatus(component, stopStatus);
 			} else {
@@ -1030,11 +787,7 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 
 	const activateRound = (round: CompactRound): void => {
 		round.active = true;
-		if (!round.startedAt) round.startedAt = Date.now();
-		delete round.endedAt;
 		activeRound = round;
-		deps.query?.setCompactSummaryActive?.(true);
-		ensureRoundTick();
 	};
 
 	const finishRound = (round: CompactRound): void => endRound(round, true);
@@ -1043,8 +796,6 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 		activeRound = undefined;
 		roundByComponent = new WeakMap();
 		expandedRoundToolIds.clear();
-		deps.query?.setCompactSummaryActive?.(false);
-		stopRoundTick();
 	};
 
 	patch.assistantInstalled = function (this: any, message: any, isStreaming?: boolean) {
@@ -1081,7 +832,6 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 					detachedMessages: [],
 					active: true,
 					suppressedToolIds: new Set(),
-					startedAt: Date.now(),
 				};
 				roundByComponent.set(this, round);
 				activateRound(round);
@@ -1092,7 +842,6 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 					detachedMessages: [],
 					active: true,
 					suppressedToolIds: new Set(),
-					startedAt: Date.now(),
 				};
 				roundByComponent.set(this, round);
 				if (!activeRound) activateRound(round);
@@ -1133,7 +882,6 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 					detachedMessages: [],
 					active: true,
 					suppressedToolIds: new Set(),
-					startedAt: Date.now(),
 				};
 				roundByComponent.set(this, round);
 				if (!activeRound) activateRound(round);
@@ -1162,8 +910,6 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 		}
 		const name = String(this.toolName ?? "");
 		if (EDIT_WRITE_TOOLS.has(name)) {
-			if (this.executionStarted && (!this.result || this.isPartial === true))
-				scheduleAnimation(this);
 			return compactEditWriteLines(this, width, deps.writeMetadata);
 		}
 		// Agent/Task 等同普通工具：折叠不外置（live 面板走独立 widget）。
@@ -1245,7 +991,6 @@ export function installCompactMode(deps: CompactModeInstallDeps): CompactModeHoo
 	return {
 		sync(ctx: any) {
 			if (!patch.active) return;
-			uiRef = ctx?.ui;
 			resetRounds();
 			// 始终保持补丁在链上：mode=on/off 走 passThrough，仍写入 lastMessage
 			// 与 tracked 集合，这样 /better-style 切回 compact 时不必 /reload。

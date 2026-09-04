@@ -6,7 +6,8 @@ test("better-style defaults are keyboard-first and enabled", () => {
   assert.equal(DEFAULT_CONFIG.mode, "compact");
   assert.equal(DEFAULT_CONFIG.enableMarkdownEnhance, true);
   assert.equal(DEFAULT_CONFIG.enableAgentSummary, true);
-  assert.equal(DEFAULT_CONFIG.enableWorkingMessage, true);
+  assert.equal("animationIntervalMs" in DEFAULT_CONFIG, false);
+  assert.equal("enableWorkingMessage" in DEFAULT_CONFIG, false);
   assert.equal("scrollStepLines" in DEFAULT_CONFIG, false);
 });
 

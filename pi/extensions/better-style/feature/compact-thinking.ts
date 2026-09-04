@@ -3,7 +3,7 @@
 // 差异：
 // 1. 不再依赖上游包 —— 配置解耦，由 claude-code-style 经 installCompactThinking
 //    /updateConfig 管控（模块级 config 对象，不再读写 compact-thinking.json）。
-// 2. 合并了上游 fork patch：subagent 工具（Agent/Agents）执行期间保持思考动画，
+// 2. 合并了上游 fork patch：subagent 工具（Agent/Agents）执行期间保持思考状态，
 //    直到 tool_execution_end 或下一个 text/thinking 边界才收尾。
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import {
@@ -18,11 +18,7 @@ import {
 } from "@earendil-works/pi-tui";
 import { Box, Markdown, Spacer, Text, type Component } from "@earendil-works/pi-tui";
 import { showMoreHintText } from "../renderer/tool/show-more-hint.ts";
-import {
-	animateCompactThinkingText,
-	formatThoughtDuration,
-	styleCompactThinkingText,
-} from "../renderer/compact-mode.ts";
+import { styleCompactThinkingText } from "../renderer/compact-mode.ts";
 import { refreshMountedTranscript } from "../renderer/transcript-refresh.ts";
 import {
 	COMPACT_THINKING_OWNER,
@@ -39,29 +35,10 @@ type AssistantMessageComponentLike = InstanceType<typeof AssistantMessageCompone
 export type CompactThinkingConfig = {
 	useSummaryTitlesAsThinkingTitle: boolean;
 	previewLines: number;
-	animationIntervalMs: number;
 };
 
 export type CompactThinkingController = {
 	updateConfig(next: CompactThinkingConfig): void;
-	/**
-	 * 只读查询：某条 assistant message 的可见思考总时长（ms）。
-	 * 供 compact 渲染层生成 `Thought for 8s` 摘要，不建立第二套计时器。
-	 * 无记录且无进行中思考时返回 undefined。
-	 */
-	getMessageThinkingDurationMs?(messageTimestamp: number): number | undefined;
-	/** 当前消息是否仍处于 compact-thinking 的活动思考态。 */
-	isMessageThinkingActive?(messageTimestamp: number): boolean;
-	/** 复用 compact-thinking 配置的动画帧，不建立独立动画计时器。 */
-	getThinkingAnimationFrame?(): number;
-	/** compact 摘要保持 loading 时复用 compact-thinking 的动画循环。 */
-	setCompactSummaryActive?(active: boolean): void;
-};
-
-type DurationEntryData = {
-	messageTimestamp: number;
-	contentIndex: number;
-	durationMs: number;
 };
 
 type SummaryPart = {
@@ -72,7 +49,6 @@ type SummaryPart = {
 type ActiveThinking = {
 	messageTimestamp: number;
 	contentIndex: number;
-	startedAt: number;
 };
 
 // pi-coding-agent 类型声明中 MarkdownTransformer 的 re-export 解析失败，本地用最小结构化类型。
@@ -110,55 +86,7 @@ type PatchedPrototype = typeof AssistantMessageComponent.prototype & {
 const config: CompactThinkingConfig = {
 	useSummaryTitlesAsThinkingTitle: true,
 	previewLines: 3,
-	animationIntervalMs: 90,
 };
-
-const DURATION_ENTRY_TYPE = "better-style-thinking-duration";
-
-/** 当前激活 session 的只读查询委托（compact 渲染层使用）。 */
-type ThinkingDurationQuery = (messageTimestamp: number) => number | undefined;
-type ThinkingActiveQuery = (messageTimestamp: number) => boolean;
-let activeThinkingQuery: ThinkingDurationQuery | undefined;
-let activeThinkingStateQuery: ThinkingActiveQuery | undefined;
-let activeThinkingAnimationFrameQuery: (() => number) | undefined;
-let activeCompactSummarySetter: ((active: boolean) => void) | undefined;
-
-function restoreDurationEntries(
-	entries: Array<{ type: string; customType?: string; data?: unknown }>,
-	completedDurations: Map<number, Map<number, number>>,
-) {
-	completedDurations.clear();
-	for (const entry of entries) {
-		if (
-			entry.type !== "custom" ||
-			entry.customType !== DURATION_ENTRY_TYPE ||
-			!entry.data ||
-			typeof entry.data !== "object"
-		) {
-			continue;
-		}
-
-		const data = entry.data as Partial<DurationEntryData>;
-		if (
-			typeof data.messageTimestamp !== "number" ||
-			!Number.isFinite(data.messageTimestamp) ||
-			typeof data.contentIndex !== "number" ||
-			!Number.isInteger(data.contentIndex) ||
-			typeof data.durationMs !== "number" ||
-			!Number.isFinite(data.durationMs) ||
-			data.durationMs < 1
-		) {
-			continue;
-		}
-
-		let durations = completedDurations.get(data.messageTimestamp);
-		if (!durations) {
-			durations = new Map();
-			completedDurations.set(data.messageTimestamp, durations);
-		}
-		durations.set(data.contentIndex, data.durationMs);
-	}
-}
 
 function thinkingExpandAction(): string {
 	return showMoreHintText();
@@ -555,31 +483,12 @@ function compactThinking(pi: ExtensionAPI) {
 	const prototype = AssistantMessageComponent.prototype as PatchedPrototype;
 	const originalUpdateContent = prototype.updateContent;
 
-	activeThinkingStateQuery = (messageTimestamp) =>
-		activeThinking?.messageTimestamp === messageTimestamp;
-	activeThinkingAnimationFrameQuery = () => animationFrame;
-	activeThinkingQuery = (messageTimestamp) => {
-		let total = 0;
-		const durations = completedDurations.get(messageTimestamp);
-		if (durations) {
-			for (const duration of durations.values()) total += duration;
-		}
-		if (activeThinking?.messageTimestamp === messageTimestamp) {
-			total += Math.max(1, Date.now() - activeThinking.startedAt);
-		}
-		return total > 0 ? total : undefined;
-	};
-
-	const completedDurations = new Map<number, Map<number, number>>();
 	const streamingComponents = new Set<AssistantMessageComponentLike>();
 	let activeThinking: ActiveThinking | undefined;
 	let activeTheme: Theme | undefined;
 	let activeTui: RenderTui | undefined;
 	let latestComponent: AssistantMessageComponentLike | undefined;
 	let latestComponentTimestamp: number | undefined;
-	let animationTimer: ReturnType<typeof setInterval> | undefined;
-	let animationFrame = 0;
-	let compactSummaryActive = false;
 	let patchInstalled = true;
 
 	function thinkingStyle(text: string) {
@@ -588,26 +497,6 @@ function compactThinking(pi: ExtensionAPI) {
 
 	function summaryTitleStyle(text: string) {
 		return styleCompactThinkingText(text, activeTheme, true);
-	}
-
-	function animatedText(text: string, baseStyle: (value: string) => string, animate: boolean) {
-		if (!animate) return baseStyle(text);
-		return animateCompactThinkingText(
-			text,
-			activeTheme,
-			animationFrame,
-			baseStyle === summaryTitleStyle,
-		);
-	}
-
-	function getCompletedDuration(messageTimestamp: number, startIndex: number, endIndex: number) {
-		const durations = completedDurations.get(messageTimestamp);
-		if (!durations) return undefined;
-		for (let index = endIndex; index >= startIndex; index--) {
-			const duration = durations.get(index);
-			if (duration !== undefined) return duration;
-		}
-		return undefined;
 	}
 
 	function isActiveRun(message: AssistantMessage, startIndex: number, endIndex: number) {
@@ -716,30 +605,13 @@ function compactThinking(pi: ExtensionAPI) {
 				self.contentContainer.addChild(new Spacer(1));
 			}
 
-			const elapsedMs = activeThinking
-				? Math.max(1, Date.now() - activeThinking.startedAt)
-				: undefined;
-			const completedMs = getCompletedDuration(message.timestamp, runStartIndex, runEndIndex);
-			const durationMs = active ? elapsedMs : completedMs;
-			const durationText = durationMs === undefined ? undefined : formatThoughtDuration(durationMs);
-
 			let heading: string;
 			if (active && latestSummary) {
-				heading =
-					animatedText(latestSummary.title, summaryTitleStyle, true) +
-					(durationText ? thinkingStyle(` · ${durationText}`) : "");
+				heading = summaryTitleStyle(latestSummary.title);
 			} else if (active) {
-				const label = self.hiddenThinkingLabel || "Thinking...";
-				heading =
-					animatedText(label, thinkingStyle, true) +
-					(durationText ? thinkingStyle(` · ${durationText}`) : "");
+				heading = thinkingStyle(self.hiddenThinkingLabel || "Thinking...");
 			} else {
-				// Completed compact blocks use one provider-independent status line.
-				// 无时长记录（中断流/旧会话/entry 缺失或索引错位）时不回退到加载文案
-				// "Thinking..."：改用摘要标题或中性 "Thought"。
-				heading = thinkingStyle(
-					durationText ? `Thought for ${durationText}` : (latestSummary?.title ?? "Thought"),
-				);
+				heading = thinkingStyle(latestSummary?.title ?? "Thought");
 			}
 			const previewSource = (latestSummary?.body ?? thinkingBlocks.join("\n\n")).trim();
 			self.contentContainer.addChild(
@@ -813,75 +685,23 @@ function compactThinking(pi: ExtensionAPI) {
 	const installedUpdateContent = prototype.updateContent;
 	(installedUpdateContent as any)[COMPACT_THINKING_PATCH_KEY] = true;
 
-	function ensureAnimationTimer() {
-		if (animationTimer) return;
-		animationTimer = setInterval(() => {
-			animationFrame++;
-			for (const component of streamingComponents) {
-				const self = component as unknown as AssistantInternals;
-				if (self.lastMessage) self.updateContent(self.lastMessage);
-			}
-			activeTui?.requestRender();
-		}, config.animationIntervalMs);
-	}
-
-	function stopAnimationTimerIfIdle() {
-		if (activeThinking || compactSummaryActive || !animationTimer) return;
-		clearInterval(animationTimer);
-		animationTimer = undefined;
-	}
-
-	activeCompactSummarySetter = (active) => {
-		compactSummaryActive = active;
-		if (active) ensureAnimationTimer();
-		else stopAnimationTimerIfIdle();
-		activeTui?.requestRender();
-	};
-
 	function startThinking(message: AssistantMessage, contentIndex: number) {
 		activeThinking = {
 			messageTimestamp: message.timestamp,
 			contentIndex,
-			startedAt: Date.now(),
 		};
 		streamingComponents.clear();
-		animationFrame = 0;
-
-		// Depending on event-listener order, Pi may have rendered the empty
-		// thinking_start partial just before this extension receives the event.
-		// Re-render that component immediately so users do not wait for the first
-		// summary delta before seeing the animation.
 		if (latestComponent && latestComponentTimestamp === message.timestamp) {
 			streamingComponents.add(latestComponent);
 			const self = latestComponent as unknown as AssistantInternals;
 			self.updateContent(message);
 			activeTui?.requestRender();
 		}
-
-		if (animationTimer) clearInterval(animationTimer);
-		animationTimer = undefined;
-		ensureAnimationTimer();
 	}
 
 	function finishThinking() {
 		if (!activeThinking) return;
-		const finished = activeThinking;
-		const durationMs = Math.max(1, Date.now() - finished.startedAt);
-		let durations = completedDurations.get(finished.messageTimestamp);
-		if (!durations) {
-			durations = new Map();
-			completedDurations.set(finished.messageTimestamp, durations);
-		}
-		durations.set(finished.contentIndex, durationMs);
-		pi.appendEntry(DURATION_ENTRY_TYPE, {
-			messageTimestamp: finished.messageTimestamp,
-			contentIndex: finished.contentIndex,
-			durationMs,
-		} as DurationEntryData);
-
 		activeThinking = undefined;
-		stopAnimationTimerIfIdle();
-
 		const components = [...streamingComponents];
 		streamingComponents.clear();
 		for (const component of components) {
@@ -891,7 +711,7 @@ function compactThinking(pi: ExtensionAPI) {
 		activeTui?.requestRender();
 	}
 
-	// ---- fork patch：subagent 工具执行期间保持思考动画 ----
+	// ---- fork patch：subagent 工具执行期间保持思考状态 ----
 
 	// Subagent tools can run for minutes: keep the thinking loading animation
 	// alive for the whole execution and only finalize once the tool ends or the
@@ -976,11 +796,10 @@ function compactThinking(pi: ExtensionAPI) {
 	});
 
 	pi.on("session_start", (_event, ctx) => {
-		restoreDurationEntries(ctx.sessionManager.getBranch(), completedDurations);
 		activeTheme = ctx.ui.theme;
 		if (ctx.mode !== "tui") return;
 
-		// An empty widget gives the animation loop access to requestRender without
+		// An empty widget exposes mounted roots for transcript refresh without
 		// enabling terminal mouse reporting or intercepting native scrollback input.
 		// setWidget 的 factory 同步执行，此刻补丁已安装。
 		ctx.ui.setWidget(WIDGET_ID, (tui) => {
@@ -991,31 +810,22 @@ function compactThinking(pi: ExtensionAPI) {
 		// pi 在 reload/resume 时先于 session_start 用原始原型重建聊天组件
 		// （rebuildChatFromMessages / renderCurrentSessionState）。由共享的
 		// refreshMountedTranscript 扫描挂载树重绘这些组件，恢复 compact 渲染、
-		// 持久化时长与工具调用显示。
+		// 工具调用显示。
 		refreshMountedTranscript(activeTui);
 		activeTui?.requestRender(true);
 	});
 
-	pi.on("session_tree", (_event, ctx) => {
-		restoreDurationEntries(ctx.sessionManager.getBranch(), completedDurations);
+	pi.on("session_tree", (_event, _ctx) => {
 		refreshMountedTranscript(activeTui);
 		activeTui?.requestRender(true);
 	});
 
 	pi.on("session_shutdown", (_event, ctx) => {
 		finishThinking();
-		activeThinkingQuery = undefined;
-		activeThinkingStateQuery = undefined;
-		activeThinkingAnimationFrameQuery = undefined;
-		activeCompactSummarySetter = undefined;
-		compactSummaryActive = false;
-		if (animationTimer) clearInterval(animationTimer);
-		animationTimer = undefined;
 		activeTui = undefined;
 		activeTheme = undefined;
 		latestComponent = undefined;
 		latestComponentTimestamp = undefined;
-		completedDurations.clear();
 		streamingComponents.clear();
 		expandedThinking.clear();
 		clearThinkingPreviewCache();
@@ -1050,18 +860,6 @@ export function installCompactThinking(
 	const delegates = new Map<string, UpstreamHandler>();
 	const boundEvents = new Set<string>();
 
-	const restoreAllDurations = (ctx: any): any => {
-		const sessionManager = ctx?.sessionManager;
-		if (!sessionManager || typeof sessionManager.getEntries !== "function") return ctx;
-		return {
-			...ctx,
-			sessionManager: {
-				...sessionManager,
-				getBranch: () => sessionManager.getEntries(),
-			},
-		};
-	};
-
 	const bind = (eventName: string) => {
 		if (boundEvents.has(eventName)) return;
 		boundEvents.add(eventName);
@@ -1069,7 +867,7 @@ export function installCompactThinking(
 			if (!active) return;
 			const handler = delegates.get(eventName);
 			if (!handler) return;
-			handler(e, eventName === "session_tree" ? restoreAllDurations(ctx) : ctx);
+			handler(e, ctx);
 		});
 	};
 
@@ -1085,7 +883,7 @@ export function installCompactThinking(
 
 	const activate = (event: any, ctx: any) => {
 		// Headless subagent runtimes share this process. Never steal the parent
-		// TUI prototype patch or kill its thinking ticker.
+		// TUI prototype patch.
 		if (ctx?.mode !== "tui") return;
 
 		patchRegistry.get<CompactThinkingOwner>(COMPACT_THINKING_OWNER)?.stop(event, ctx);
@@ -1099,7 +897,7 @@ export function installCompactThinking(
 			on(eventName: string, handler: UpstreamHandler) {
 				if (eventName === "session_start") {
 					// Already inside session_start — run immediately.
-					handler(event, restoreAllDurations(ctx));
+					handler(event, ctx);
 					return;
 				}
 				if (eventName === "session_shutdown") {
@@ -1109,7 +907,6 @@ export function installCompactThinking(
 				delegates.set(eventName, handler);
 				bind(eventName);
 			},
-			appendEntry: (...args: any[]) => (pi.appendEntry as any)(...args),
 		} as unknown as ExtensionAPI);
 
 		active = true;
@@ -1130,18 +927,6 @@ export function installCompactThinking(
 		updateConfig(next) {
 			Object.assign(initialConfig, next);
 			Object.assign(config, next);
-		},
-		getMessageThinkingDurationMs(messageTimestamp) {
-			return activeThinkingQuery?.(messageTimestamp);
-		},
-		isMessageThinkingActive(messageTimestamp) {
-			return activeThinkingStateQuery?.(messageTimestamp) ?? false;
-		},
-		getThinkingAnimationFrame() {
-			return activeThinkingAnimationFrameQuery?.() ?? 0;
-		},
-		setCompactSummaryActive(active) {
-			activeCompactSummarySetter?.(active);
 		},
 	};
 }

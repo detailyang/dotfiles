@@ -6,7 +6,7 @@ import {
 	visibleWidth,
 	type Component,
 } from "@earendil-works/pi-tui";
-import { TOOL_LOADING_INTERVAL_MS, toolLoadingIcon } from "../../utils/tool-loading-icon.ts";
+import { toolLoadingIcon } from "../../utils/tool-loading-icon.ts";
 import { isToolTuiFullscreen, showMoreHintText } from "./show-more-hint.ts";
 import { stripAnsi, stripBackgroundAnsi, stripLeadingStatusIcon } from "../../utils/ansi-text.ts";
 import { walkComponentTree } from "../../utils/component-tree.ts";
@@ -31,7 +31,6 @@ type Patch = {
 	generation: number;
 	lastEnabled: boolean;
 	theme?: any;
-	animationTimer: ReturnType<typeof setTimeout> | null;
 };
 
 function toolName(tool: any): string {
@@ -79,23 +78,6 @@ function statusIcon(value: ToolStatus): string {
 	return toolLoadingIcon();
 }
 
-function scheduleGroupAnimation(patch: Patch): void {
-	if (patch.animationTimer || !patch.active) return;
-	patch.animationTimer = setTimeout(() => {
-		patch.animationTimer = null;
-		if (!patch.active) return;
-		for (const group of patch.groups) {
-			if (
-				(group.children as any[]).some(
-					(tool) => tool?.executionStarted && status(tool) === "pending",
-				)
-			)
-				group.invalidate();
-		}
-	}, TOOL_LOADING_INTERVAL_MS);
-	patch.animationTimer.unref?.();
-}
-
 function visibleLines(lines: string[]): string[] {
 	return lines.filter((line) => stripAnsi(line).trim());
 }
@@ -121,25 +103,11 @@ function stripLeadingSpaces(line: string, count: number): string {
 	return ansi + line.slice(offset);
 }
 
-/** 生成一行铺满 width 的 slot 背景行；bgAnsiOverride 可替换背景 ANSI（用于提亮等）。 */
-export function paddedBackgroundRow(
-	theme: any,
-	slot: string,
-	content: string,
-	width: number,
-	bgAnsiOverride?: string,
-): string {
+/** Pad a row to a stable width while removing inherited background colors. */
+export function paddedTransparentRow(content: string, width: number): string {
 	const innerWidth = Math.max(0, width - 2);
 	const clipped = truncateToWidth(stripBackgroundAnsi(content), innerWidth, "");
-	const row = ` ${clipped}${" ".repeat(Math.max(0, innerWidth - visibleWidth(clipped)))} `;
-	const bgAnsi =
-		bgAnsiOverride ||
-		(typeof theme?.bg === "function"
-			? theme.getBgAnsi?.(slot) || theme.bg(slot, "").match(/^\x1b\[[0-?]*[ -/]*[@-~]/)?.[0] || ""
-			: "");
-	const stable = bgAnsi ? row.replace(/\x1b\[(?:0)?m/g, (reset) => reset + bgAnsi) : row;
-	if (!bgAnsi) return typeof theme?.bg === "function" ? theme.bg(slot, stable) : row;
-	return `${bgAnsi}${stable}\x1b[49m`;
+	return ` ${clipped}${" ".repeat(Math.max(0, innerWidth - visibleWidth(clipped)))} `;
 }
 
 function toolSummary(tool: any): { main: string; detail: string } {
@@ -305,10 +273,6 @@ export class ToolGroupComponent extends Container {
 		const label =
 			names.size === 1 ? humanizeToolLabel(toolName(this.children[0])) : "Multiple Tools";
 		const overall: ToolStatus = counts.error ? "error" : counts.pending ? "pending" : "success";
-		if (
-			(this.children as any[]).some((tool) => tool?.executionStarted && status(tool) === "pending")
-		)
-			scheduleGroupAnimation(this.patch);
 		const overallColor = overall === "pending" ? "accent" : overall;
 		const nameList = names.size > 1 ? ` ${fg("dim", `• ${toolNameList(this.children)}`)}` : "";
 		// 圆点保持 dim；hover 只高亮可点击文字。
@@ -359,12 +323,10 @@ export class ToolGroupComponent extends Container {
 			}
 		}
 		if (this._expanded) {
-			// 展开面板统一用 user message 背景色（ccstyle 约定），不按状态区分。
-			const backgroundSlot = "userMessageBg";
 			for (const line of expandedLines) {
-				lines.push(paddedBackgroundRow(theme, backgroundSlot, line, width));
+				lines.push(paddedTransparentRow(line, width));
 			}
-			lines.push(paddedBackgroundRow(theme, backgroundSlot, "", width));
+			lines.push(paddedTransparentRow("", width));
 		} else if (counts.pending === 0) {
 			this.storeSettledCache(width, lines);
 		}
@@ -465,8 +427,6 @@ export function installToolGrouping(getEnabled: () => boolean): ToolGroupingHook
 	if (previous) {
 		previous.active = false;
 		previous.enabled = () => false;
-		if (previous.animationTimer) clearTimeout(previous.animationTimer);
-		previous.animationTimer = null;
 		ungroup(previous);
 	}
 	const original = {
@@ -493,7 +453,6 @@ export function installToolGrouping(getEnabled: () => boolean): ToolGroupingHook
 		enabled: getEnabled,
 		generation: 0,
 		lastEnabled: getEnabled(),
-		animationTimer: null,
 	};
 	patch.installed = {
 		addChild: function (this: any, component: any) {
@@ -548,8 +507,6 @@ export function installToolGrouping(getEnabled: () => boolean): ToolGroupingHook
 		shutdown() {
 			if (!patch.active) return;
 			patch.active = false;
-			if (patch.animationTimer) clearTimeout(patch.animationTimer);
-			patch.animationTimer = null;
 			patch.enabled = () => false;
 			ungroup(patch);
 			if (prototype.addChild === patch.installed.addChild)

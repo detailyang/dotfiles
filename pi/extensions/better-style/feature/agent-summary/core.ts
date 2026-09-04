@@ -3,13 +3,12 @@
  *
  * 分类：bash / read / edit / write / other（精确工具名；MCP 风格名归 other）。
  * 计数：bash/powershell 按调用次数；read/edit/write 按非空 path/file_path 去重；other 按调用次数。
- * 失败单独累计；另记回合耗时。
+ * 失败单独累计。
  *
  * 呈现：`summaryLine` 纯文本，`summaryMarkdown` Markdown（可 box 引用块）。
  */
 
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { formatDuration } from "../../utils/format.ts";
 
 /** 工具分类。 */
 export type AgentToolCategory = "bash" | "read" | "edit" | "write" | "other";
@@ -22,7 +21,6 @@ export type AgentSummaryData = {
 	writes: number;
 	others: number;
 	failed: number;
-	durationMs: number;
 };
 
 export function classifyTool(toolName: string): AgentToolCategory {
@@ -53,12 +51,6 @@ export class AgentRunSummary {
 	otherCount = 0;
 	failedCount = 0;
 
-	readonly startedAt: number;
-
-	constructor(startedAt = Date.now()) {
-		this.startedAt = startedAt;
-	}
-
 	/** tool_execution_start 时调用。 */
 	recordToolStart(toolName: string, args?: Record<string, unknown> | null): void {
 		this.toolCount++;
@@ -86,7 +78,7 @@ export class AgentRunSummary {
 		if (isError) this.failedCount++;
 	}
 
-	snapshot(now = Date.now()): AgentSummaryData {
+	snapshot(): AgentSummaryData {
 		return {
 			commands: this.commandCount,
 			reads: this.readFiles.size,
@@ -94,7 +86,6 @@ export class AgentRunSummary {
 			writes: this.writeFiles.size,
 			others: this.otherCount,
 			failed: this.failedCount,
-			durationMs: now - this.startedAt,
 		};
 	}
 }
@@ -129,9 +120,7 @@ export function summaryMarkdown(
 		.map((part, index) => capitalizeFirst(part, index === 0))
 		.map((part) => paintNumber(part.endsWith("failed") ? colors.failed : colors.success, part))
 		.join(", ");
-	const duration = formatDuration(data.durationMs);
-	const line = duration ? `${text} · ${duration}` : text;
-	return `> *${line}*`;
+	return `> *${text}*`;
 }
 
 /**

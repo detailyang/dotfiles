@@ -134,7 +134,8 @@ test("expanded native cards align nested trees through interleaved ANSI padding"
 		const stripAnsi = (line: string) => line.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "");
 		const inputLine = rendered.find((line: string) => stripAnsi(line).includes("Input")) ?? "";
 		const backgroundIndex = inputLine.indexOf("\x1b[48;");
-		assert.equal(backgroundIndex, 0, "expanded panel background covers the full row");
+		assert.equal(backgroundIndex, -1, "expanded tool output stays transparent");
+		assert.doesNotMatch(rendered.join("\n"), /\x1b\[48;/);
 		assert.match(
 			stripAnsi(rendered[2]),
 			/^ ├ [⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏] Read/,
