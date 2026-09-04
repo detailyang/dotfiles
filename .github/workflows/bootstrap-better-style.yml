@@ -1,8 +1,8 @@
 name: Bootstrap better-style
 
 on:
-  pull_request:
-    branches: [master]
+  push:
+    branches: [feat/better-style]
     paths:
       - .github/workflows/bootstrap-better-style.yml
       - pi/scripts/sync-better-style.mjs
@@ -13,14 +13,14 @@ permissions:
 
 jobs:
   vendor:
-    if: github.head_ref == 'feat/better-style' && github.actor != 'github-actions[bot]'
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     env:
       UPSTREAM_COMMIT: 5d7a2666f51da9f450bd019af10200c88cc1df98
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ github.head_ref }}
+          ref: feat/better-style
           fetch-depth: 0
 
       - uses: actions/setup-node@v4
@@ -52,4 +52,4 @@ jobs:
           git add pi/package.json pi/extensions/better-style pi/tests/better-style-*.test.ts
           git diff --cached --stat
           git commit -m "feat(pi): add better-style TUI extension"
-          git push origin HEAD:${{ github.head_ref }}
+          git push origin HEAD:feat/better-style
