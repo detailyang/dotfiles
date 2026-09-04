@@ -3,7 +3,7 @@ import test from "node:test";
 import { DEFAULT_CONFIG, normalizeConfig } from "../extensions/better-style/config/config.ts";
 
 test("better-style defaults are keyboard-first and enabled", () => {
-  assert.equal(DEFAULT_CONFIG.mode, "on");
+  assert.equal(DEFAULT_CONFIG.mode, "compact");
   assert.equal(DEFAULT_CONFIG.enableMarkdownEnhance, true);
   assert.equal(DEFAULT_CONFIG.enableAgentSummary, true);
   assert.equal(DEFAULT_CONFIG.enableWorkingMessage, true);

@@ -76,7 +76,7 @@ export const EXCLUDE_RENDERER_CANDIDATES = [
 ];
 
 export const DEFAULT_CONFIG: Config = {
-  mode: "on",
+  mode: "compact",
   excludeRenderers: [],
   diffViewMode: DEFAULT_TOOL_DISPLAY_CONFIG.diffViewMode,
   diffIndicatorMode: DEFAULT_TOOL_DISPLAY_CONFIG.diffIndicatorMode,

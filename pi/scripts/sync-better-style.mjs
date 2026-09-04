@@ -281,6 +281,18 @@ let copiedTests = 0;
 for (const name of readdirSync(join(sourceRoot, "tests")).filter((name) => selectedTest.test(name))) {
   let source = readFileSync(join(sourceRoot, "tests", name), "utf8");
   if (forbiddenTestText.some((needle) => source.includes(needle))) continue;
+  if (name === "compact-mode.test.ts") {
+    source = source
+      .replace(
+        "config normalize keeps compact, defaults to on, command completions order on,compact,off",
+        "config normalize keeps compact as the default and preserves command order",
+      )
+      .replace('assert.equal(normalizeConfig({}).mode, "on");', 'assert.equal(normalizeConfig({}).mode, "compact");')
+      .replace(
+        'assert.equal(normalizeConfig({ mode: "invalid" }).mode, "on");',
+        'assert.equal(normalizeConfig({ mode: "invalid" }).mode, "compact");',
+      );
+  }
   if (name === "tool-diff.test.ts") {
     source = source.replace(
       `function output(component: any, width = 100): string[] {
@@ -320,7 +332,7 @@ writeFileSync(
 
 writeFileSync(
   join(targetTests, "better-style-config.test.ts"),
-  `import assert from "node:assert/strict";\nimport test from "node:test";\nimport { DEFAULT_CONFIG, normalizeConfig } from "../extensions/better-style/config/config.ts";\n\ntest("better-style defaults are keyboard-first and enabled", () => {\n  assert.equal(DEFAULT_CONFIG.mode, "on");\n  assert.equal(DEFAULT_CONFIG.enableMarkdownEnhance, true);\n  assert.equal(DEFAULT_CONFIG.enableAgentSummary, true);\n  assert.equal(DEFAULT_CONFIG.enableWorkingMessage, true);\n  assert.equal("scrollStepLines" in DEFAULT_CONFIG, false);\n});\n\ntest("better-style normalizes unsafe numeric configuration", () => {\n  const config = normalizeConfig({ diffSplitMinWidth: 1, previewLines: -2, expandedOutputMaxLines: 999999 });\n  assert.equal(config.diffSplitMinWidth, 40);\n  assert.equal(config.previewLines, 0);\n  assert.equal(config.expandedOutputMaxLines, 5000);\n});\n`,
+  `import assert from "node:assert/strict";\nimport test from "node:test";\nimport { DEFAULT_CONFIG, normalizeConfig } from "../extensions/better-style/config/config.ts";\n\ntest("better-style defaults are keyboard-first and enabled", () => {\n  assert.equal(DEFAULT_CONFIG.mode, "compact");\n  assert.equal(DEFAULT_CONFIG.enableMarkdownEnhance, true);\n  assert.equal(DEFAULT_CONFIG.enableAgentSummary, true);\n  assert.equal(DEFAULT_CONFIG.enableWorkingMessage, true);\n  assert.equal("scrollStepLines" in DEFAULT_CONFIG, false);\n});\n\ntest("better-style normalizes unsafe numeric configuration", () => {\n  const config = normalizeConfig({ diffSplitMinWidth: 1, previewLines: -2, expandedOutputMaxLines: 999999 });\n  assert.equal(config.diffSplitMinWidth, 40);\n  assert.equal(config.previewLines, 0);\n  assert.equal(config.expandedOutputMaxLines, 5000);\n});\n`,
 );
 
 writeFileSync(
