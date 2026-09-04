@@ -192,6 +192,14 @@ export function formatDuration(ms: number): string {
   source = source.slice(0, start) + source.slice(end);
   source = source
     .replace("\tif (visualState !== \"pending\") clearAnimation(context);\n", "")
+    .replace(
+      `export function pendingIcon(_name: string): string {
+\treturn toolLoadingIcon();
+}`,
+      `export function pendingIcon(name: string, now = Date.now()): string {
+\treturn name === "edit" || name === "write" ? "●" : toolLoadingIcon(now);
+}`,
+    )
     .replaceAll('"toolOutput"', '"text"')
     .replace('if (!match) return theme.fg("muted", rawLine);', 'if (!match) return theme.fg("text", rawLine);')
     .replace('theme.fg("muted", rest ?? "")', 'theme.fg("text", rest ?? "")')
@@ -455,6 +463,14 @@ export function buildMessageSummary(message: any): string {
     .replace(
       " * 时长 = 回合流逝挂钟；进行中 Running...，结束 Ran for。",
       " * 进行中显示静态 Running...，结束后仅保留工具计数。",
+    )
+    .replace(
+      'import { toolLoadingIcon } from "../utils/tool-loading-icon.ts";\n',
+      "",
+    )
+    .replace(
+      'const icon = isError ? "✗" : isPending ? toolLoadingIcon() : "✓";',
+      'const icon = isError ? "✗" : isPending ? "●" : "✓";',
     )
     .replace(
       "type CompactModeInstallDeps = {\n\tquery?: CompactThinkingQuery;\n\twriteMetadata: WriteExecutionMetadataStore;\n};",

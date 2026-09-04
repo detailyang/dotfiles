@@ -13,7 +13,7 @@ import {
 	toolStatus,
 	ToolGroupComponent,
 } from "../extensions/better-style/renderer/tool/grouping.ts";
-import { ExpandedToolIoView } from "../extensions/better-style/renderer/tool/result.ts";
+import { ExpandedToolIoView, pendingIcon } from "../extensions/better-style/renderer/tool/result.ts";
 
 initTheme("dark");
 const ui = { theme: { fg: (_color: string, text: string) => text }, requestRender() {} } as any;
@@ -26,6 +26,14 @@ function started(name: string, id: string, args: any = {}) {
 	component.markExecutionStarted();
 	return component;
 }
+
+test("edit and write pending icons are static", () => {
+	assert.equal(pendingIcon("edit", 0), "●");
+	assert.equal(pendingIcon("edit", 1_000), "●");
+	assert.equal(pendingIcon("write", 0), "●");
+	assert.equal(pendingIcon("write", 1_000), "●");
+	assert.notEqual(pendingIcon("bash", 0), pendingIcon("bash", 80));
+});
 
 test("tool status selects the matching theme background", () => {
 	assert.equal(toolBackgroundSlot("pending"), "toolPendingBg");

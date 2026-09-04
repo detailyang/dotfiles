@@ -626,6 +626,8 @@ test("compact edit/write keeps the stats header and inherits on-mode diff limits
 	const hooks = installCompactMode({ writeMetadata: metadata });
 	try {
 		const edit = tool("edit", "e1", { path: "a.ts" });
+		edit.markExecutionStarted();
+		assert.match(renderText(edit).join("\n"), /^● edit a\.ts/);
 		edit.updateResult({
 			content: [],
 			details: {

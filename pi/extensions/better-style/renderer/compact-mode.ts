@@ -22,7 +22,6 @@ import {
 } from "@earendil-works/pi-coding-agent";
 import { truncateToWidth, visibleWidth, Box, Spacer } from "@earendil-works/pi-tui";
 import { config, getToolDisplayConfig } from "../config/config.ts";
-import { toolLoadingIcon } from "../utils/tool-loading-icon.ts";
 import { sanitizeToolResultText } from "../utils/tool-result-sanitize.ts";
 import { refreshTranscriptComponent } from "./transcript-refresh.ts";
 import { getMessageDisplayTheme } from "./tool/message-display.ts";
@@ -364,7 +363,7 @@ function compactEditWriteLine(
 	);
 	const isError = component.result?.isError === true;
 	const isPending = !component.result || component.isPartial === true;
-	const icon = isError ? "✗" : isPending ? toolLoadingIcon() : "✓";
+	const icon = isError ? "✗" : isPending ? "●" : "✓";
 	const iconColor = isError ? "error" : isPending ? "accent" : "success";
 	let statsText = "";
 	let statsStyled = "";

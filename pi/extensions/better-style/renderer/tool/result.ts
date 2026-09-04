@@ -66,8 +66,8 @@ function hasExpandableResult(text: string): boolean {
 	return countLines(text) > 1;
 }
 
-export function pendingIcon(_name: string): string {
-	return toolLoadingIcon();
+export function pendingIcon(name: string, now = Date.now()): string {
+	return name === "edit" || name === "write" ? "●" : toolLoadingIcon(now);
 }
 
 type ToolVisualState = "pending" | "success" | "error";
