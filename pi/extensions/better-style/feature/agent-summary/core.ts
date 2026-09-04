@@ -121,7 +121,7 @@ export function summaryMarkdown(
 	if (parts.length === 0) return "";
 	const capitalizeFirst = (part: string, first: boolean) => {
 		const verb = part.match(/^[a-z]+/)?.[0] ?? "";
-		return first && verb ? verb[0].toUpperCase() + verb.slice(verb.length) + part.slice(verb.length) : part;
+		return first && verb ? verb[0].toUpperCase() + verb.slice(1) + part.slice(verb.length) : part;
 	};
 	const paintNumber = (code: string, part: string) =>
 		code ? part.replace(/(\d+)/, `${code}$1\x1b[0m`) : part;
