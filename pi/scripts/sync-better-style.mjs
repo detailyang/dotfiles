@@ -47,6 +47,7 @@ for (const relative of [
   "feature/shell/startup-header.ts",
   "renderer/mouse",
   "utils/fullscreen-detect.ts",
+  "utils/sgr-mouse.ts",
 ]) {
   rmSync(join(outputRoot, relative), { recursive: true, force: true });
 }
@@ -79,10 +80,13 @@ function replaceRequired(relative, from, to) {
   write(relative, source.replaceAll(from, to));
 }
 
-for (const relative of ["renderer/default-mode.ts", "renderer/compact-mode.ts"]) {
+const hoverExpressions = new Map([
+  ["renderer/default-mode.ts", "isToolCallHovered(toolCallId)"],
+  ["renderer/compact-mode.ts", "isToolCallHovered(component.toolCallId)"],
+]);
+for (const [relative, hoverExpression] of hoverExpressions) {
   replaceRequired(relative, 'import { isToolCallHovered } from "./mouse/hover.ts";\n', "");
-  replaceRequired(relative, "isToolCallHovered(toolCallId)", "false");
-  replaceRequired(relative, "isToolCallHovered(component.toolCallId)", "false");
+  replaceRequired(relative, hoverExpression, "false");
 }
 
 {
@@ -156,6 +160,37 @@ replaceRequired(
   'const DURATION_ENTRY_TYPE = "compact-thinking-duration";',
   'const DURATION_ENTRY_TYPE = "better-style-thinking-duration";',
 );
+replaceRequired("feature/compact-thinking.ts", "\tgetKeybindings,\n", "");
+replaceRequired(
+  "feature/compact-thinking.ts",
+  'import { isToolTuiFullscreen } from "../renderer/tool/show-more-hint.ts";',
+  'import { showMoreHintText } from "../renderer/tool/show-more-hint.ts";',
+);
+replaceRequired(
+  "feature/compact-thinking.ts",
+  [
+    "function getThinkingToggleHint() {",
+    '\tconst keys = getKeybindings().getKeys("app.thinking.toggle");',
+    '\treturn keys.length > 0 ? `${keys.join("/")} to expand` : undefined;',
+    "}",
+    "",
+    "function thinkingExpandAction(): string | undefined {",
+    '\treturn isToolTuiFullscreen() ? "click to show more" : getThinkingToggleHint();',
+    "}",
+  ].join("\n"),
+  `function thinkingExpandAction(): string {
+\treturn showMoreHintText();
+}`,
+);
+replaceRequired(
+  "feature/compact-thinking.ts",
+  `\tif (forceExpandHint && isToolTuiFullscreen()) {
+\t\treturn { prefix: " • ", action: "click to show more", suffix: "" };
+\t}`,
+  `\tif (forceExpandHint) {
+\t\treturn { prefix: " • ", action, suffix: "" };
+\t}`,
+);
 
 function walkFiles(root) {
   const files = [];
@@ -190,6 +225,7 @@ for (const file of walkFiles(outputRoot).filter((path) => path.endsWith(".ts")))
 }
 
 const forbiddenSourcePatterns = [
+  /from ["']pi-cc-extensions\//,
   /from ["'][^"']*renderer\/mouse\//,
   /from ["'][^"']*\.\/mouse\//,
   /registerCommand\(["']context["']\)/,
@@ -223,7 +259,11 @@ writeFileSync(
 
 const targetTests = join(PI_ROOT, "tests");
 for (const file of readdirSync(targetTests)) {
-  if (file.startsWith("better-style-") && file.endsWith(".test.ts")) {
+  if (
+    file.startsWith("better-style-") &&
+    file.endsWith(".test.ts") &&
+    file !== "better-style-package.test.ts"
+  ) {
     rmSync(join(targetTests, file));
   }
 }
@@ -241,6 +281,24 @@ let copiedTests = 0;
 for (const name of readdirSync(join(sourceRoot, "tests")).filter((name) => selectedTest.test(name))) {
   let source = readFileSync(join(sourceRoot, "tests", name), "utf8");
   if (forbiddenTestText.some((needle) => source.includes(needle))) continue;
+  if (name === "tool-diff.test.ts") {
+    source = source.replace(
+      `function output(component: any, width = 100): string[] {
+\treturn component.render(width);
+}`,
+      `function output(component: any, width = 100): string[] {
+\treturn component.render(width);
+}
+
+function plain(text: string): string {
+\treturn text.replace(/\\x1b\\[[0-?]*[ -/]*[@-~]/g, "");
+}`,
+    );
+    source = source
+      .replace('const writeText = output(write).join("\\n");', 'const writeText = plain(output(write).join("\\n"));')
+      .replace('const editText = output(edit).join("\\n");', 'const editText = plain(output(edit).join("\\n"));')
+      .replace('const expandedText = output(expanded).join("\\n");', 'const expandedText = plain(output(expanded).join("\\n"));');
+  }
   source = source
     .replaceAll("../extensions/", "../extensions/better-style/")
     .replaceAll("/ccstyle", "/better-style")
@@ -248,7 +306,8 @@ for (const name of readdirSync(join(sourceRoot, "tests")).filter((name) => selec
     .replaceAll("'ccstyle'", "'better-style'")
     .replaceAll("pi.ccstyle.", "pi.better-style.")
     .replaceAll("claude-code-style.json", "better-style.json")
-    .replaceAll("click to show more", "ctrl+o to show more");
+    .replaceAll("compact-thinking-duration", "better-style-thinking-duration")
+    .replaceAll("click to show more", "ctrl\\+o to show more");
   writeFileSync(join(targetTests, `better-style-${name}`), source);
   copiedTests++;
 }
@@ -256,7 +315,7 @@ if (copiedTests < 5) fail(`expected at least 5 reusable upstream tests, copied $
 
 writeFileSync(
   join(targetTests, "better-style-scope.test.ts"),
-  `import assert from "node:assert/strict";\nimport { existsSync, readFileSync, readdirSync, statSync } from "node:fs";\nimport { dirname, join, resolve } from "node:path";\nimport test from "node:test";\nimport { fileURLToPath } from "node:url";\n\nconst PI_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");\nconst ROOT = join(PI_ROOT, "extensions", "better-style");\n\nfunction files(root: string): string[] {\n  return readdirSync(root).flatMap((entry) => {\n    const full = join(root, entry);\n    return statSync(full).isDirectory() ? files(full) : [full];\n  });\n}\n\ntest("better-style excludes context and mouse behavior", () => {\n  assert.equal(existsSync(join(ROOT, "feature", "context.ts")), false);\n  assert.equal(existsSync(join(ROOT, "feature", "reference")), false);\n  assert.equal(existsSync(join(ROOT, "renderer", "mouse")), false);\n  const source = files(ROOT).filter((file) => file.endsWith(".ts")).map((file) => readFileSync(file, "utf8")).join("\\n");\n  assert.doesNotMatch(source, /registerCommand\\(["']context["']\\)/);\n  assert.doesNotMatch(source, /onTerminalInput/);\n  assert.match(source, /registerCommand\\("better-style"/);\n});\n\ntest("Pi peer dependencies target 0.84", () => {\n  const pkg = JSON.parse(readFileSync(join(PI_ROOT, "package.json"), "utf8"));\n  for (const [name, version] of Object.entries(pkg.peerDependencies)) {\n    if (name.startsWith("@earendil-works/pi-")) assert.equal(version, "^0.84.0");\n  }\n});\n`,
+  `import assert from "node:assert/strict";\nimport { existsSync, readFileSync, readdirSync, statSync } from "node:fs";\nimport { dirname, join, resolve } from "node:path";\nimport test from "node:test";\nimport { fileURLToPath } from "node:url";\n\nconst PI_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");\nconst ROOT = join(PI_ROOT, "extensions", "better-style");\n\nfunction files(root: string): string[] {\n  return readdirSync(root).flatMap((entry) => {\n    const full = join(root, entry);\n    return statSync(full).isDirectory() ? files(full) : [full];\n  });\n}\n\ntest("better-style excludes context and mouse behavior", () => {\n  assert.equal(existsSync(join(ROOT, "feature", "context.ts")), false);\n  assert.equal(existsSync(join(ROOT, "feature", "reference")), false);\n  assert.equal(existsSync(join(ROOT, "renderer", "mouse")), false);\n  assert.equal(existsSync(join(ROOT, "utils", "sgr-mouse.ts")), false);\n  const source = files(ROOT).filter((file) => file.endsWith(".ts")).map((file) => readFileSync(file, "utf8")).join("\\n");\n  assert.doesNotMatch(source, /from ["']pi-cc-extensions\\//);\n  assert.doesNotMatch(source, /registerCommand\\(["']context["']\\)/);\n  assert.doesNotMatch(source, /onTerminalInput/);\n  assert.match(source, /registerCommand\\("better-style"/);\n});\n\ntest("Pi peer dependencies target 0.84", () => {\n  const pkg = JSON.parse(readFileSync(join(PI_ROOT, "package.json"), "utf8"));\n  for (const [name, version] of Object.entries(pkg.peerDependencies)) {\n    if (name.startsWith("@earendil-works/pi-")) assert.equal(version, "^0.84.0");\n  }\n});\n`,
 );
 
 writeFileSync(
@@ -276,6 +335,7 @@ pkg.dependencies = {
   "@shikijs/cli": "^4.0.2",
   "grok-mermaid": "^0.2.2",
 };
+delete pkg.dependencies["pi-cc-extensions"];
 for (const name of [
   "@earendil-works/pi-agent-core",
   "@earendil-works/pi-ai",

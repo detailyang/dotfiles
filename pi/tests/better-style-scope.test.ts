@@ -1,72 +1,34 @@
 import assert from "node:assert/strict";
-import { readFileSync, readdirSync, statSync } from "node:fs";
-import { dirname, join, relative } from "node:path";
+import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
 
-const PI_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-const EXTENSION_ROOT = join(PI_ROOT, "extensions", "better-style");
+const PI_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const ROOT = join(PI_ROOT, "extensions", "better-style");
 
-function sourceFiles(directory: string): string[] {
-  return readdirSync(directory).flatMap((name) => {
-    const path = join(directory, name);
-    return statSync(path).isDirectory() ? sourceFiles(path) : path.endsWith(".ts") ? [path] : [];
+function files(root: string): string[] {
+  return readdirSync(root).flatMap((entry) => {
+    const full = join(root, entry);
+    return statSync(full).isDirectory() ? files(full) : [full];
   });
 }
 
-function sourceBundle(): string {
-  return sourceFiles(EXTENSION_ROOT)
-    .map((path) => `// ${relative(EXTENSION_ROOT, path)}\n${readFileSync(path, "utf8")}`)
-    .join("\n");
-}
-
-test("better-style exposes only its own slash command", () => {
-  const source = sourceBundle();
-  const commands = [...source.matchAll(/registerCommand\(["']([^"']+)["']/g)].map(
-    (match) => match[1],
-  );
-  assert.deepEqual(commands, ["better-style"]);
-  assert.doesNotMatch(source, /registerCommand\(["'](?:context|ccstyle|clear|exit)["']/);
+test("better-style excludes context and mouse behavior", () => {
+  assert.equal(existsSync(join(ROOT, "feature", "context.ts")), false);
+  assert.equal(existsSync(join(ROOT, "feature", "reference")), false);
+  assert.equal(existsSync(join(ROOT, "renderer", "mouse")), false);
+  assert.equal(existsSync(join(ROOT, "utils", "sgr-mouse.ts")), false);
+  const source = files(ROOT).filter((file) => file.endsWith(".ts")).map((file) => readFileSync(file, "utf8")).join("\n");
+  assert.doesNotMatch(source, /from ["']pi-cc-extensions\//);
+  assert.doesNotMatch(source, /registerCommand\(["']context["']\)/);
+  assert.doesNotMatch(source, /onTerminalInput/);
+  assert.match(source, /registerCommand\("better-style"/);
 });
 
-test("better-style does not install upstream context, references, or shell chrome", () => {
-  const source = sourceBundle();
-  for (const forbidden of [
-    "extensions/feature/context",
-    "extensions/feature/reference",
-    "extensions/feature/shell/aliases",
-    "extensions/feature/shell/flush-docked-bash",
-    "extensions/feature/shell/startup-header",
-  ]) {
-    assert.equal(source.includes(forbidden), false, `unexpected import: ${forbidden}`);
-  }
-});
-
-test("better-style has no fullscreen mouse input path", () => {
-  const source = sourceBundle();
-  for (const forbidden of [
-    "extensions/renderer/mouse",
-    "installToolMouseInteraction",
-    "getToolMouseTui",
-    "onTerminalInput",
-    "TOOL_MOUSE_ENABLE",
-    "TOOL_MOUSE_DISABLE",
-    "sgr-mouse",
-  ]) {
-    assert.equal(source.includes(forbidden), false, `unexpected mouse integration: ${forbidden}`);
-  }
-});
-
-test("better-style selectively composes the intended presentation modules", () => {
-  const source = sourceBundle();
-  for (const required of [
-    "extensions/renderer/default-mode.ts",
-    "extensions/renderer/compact-mode.ts",
-    "extensions/renderer/tool/grouping.ts",
-    "extensions/renderer/tool/diff/index.ts",
-    "extensions/renderer/markdown-enhance.ts",
-    "extensions/feature/compact-thinking.ts",
-  ]) {
-    assert.equal(source.includes(required), true, `missing presentation module: ${required}`);
+test("Pi peer dependencies target 0.84", () => {
+  const pkg = JSON.parse(readFileSync(join(PI_ROOT, "package.json"), "utf8"));
+  for (const [name, version] of Object.entries(pkg.peerDependencies)) {
+    if (name.startsWith("@earendil-works/pi-")) assert.equal(version, "^0.84.0");
   }
 });

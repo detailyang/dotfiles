@@ -7,18 +7,18 @@ import { fileURLToPath } from "node:url";
 const PI_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const pkg = JSON.parse(readFileSync(join(PI_ROOT, "package.json"), "utf8"));
 
-test("better-style pins the reviewed upstream implementation", () => {
-  assert.equal(pkg.dependencies["pi-cc-extensions"], "0.8.69");
+test("better-style is vendored without an upstream runtime dependency", () => {
+  assert.equal(pkg.dependencies["pi-cc-extensions"], undefined);
 });
 
-test("Pi runtime packages are upgraded together to 0.84.4", () => {
+test("Pi runtime package peers target 0.84", () => {
   for (const name of [
     "@earendil-works/pi-agent-core",
     "@earendil-works/pi-ai",
     "@earendil-works/pi-coding-agent",
     "@earendil-works/pi-tui",
   ]) {
-    assert.equal(pkg.peerDependencies[name], "^0.84.4", name);
+    assert.equal(pkg.peerDependencies[name], "^0.84.0", name);
   }
   assert.equal(pkg.engines.node, ">=22.19.0");
 });

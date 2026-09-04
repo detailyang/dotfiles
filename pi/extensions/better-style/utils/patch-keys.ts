@@ -1,5 +1,5 @@
 /**
- * better-style 补丁所有权与跨模块协调键的单一来源（single source of truth）。
+ * ccstyle 补丁所有权与跨模块协调键的单一来源（single source of truth）。
  *
  * 全部使用 Symbol.for（全局注册表）：/reload 后新模块实例拿到的是同一个 symbol，
  * 这是跨 reload 识别/让渡补丁所有权的关键。切勿把这些 Symbol.for 改成模块局部 Symbol。

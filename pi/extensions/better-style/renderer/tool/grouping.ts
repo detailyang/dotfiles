@@ -166,7 +166,7 @@ type SettledGroupCache = {
 };
 
 export class ToolGroupComponent extends Container {
-	readonly toolCallId = `better-style-tool-group-${nextGroupId++}`;
+	readonly toolCallId = `ccstyle-tool-group-${nextGroupId++}`;
 	readonly toolName = "Tool group";
 	private _expanded = false;
 	/** 分组是否展开（只读；测试与外部读状态用）。 */
@@ -311,7 +311,8 @@ export class ToolGroupComponent extends Container {
 			scheduleGroupAnimation(this.patch);
 		const overallColor = overall === "pending" ? "accent" : overall;
 		const nameList = names.size > 1 ? ` ${fg("dim", `• ${toolNameList(this.children)}`)}` : "";
-		const hint = `${fg("dim", "•")} ${fg("dim", showMoreHintText())}`;
+		// 圆点保持 dim；hover 只高亮可点击文字。
+		const hint = `${fg("dim", "•")} ${fg(this.hintHovered ? "text" : "dim", showMoreHintText())}`;
 		const lines = [
 			"",
 			truncateToWidth(
@@ -348,6 +349,7 @@ export class ToolGroupComponent extends Container {
 			const childLines = rendered.length ? rendered : [toolSummary(tool).main];
 			for (let lineIndex = 0; lineIndex < childLines.length; lineIndex++) {
 				const content =
+					// 续行只剥外层 Box 的 1 格 left pad，保留 Input/Output 相对缩进
 					lineIndex === 0 ? childLines[lineIndex] : stripLeadingSpaces(childLines[lineIndex], 1);
 				const prefix =
 					lineIndex === 0
@@ -357,6 +359,7 @@ export class ToolGroupComponent extends Container {
 			}
 		}
 		if (this._expanded) {
+			// 展开面板统一用 user message 背景色（ccstyle 约定），不按状态区分。
 			const backgroundSlot = "userMessageBg";
 			for (const line of expandedLines) {
 				lines.push(paddedBackgroundRow(theme, backgroundSlot, line, width));
@@ -438,6 +441,7 @@ function maybeGroup(patch: Patch, parent: any, component: any): void {
 function regroup(patch: Patch, root: any): void {
 	if (!patch.active || !patch.enabled() || !root) return;
 	walkComponentTree(root, (value: any) => {
+		// 分组卡与可分组工具是分组边界：不继续下钻（与原有遍历过滤一致）。
 		if (value instanceof ToolGroupComponent || isGroupable(value)) return false;
 		const children = value.children;
 		if (Array.isArray(children)) {

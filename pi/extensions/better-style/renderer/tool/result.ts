@@ -1,340 +1,298 @@
-import { getKeybindings, Text, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
-import type { Component } from "@earendil-works/pi-tui";
+import { Text, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
+import { inspect } from "node:util";
 import { config } from "../../config/config.ts";
-import { RICH_DIFF_COMPONENT } from "../../utils/patch-keys.ts";
+import { showMoreHintText } from "./show-more-hint.ts";
 import { TOOL_LOADING_INTERVAL_MS, toolLoadingIcon } from "../../utils/tool-loading-icon.ts";
 import { sanitizeToolResultText } from "../../utils/tool-result-sanitize.ts";
-import { showMoreHintText } from "./show-more-hint.ts";
 
-export const SHOW_MORE_LABEL = "click to show more";
-export const INPUT_LABEL = "Input";
-export const OUTPUT_LABEL = "Output";
-const TOOL_IO_MARKER_PREFIX = "\x1b]1337;pi-tool-io=";
-const TOOL_IO_MARKER_SUFFIX = "\x07";
-const EXPANDED_TOOL_IO_VIEW_GENERATION = Symbol.for("pi.better-style.expanded-tool-io-view-generation");
-const CURRENT_EXPANDED_TOOL_IO_VIEW_GENERATION = 2;
+const TOOL_VIEWPORT_WIDTH_RATIO = 0.8;
 
-export type ToolIoSection = "input" | "output";
-export type IoViewFrameState = { nextId: number; views: Map<number, ExpandedToolIoView> };
-
-let activeIoViewFrame: IoViewFrameState | null = null;
-const ioViewInvalidators = new WeakMap<ExpandedToolIoView, () => void>();
-
-function toolViewMarker(id: number, section: ToolIoSection, edge: "start" | "end"): string {
-	return `${TOOL_IO_MARKER_PREFIX}${id}:${section}:${edge}${TOOL_IO_MARKER_SUFFIX}`;
+export function toolViewportWidth(width: number): number {
+	return Math.max(1, Math.floor(width * TOOL_VIEWPORT_WIDTH_RATIO));
 }
 
-function withIoViewMarkers(
-	lines: string[],
-	view: ExpandedToolIoView,
-	section: ToolIoSection,
-): string[] {
-	const frame = activeIoViewFrame;
-	if (!frame || lines.length === 0) return lines;
-	const id = frame.nextId++;
-	frame.views.set(id, view);
-	const marked = [...lines];
-	marked[0] = toolViewMarker(id, section, "start") + marked[0];
-	marked[marked.length - 1] += toolViewMarker(id, section, "end");
-	return marked;
-}
-
-/** 注册 ExpandedToolIoView 的局部重绘回调；renderer 容器内使用。 */
-export function bindIoViewInvalidator(view: ExpandedToolIoView, invalidate: () => void): void {
-	ioViewInvalidators.set(view, invalidate);
-}
-
-/** 触发某个 IoView 所在工具卡重绘。 */
-export function invalidateIoView(view: ExpandedToolIoView): void {
-	ioViewInvalidators.get(view)?.();
-}
-
-/** 工具标题行和结果行共享的外部缩进。 */
-export function insetComponent(component: Component, prefix = "   "): Component {
+/** 与默认工具结果相同的一级缩进包装。 */
+export function insetComponent(component: any): any {
 	return {
-		render(width: number): string[] {
-			const inner = Math.max(1, width - visibleWidth(prefix));
-			return component.render(inner).map((line) => prefix + line);
-		},
-		invalidate() {
-			component.invalidate();
-		},
+		render: (width: number) =>
+			component.render(Math.max(1, width - 1)).map((line: string) => {
+				const nestedMarker = line.replace(/^((?:\x1b\[[0-?]*[ -/]*[@-~])*)↳/, "$1  ↳");
+				return ` ${nestedMarker}`;
+			}),
+		invalidate: () => component.invalidate?.(),
 	};
 }
 
-function contentText(content: any): string {
-	if (typeof content === "string") return content;
-	if (Array.isArray(content)) {
-		return content
-			.map((block) => {
-				if (typeof block === "string") return block;
-				if (block?.type === "text" && typeof block.text === "string") return block.text;
-				if (block?.type === "image") {
-					const media = block.media_type || block.source?.media_type || "image";
-					return `[${media}]`;
-				}
-				try {
-					return JSON.stringify(block);
-				} catch {
-					return String(block);
-				}
-			})
-			.join("\n");
-	}
-	if (content === undefined || content === null) return "";
-	try {
-		return JSON.stringify(content);
-	} catch {
-		return String(content);
-	}
+function rawTextFromResult(result: any): string {
+	return Array.isArray(result?.content)
+		? result.content
+				.filter((item: any) => item?.type === "text")
+				.map((item: any) => String(item.text ?? ""))
+				.join("\n")
+		: "";
 }
 
-/** 从 ToolResult 中提取可读文本。 */
-export function textFromResult(result: any, full = false): string {
-	const raw = result?.content ?? result;
-	let text = contentText(raw);
-	if (!full && result?.details !== undefined) {
-		const details = contentText(result.details);
-		if (details && details !== text) text += `${text ? "\n" : ""}${details}`;
-	}
-	return sanitizeToolResultText(text);
+function detailsFromResult(result: any): string {
+	if (result?.details === undefined) return "";
+	const details =
+		typeof result.details === "string"
+			? result.details
+			: inspect(result.details, { depth: 8, breakLength: 100, compact: false });
+	return sanitizeToolResultText(details, 16_384);
 }
 
-/** 结果文本的逻辑行数。 */
-export function countLines(text: string): number {
-	const normalized = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n");
-	if (!normalized) return 0;
-	return normalized.endsWith("\n")
-		? normalized.slice(0, -1).split("\n").length
-		: normalized.split("\n").length;
-}
-
-function resultLabel(toolName: string, text: string, isError: boolean): string {
-	const lines = countLines(text);
-	const trimmed = text.trim();
-	if (isError) return trimmed ? trimmed.split("\n", 1)[0]!.trim() : "failed";
-	if (!trimmed) return "Done";
-	if (toolName === "read") return `${lines} line${lines === 1 ? "" : "s"} read`;
-	if (toolName === "grep" || toolName === "find")
-		return `${lines} line${lines === 1 ? "" : "s"} returned`;
-	if (toolName === "bash" || toolName === "powershell") {
-		return `${lines} line${lines === 1 ? "" : "s"} returned`;
-	}
-	if (trimmed.includes("\n")) return `${lines} lines returned`;
-	return trimmed;
+export function textFromResult(result: any, expanded = false): string {
+	// Compact previews only need short text; bound sanitize work.
+	const content = sanitizeToolResultText(rawTextFromResult(result), 16_384);
+	const details = detailsFromResult(result);
+	if (!content) return details;
+	if (!expanded || !details || details === content) return content;
+	return `${content}\nDetails:\n${details}`;
 }
 
 export function outputLineCount(result: any): number {
-	return countLines(textFromResult(result));
+	const text = rawTextFromResult(result).replace(/\r\n?/g, "\n").replace(/\n+$/, "");
+	return text ? text.split("\n").length : 0;
 }
 
-function previewLines(text: string, limit: number): { lines: string[]; hidden: number } {
-	const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
-	const visible = lines.slice(0, Math.max(0, limit));
-	return { lines: visible, hidden: Math.max(0, lines.length - visible.length) };
+export function countLines(text: string): number {
+	return text
+		.trim()
+		.split("\n")
+		.filter((line) => line.trim().length > 0).length;
 }
 
-function clampLine(line: string, width: number): string {
-	return truncateToWidth(line.replace(/\t/g, "    "), Math.max(0, width), "…");
+function hasExpandableResult(text: string): boolean {
+	return countLines(text) > 1;
 }
 
-/** 从头截断：保留末尾（路径 basename、长命令后缀），前缀显示省略号。 */
-export function headTruncateToWidth(text: string, width: number): string {
-	if (width <= 0) return "";
-	if (visibleWidth(text) <= width) return text;
-	const ellipsis = "…";
-	const target = Math.max(0, width - visibleWidth(ellipsis));
-	if (target <= 0) return truncateToWidth(ellipsis, width, "");
-	// 从右向左累加，保留可见宽度 target 的后缀；字符遍历防 surrogate pair 断裂。
-	const chars = Array.from(text);
-	let suffix = "";
-	for (let i = chars.length - 1; i >= 0; i--) {
-		const candidate = chars[i] + suffix;
-		if (visibleWidth(candidate) > target) break;
-		suffix = candidate;
+const activeAnimationContexts = new Set<any>();
+let sharedAnimationTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearAnimation(context: any) {
+	if (!context?.state?.betterStyleAnimationScheduled) return;
+	context.state.betterStyleAnimationScheduled = false;
+	activeAnimationContexts.delete(context);
+	if (activeAnimationContexts.size === 0 && sharedAnimationTimer) {
+		clearTimeout(sharedAnimationTimer);
+		sharedAnimationTimer = null;
 	}
-	return ellipsis + suffix;
 }
 
-export type ToolVisualState = "pending" | "success" | "error";
-
-export function resolveToolVisualState(context: any): ToolVisualState | undefined {
-	if (context?.visualState === "pending" || context?.visualState === "success" || context?.visualState === "error") {
-		return context.visualState;
+export function clearAllAnimations() {
+	for (const ctx of activeAnimationContexts) {
+		ctx.state.betterStyleAnimationScheduled = false;
 	}
-	if (context?.isError) return "error";
-	if (context?.isPartial || context?.executionStarted) return "pending";
-	return undefined;
+	activeAnimationContexts.clear();
+	if (sharedAnimationTimer) {
+		clearTimeout(sharedAnimationTimer);
+		sharedAnimationTimer = null;
+	}
 }
 
-export function setToolVisualState(context: any, state: ToolVisualState): void {
-	if (context && typeof context === "object") context.visualState = state;
+export function scheduleAnimation(context: any, intervalMs = TOOL_LOADING_INTERVAL_MS) {
+	const state = (context.state ??= {});
+	if (state.betterStyleAnimationScheduled) return;
+	state.betterStyleAnimationScheduled = true;
+	activeAnimationContexts.add(context);
+	if (!sharedAnimationTimer) {
+		sharedAnimationTimer = setTimeout(() => {
+			sharedAnimationTimer = null;
+			const contexts = Array.from(activeAnimationContexts);
+			activeAnimationContexts.clear();
+			for (const ctx of contexts) {
+				ctx.state.betterStyleAnimationScheduled = false;
+				ctx.invalidate?.();
+			}
+		}, intervalMs);
+	}
 }
 
-export function pendingIcon(_toolName: string): string {
+export function pendingIcon(_name: string): string {
 	return toolLoadingIcon();
 }
 
-export function settledIcon(_toolName: string, state?: ToolVisualState): string {
-	if (state === "error") return "✗";
+type ToolVisualState = "pending" | "success" | "error";
+
+export function settledIcon(name: string, state: ToolVisualState | undefined): string {
 	if (state === "success") return "✓";
+	if (state === "error") return "✗";
+	// toolIcon(name) 曾恒返回 "●"，已内联；name 保留以稳定导出签名。
 	return "●";
 }
 
-export function toolIconColor(context: any): string {
-	const state = resolveToolVisualState(context);
-	if (state === "error") return "error";
-	if (state === "success") return "success";
-	return "accent";
+export function setToolVisualState(context: any, visualState: ToolVisualState) {
+	const state = (context.state ??= {});
+	if (visualState !== "pending") clearAnimation(context);
+	if (state.ccstyleToolVisualState === visualState) return;
+	state.ccstyleToolVisualState = visualState;
+	// Do not invalidate synchronously from renderResult. Pi is already rendering
+	// this tool row; recursively scheduling another render here can retain both
+	// the finalized result component and its previous secondary/partial component,
+	// which displays the result summary twice. The current render pass also
+	// refreshes renderCall, so the settled icon still updates immediately.
 }
 
-/**
- * 等宽渲染宽度：防止自渲染器拿到无限宽导致长行越界。
- */
-export function toolViewportWidth(width: number): number {
-	return Math.max(1, Math.floor(Number.isFinite(width) ? width : 1));
+function getToolVisualState(context: any): ToolVisualState | undefined {
+	return context?.state?.ccstyleToolVisualState as ToolVisualState | undefined;
 }
 
-const animationContexts = new Set<any>();
-let animationTimer: ReturnType<typeof setTimeout> | null = null;
-
-function runAnimationTick(): void {
-	animationTimer = null;
-	for (const context of [...animationContexts]) {
-		try {
-			context?.invalidate?.();
-		} catch {
-			animationContexts.delete(context);
-		}
-	}
-	animationContexts.clear();
+export function resolveToolVisualState(context: any): ToolVisualState | undefined {
+	const visualState = getToolVisualState(context);
+	if (visualState || context?.isPartial !== false) return visualState;
+	const settledState: ToolVisualState = context?.isError ? "error" : "success";
+	setToolVisualState(context, settledState);
+	return settledState;
 }
 
-export function scheduleAnimation(context: any): void {
-	if (!context || typeof context !== "object") return;
-	if (context.betterStyleAnimationScheduled) return;
-	context.betterStyleAnimationScheduled = true;
-	animationContexts.add(context);
-	if (animationTimer) return;
-	animationTimer = setTimeout(() => {
-		for (const item of animationContexts) {
-			if (item && typeof item === "object") item.betterStyleAnimationScheduled = false;
-		}
-		runAnimationTick();
-	}, TOOL_LOADING_INTERVAL_MS);
-	animationTimer.unref?.();
-}
-
-export function clearAllAnimations(): void {
-	if (animationTimer) clearTimeout(animationTimer);
-	animationTimer = null;
-	for (const context of animationContexts) {
-		if (context && typeof context === "object") context.betterStyleAnimationScheduled = false;
-	}
-	animationContexts.clear();
-}
-
-/** 折叠工具结果摘要。 */
-export function renderCollapsedToolResultToWidth(
-	toolName: string,
-	result: any,
-	width: number,
-	theme: any,
-	isError: boolean,
-): Component {
-	const text = textFromResult(result);
-	const label = resultLabel(toolName, text, isError);
-	const color = isError ? "error" : "muted";
-	return new Text(theme.fg(color, `↳ ${clampLine(label, Math.max(1, width - 2))}`), 0, 0);
-}
-
-/** 结果是否值得展开。 */
-export function hasExpandableDetail(text: string): boolean {
-	return countLines(text) > 1 || text.length > 160;
-}
-
-function keyHint(): string {
-	const keys = getKeybindings().getKeys("app.tools.expand");
-	return keys.length ? keys.join("/") : "Ctrl+O";
-}
-
-/** 展开工具结果（非 rich diff）。 */
-export function renderExpandedToolResult(
-	text: string,
-	width: number,
-	theme: any,
-	maxLines = config.expandedPreviewMaxLines,
-): Component {
-	const safeWidth = Math.max(1, width);
-	const limited = previewLines(text, maxLines);
-	const output = limited.lines.map((line) => clampLine(line, safeWidth));
-	if (limited.hidden > 0) {
-		output.push(theme.fg("dim", `… ${limited.hidden} more lines · ${keyHint()} to expand`));
-	}
-	return new Text(output.join("\n") || theme.fg("muted", "Done"), 0, 0);
+export function toolIconColor(context: any): "accent" | "error" | "success" | "muted" {
+	const visualState = getToolVisualState(context);
+	if (context?.isError || visualState === "error") return "error";
+	if (visualState === "success") return "success";
+	if (context?.isPartial || context?.executionStarted || visualState === "pending") return "accent";
+	return "muted";
 }
 
 export function isToolExpanded(options: any, context: any): boolean {
-	return Boolean(options?.expanded ?? context?.expanded);
+	const local = context?.state?.ccstyleToolExpanded;
+	return typeof local === "boolean" ? local : Boolean(options?.expanded ?? context?.expanded);
 }
 
-function valueText(value: unknown): string {
-	if (typeof value === "string") return value;
-	try {
-		return JSON.stringify(value, null, 2);
-	} catch {
-		return String(value);
+/** Keep the guide aligned when long result lines wrap at the viewport edge. */
+export class ExpandedToolResultText {
+	private text: string;
+	private prefix: string;
+	private normalizedText: string;
+	private cachedWidth: number | undefined;
+	private cachedLines: string[] | undefined;
+
+	constructor(text: string, prefix: string) {
+		this.text = text;
+		this.prefix = prefix;
+		this.normalizedText = text.replace(/\t/g, "   ").replace(/\n+$/, "");
+	}
+
+	setText(text: string): void {
+		if (this.text === text) return;
+		this.text = text;
+		this.normalizedText = text.replace(/\t/g, "   ").replace(/\n+$/, "");
+		this.invalidate();
+	}
+
+	setPrefix(prefix: string): void {
+		if (this.prefix === prefix) return;
+		this.prefix = prefix;
+		this.invalidate();
+	}
+
+	render(width: number): string[] {
+		if (this.cachedLines !== undefined && this.cachedWidth === width) return this.cachedLines;
+
+		const prefixWidth = visibleWidth(this.prefix);
+		const contentWidth = Math.max(1, width - prefixWidth);
+		const lines = wrapTextWithAnsi(this.normalizedText, contentWidth).map((line) =>
+			truncateToWidth(this.prefix + line, width, ""),
+		);
+		this.cachedWidth = width;
+		this.cachedLines = lines;
+		return lines;
+	}
+
+	invalidate(): void {
+		this.cachedWidth = undefined;
+		this.cachedLines = undefined;
 	}
 }
 
-export function formatToolInputArgs(args: unknown): string {
-	if (!args || typeof args !== "object") return valueText(args ?? "");
-	const entries = Object.entries(args as Record<string, unknown>);
-	if (!entries.length) return "";
-	return entries.map(([key, value]) => `${key}: ${valueText(value)}`).join("\n");
-}
+/** 截断体末行 `… +N more lines` 旁的展开提示，点击打开全量预览。 */
+export const SHOW_MORE_LABEL = "• click to show more";
 
-function sectionLines(
-	label: string,
-	body: string,
-	width: number,
-	maxLines: number,
-	theme: any,
-	section: ToolIoSection,
-	view: ExpandedToolIoView,
-): string[] {
-	const contentWidth = Math.max(1, width - 2);
-	const limited = previewLines(body, maxLines);
-	const lines = [theme.fg("accent", label)];
-	for (const line of limited.lines) lines.push(`│ ${clampLine(line, contentWidth)}`);
-	if (limited.hidden > 0) {
-		const hovered = view.isHeaderHovered(section);
-		const hintColor = hovered ? "text" : "dim";
-		lines.push(`│ ${theme.fg(hintColor, `… ${limited.hidden} more lines · ${showMoreHintText()}`)}`);
-	}
-	if (!body.trim()) lines.push(theme.fg("muted", "│ (empty)"));
-	return withIoViewMarkers(lines, view, section);
-}
+export type ToolIoSection = "input" | "output";
+
+// Module-local token: /reload creates a fresh token, so stale view instances are
+// replaced instead of retaining their old render implementation.
+const EXPANDED_TOOL_IO_VIEW_GENERATION = Symbol("ccstyle-expanded-tool-io-view");
 
 /**
- * Expanded ordinary tool I/O card. This remains a Component so the enclosing
- * ToolExecutionComponent can own expansion and re-rendering.
+ * Expanded tool body with clear Input / Output sections (Grok Build–style).
+ *
+ * Visual frame:
+ *   ├ Input  click to show more
+ *   │ path: src/a.ts
+ *   │
+ *   └ Output  click to show more
+ *     result line…
+ *
+ * flushLeft=true（仅 mode=on 展开卡）：去掉树线前导空格，由外层 Box(1,1) 提供 1 格 padding。
+ *
+ * Reused across re-renders via context.lastComponent when possible.
  */
-export class ExpandedToolIoView implements Component {
-	readonly [EXPANDED_TOOL_IO_VIEW_GENERATION] = CURRENT_EXPANDED_TOOL_IO_VIEW_GENERATION;
-	private inputBody = "";
-	private outputBody = "";
+export class ExpandedToolIoView {
+	readonly [EXPANDED_TOOL_IO_VIEW_GENERATION] = true;
+	private inputBody: string;
+	private outputBody: string;
+	private isError: boolean;
 	private theme: any;
+	private maxOutputLines: number;
+	private maxInputLines: number;
+	private cachedWidth: number | undefined;
+	private cachedLines: string[] | undefined;
 	private hoveredSection: ToolIoSection | null = null;
+	/** Which sections currently show the show-more affordance (after last render). */
+	private truncated: { input: boolean; output: boolean } = { input: false, output: false };
+	/** 0-based header line indexes that carry show-more after last render. */
+	private showMoreHeaderRows: { input?: number; output?: number } = {};
 
-	constructor(inputBody: string, outputBody: string, theme: any) {
-		this.setContent(inputBody, outputBody, theme);
-	}
+	/** flushLeft：贴左渲染（mode=on 展开卡）；默认 false 保留前导空格（compact 等共用路径）。 */
+	private flushLeft: boolean;
 
-	setContent(inputBody: string, outputBody: string, theme: any): void {
+	constructor(
+		theme: any,
+		inputBody: string,
+		outputBody: string,
+		isError: boolean,
+		maxOutputLines = config.expandedOutputMaxLines,
+		maxInputLines = config.expandedInputMaxLines,
+		flushLeft = false,
+	) {
+		this.theme = theme;
 		this.inputBody = inputBody;
 		this.outputBody = outputBody;
-		this.theme = theme;
+		this.isError = isError;
+		this.maxOutputLines = Math.max(1, maxOutputLines);
+		this.maxInputLines = Math.max(1, maxInputLines);
+		this.flushLeft = flushLeft;
+	}
+
+	setContent(
+		inputBody: string,
+		outputBody: string,
+		isError: boolean,
+		maxOutputLines?: number,
+		maxInputLines?: number,
+		flushLeft?: boolean,
+	): void {
+		const nextOut =
+			maxOutputLines !== undefined ? Math.max(1, maxOutputLines) : this.maxOutputLines;
+		const nextIn = maxInputLines !== undefined ? Math.max(1, maxInputLines) : this.maxInputLines;
+		const nextFlush = flushLeft !== undefined ? flushLeft : this.flushLeft;
+		if (
+			this.inputBody === inputBody &&
+			this.outputBody === outputBody &&
+			this.isError === isError &&
+			this.maxOutputLines === nextOut &&
+			this.maxInputLines === nextIn &&
+			this.flushLeft === nextFlush
+		) {
+			return;
+		}
+		this.inputBody = inputBody;
+		this.outputBody = outputBody;
+		this.isError = isError;
+		this.maxOutputLines = nextOut;
+		this.maxInputLines = nextIn;
+		this.flushLeft = nextFlush;
+		this.invalidate();
 	}
 
 	getInputBody(): string {
@@ -351,57 +309,452 @@ export class ExpandedToolIoView implements Component {
 		this.invalidate();
 	}
 
-	isHeaderHovered(section: ToolIoSection): boolean {
-		return this.hoveredSection === section;
+	/** True when the plain truncation footer carries show-more. Input 续行带 │，Output 不带。 */
+	matchShowMoreLine(plainLine: string): ToolIoSection | null {
+		const line = plainLine.replace(/\x1b\[[0-9;]*m/g, "");
+		if (!line.includes(` • ${showMoreHintText()}`) || !/\+\d+ more lines/.test(line)) return null;
+		if (this.truncated.input && line.includes("│")) return "input";
+		if (this.truncated.output) return "output";
+		return null;
 	}
 
-	matchShowMoreLine(line: string): ToolIoSection | undefined {
-		if (!line.includes("more lines")) return undefined;
-		if (line.includes(INPUT_LABEL)) return "input";
-		if (line.includes(OUTPUT_LABEL)) return "output";
-		return undefined;
+	/** Precise header rows marked for show-more hit testing (last render). */
+	showMoreHeaderLineIndexes(): ReadonlyArray<{ section: ToolIoSection; line: number }> {
+		const out: Array<{ section: ToolIoSection; line: number }> = [];
+		if (this.showMoreHeaderRows.input !== undefined) {
+			out.push({ section: "input", line: this.showMoreHeaderRows.input });
+		}
+		if (this.showMoreHeaderRows.output !== undefined) {
+			out.push({ section: "output", line: this.showMoreHeaderRows.output });
+		}
+		return out;
+	}
+
+	/** Column range (1-based, visible cells) of show-more on a rendered header, if present. */
+	showMoreHitbox(plainLine: string): { startCol: number; endCol: number } | null {
+		const line = plainLine.replace(/\x1b\[[0-9;]*m/g, "");
+		const label = ` • ${showMoreHintText()}`;
+		const idx = line.lastIndexOf(label);
+		if (idx < 0) return null;
+		const before = line.slice(0, idx);
+		const startCol = visibleWidth(before) + 1;
+		const endCol = startCol + visibleWidth(label) - 1;
+		return { startCol, endCol };
 	}
 
 	render(width: number): string[] {
-		const safeWidth = Math.max(1, width);
-		const input = sectionLines(
-			INPUT_LABEL,
-			this.inputBody,
-			safeWidth,
-			config.expandedInputMaxLines,
-			this.theme,
-			"input",
-			this,
+		if (this.cachedLines !== undefined && this.cachedWidth === width) {
+			return withIoViewMarkers(this, this.cachedLines);
+		}
+
+		const theme = this.theme;
+		const safeWidth = Math.max(1, Math.floor(width));
+		// flushLeft：贴左（外层 Box 负责 1 格 pad）；否则保留 1 格前导空格（compact 共用）
+		const lead = this.flushLeft ? "" : " ";
+		const rail = `${lead}│ `;
+		const railWidth = visibleWidth(rail);
+		const bodyWidth = toolViewportWidth(safeWidth);
+		const contentWidth = Math.max(1, bodyWidth - railWidth);
+		const bodyColor = this.isError ? "error" : "toolOutput";
+		const lines: string[] = [];
+		this.truncated = { input: false, output: false };
+		this.showMoreHeaderRows = {};
+
+		const pushHeader = (corner: "├" | "└", label: string) => {
+			const mark = theme.fg("dim", `${lead}${corner} `);
+			const title = theme.fg(
+				"accent",
+				typeof theme.bold === "function" ? theme.bold(label) : label,
+			);
+			lines.push(truncateToWidth(mark + title, safeWidth, ""));
+		};
+
+		const pushRailLine = (styledContent: string, continued = true) => {
+			// 续行 rail；Output 正文相对 └ 缩进 2 格（+ 可选 lead）
+			const prefix = continued ? rail : `${lead}  `;
+			lines.push(truncateToWidth(theme.fg("dim", prefix) + styledContent, safeWidth, ""));
+		};
+
+		const pushBlankRail = () => {
+			lines.push(truncateToWidth(theme.fg("dim", `${lead}│`), safeWidth, ""));
+		};
+
+		/** Style `key: value` input rows — dim keys, readable values. */
+		const styleInputLine = (rawLine: string): string => {
+			const match = rawLine.match(/^([A-Za-z_][\w.-]*)(:\s*)(.*)$/);
+			if (!match) return theme.fg("muted", rawLine);
+			const [, key, sep, rest] = match;
+			return theme.fg("dim", key + sep) + theme.fg("muted", rest ?? "");
+		};
+
+		const pushBody = (
+			body: string,
+			opts: { input?: boolean; limit: number; continued?: boolean; section: ToolIoSection },
+		): boolean /* truncated */ => {
+			const raw = body.replace(/\t/g, "   ").replace(/\n+$/, "");
+			if (!raw.trim()) {
+				pushRailLine(theme.fg("dim", "(empty)"), opts.continued);
+				return false;
+			}
+			const sourceLines = raw.split("\n");
+			const wrapped: string[] = [];
+			for (const source of sourceLines) {
+				const styled = opts.input ? styleInputLine(source) : theme.fg(bodyColor, source);
+				const parts = wrapTextWithAnsi(styled, contentWidth);
+				if (parts.length === 0) wrapped.push(styled);
+				else wrapped.push(...parts);
+			}
+			// Prefer source-line count so plain multi-line dumps always cap, even when
+			// theme/wrap measurements disagree slightly.
+			const truncated = wrapped.length > opts.limit || sourceLines.length > opts.limit;
+			const visible = truncated ? wrapped.slice(0, Math.min(opts.limit, wrapped.length)) : wrapped;
+			for (const line of visible) pushRailLine(line, opts.continued);
+			if (truncated) {
+				const hidden = Math.max(0, wrapped.length - visible.length);
+				if (hidden > 0) {
+					// hover 只高亮文字，圆点保持 dim（与 group hint 一致）。
+					const more =
+						theme.fg("dim", " •") +
+						theme.fg(
+							this.hoveredSection === opts.section ? "text" : "dim",
+							` ${showMoreHintText()}`,
+						);
+					pushRailLine(theme.fg("dim", `… +${hidden} more lines`) + more, opts.continued);
+					this.showMoreHeaderRows[opts.section] = lines.length - 1;
+				}
+			}
+			return truncated;
+		};
+
+		const hasInput = this.inputBody.trim().length > 0;
+		const outputText = this.getOutputBody();
+
+		// Decide show-more from the same truncation rules as pushBody.
+		const inputWouldTruncate =
+			hasInput &&
+			bodyExceedsLineLimit(this.inputBody, this.maxInputLines, contentWidth, true, theme);
+		const outputWouldTruncate = bodyExceedsLineLimit(
+			outputText,
+			this.maxOutputLines,
+			contentWidth,
+			false,
+			theme,
+			bodyColor,
 		);
-		const output = sectionLines(
-			OUTPUT_LABEL,
-			this.outputBody,
-			safeWidth,
-			config.expandedOutputMaxLines,
-			this.theme,
-			"output",
-			this,
-		);
-		return [...input, "", ...output];
+
+		if (hasInput) {
+			this.truncated.input = inputWouldTruncate;
+			pushHeader("├", "Input");
+			pushBody(this.inputBody, {
+				input: true,
+				limit: this.maxInputLines,
+				continued: true,
+				section: "input",
+			});
+			pushBlankRail();
+			this.truncated.output = outputWouldTruncate;
+			pushHeader("└", "Output");
+			pushBody(outputText, {
+				limit: this.maxOutputLines,
+				continued: false,
+				section: "output",
+			});
+		} else {
+			this.truncated.output = outputWouldTruncate;
+			pushHeader("└", "Output");
+			pushBody(outputText, {
+				limit: this.maxOutputLines,
+				continued: false,
+				section: "output",
+			});
+		}
+
+		this.cachedWidth = width;
+		this.cachedLines = lines;
+		return withIoViewMarkers(this, lines);
 	}
 
 	invalidate(): void {
-		invalidateIoView(this);
+		this.cachedWidth = undefined;
+		this.cachedLines = undefined;
 	}
 }
 
-/** Structural guard that also rejects stale generations after /reload. */
 export function isExpandedToolIoView(value: unknown): value is ExpandedToolIoView {
 	return Boolean(
 		value &&
 			typeof value === "object" &&
-			(value as any)[EXPANDED_TOOL_IO_VIEW_GENERATION] ===
-				CURRENT_EXPANDED_TOOL_IO_VIEW_GENERATION &&
-			typeof (value as any).setContent === "function" &&
-			typeof (value as any).render === "function",
+			(value as ExpandedToolIoView)[EXPANDED_TOOL_IO_VIEW_GENERATION] === true &&
+			typeof (value as ExpandedToolIoView).getInputBody === "function" &&
+			typeof (value as ExpandedToolIoView).getOutputBody === "function" &&
+			typeof (value as ExpandedToolIoView).setHoveredSection === "function" &&
+			typeof (value as ExpandedToolIoView).render === "function",
 	);
 }
 
+/** True when body needs truncation at the given line limit (source lines or wrapped rows). */
+function bodyExceedsLineLimit(
+	body: string,
+	limit: number,
+	contentWidth: number,
+	asInput: boolean,
+	theme: any,
+	bodyColor = "toolOutput",
+): boolean {
+	const raw = body.replace(/\t/g, "   ").replace(/\n+$/, "");
+	if (!raw.trim()) return false;
+	const sourceLines = raw.split("\n");
+	if (sourceLines.length > limit) return true;
+	let total = 0;
+	for (const source of sourceLines) {
+		let styled: string;
+		if (asInput) {
+			const match = source.match(/^([A-Za-z_][\w.-]*)(:\s*)(.*)$/);
+			styled = match
+				? theme.fg("dim", match[1] + match[2]) + theme.fg("muted", match[3] ?? "")
+				: theme.fg("muted", source);
+		} else {
+			styled = theme.fg(bodyColor, source);
+		}
+		const parts = wrapTextWithAnsi(styled, contentWidth);
+		total += Math.max(1, parts.length);
+		if (total > limit) return true;
+	}
+	return false;
+}
+
+export function renderCollapsedToolResult(body: string, collapsedHint = ""): string {
+	return `   ↳ ${body}${collapsedHint}`;
+}
+
+export function renderCollapsedToolResultToWidth(
+	body: string,
+	collapsedHint: string,
+	width: number,
+	prefix = "   ↳ ",
+): string {
+	const previewWidth = toolViewportWidth(width);
+	const bodyWidth = Math.max(1, previewWidth - visibleWidth(prefix) - visibleWidth(collapsedHint));
+	return truncateToWidth(
+		prefix + middleTruncateToWidth(body, bodyWidth) + collapsedHint,
+		previewWidth,
+		"",
+	);
+}
+
+/** 从头截断到宽度（保留开头、省略尾部），不插入 ANSI reset（背景卡片下安全）。 */
+export function headTruncateToWidth(text: string, width: number): string {
+	if (visibleWidth(text) <= width) return text;
+	if (width <= 1) return "…";
+	let left = "";
+	for (const char of Array.from(text)) {
+		if (visibleWidth(left + "…" + char) > width) break;
+		left += char;
+	}
+	return `${left}…`;
+}
+
+/** 截断到宽度时保留首尾内容（渲染折叠行与工具标题用）。 */
+export function middleTruncateToWidth(text: string, width: number): string {
+	if (visibleWidth(text) <= width) return text;
+	if (width <= 1) return "…";
+	const chars = Array.from(text);
+	const leftWidth = Math.ceil((width - 1) / 2);
+	let left = "";
+	let right = "";
+	for (const char of chars) {
+		if (visibleWidth(left + char) > leftWidth) break;
+		left += char;
+	}
+	for (const char of chars.reverse()) {
+		if (visibleWidth(left + "…" + char + right) > width) break;
+		right = char + right;
+	}
+	return `${left}…${right}`;
+}
+
+/** Pretty-print tool call args for the expanded Input section. */
+export function formatToolInputArgs(args: unknown, maxChars = 8_000): string {
+	if (args === undefined || args === null) return "";
+	if (typeof args !== "object") {
+		const text = sanitizeToolResultText(String(args));
+		return text.length > maxChars ? `${text.slice(0, maxChars)}…` : text;
+	}
+	if (Array.isArray(args)) {
+		try {
+			const json = JSON.stringify(args, null, 2);
+			return json.length > maxChars ? `${json.slice(0, maxChars)}…` : json;
+		} catch {
+			return sanitizeToolResultText(String(args));
+		}
+	}
+
+	const entries = Object.entries(args as Record<string, unknown>).filter(
+		([, value]) => value !== undefined,
+	);
+	if (entries.length === 0) return "";
+
+	// Stable, human-first field order for common tools.
+	const preferred = [
+		"path",
+		"file_path",
+		"command",
+		"query",
+		"pattern",
+		"url",
+		"name",
+		"message",
+		"content",
+		"old_string",
+		"new_string",
+	];
+	entries.sort(([left], [right]) => {
+		const li = preferred.indexOf(left);
+		const ri = preferred.indexOf(right);
+		if (li === -1 && ri === -1) return left.localeCompare(right);
+		if (li === -1) return 1;
+		if (ri === -1) return -1;
+		return li - ri;
+	});
+
+	const lines: string[] = [];
+	for (const [rawKey, value] of entries) {
+		const key = sanitizeToolResultText(rawKey);
+		if (typeof value === "string") {
+			const safeValue = sanitizeToolResultText(value);
+			if (safeValue.includes("\n")) {
+				lines.push(`${key}:`);
+				for (const line of safeValue.replace(/\t/g, "   ").split("\n")) {
+					lines.push(`  ${line}`);
+				}
+			} else {
+				lines.push(`${key}: ${safeValue}`);
+			}
+			continue;
+		}
+		if (typeof value === "number" || typeof value === "boolean" || value === null) {
+			lines.push(`${key}: ${String(value)}`);
+			continue;
+		}
+		try {
+			const json = JSON.stringify(value, null, 2);
+			if (json.includes("\n")) {
+				lines.push(`${key}:`);
+				for (const line of json.split("\n")) lines.push(`  ${line}`);
+			} else {
+				lines.push(`${key}: ${json}`);
+			}
+		} catch {
+			lines.push(`${key}: [unserializable]`);
+		}
+	}
+	const text = lines.join("\n");
+	return text.length > maxChars ? `${text.slice(0, maxChars)}…` : text;
+}
+
+export function hasExpandableDetail(outputText: string, args: unknown): boolean {
+	if (hasExpandableResult(outputText)) return true;
+	return formatToolInputArgs(args).trim().length > 0;
+}
+
+export function renderExpandedToolResult(
+	body: string,
+	theme: any,
+	isError: boolean,
+	lastComponent?: unknown,
+	args?: unknown,
+	context?: any,
+	/** mode=on 展开卡贴左；compact 等保持默认前导空格 */
+	flushLeft = false,
+): ExpandedToolIoView | ExpandedToolResultText | Text {
+	const inputBody = formatToolInputArgs(args);
+	const outputBody = body;
+	const maxOutputLines = config.expandedOutputMaxLines;
+	const maxInputLines = config.expandedInputMaxLines;
+
+	// Prefer structured Input/Output when we have args or non-empty output.
+	if (inputBody.trim() || outputBody.trim()) {
+		let view: ExpandedToolIoView;
+		if (isExpandedToolIoView(lastComponent)) {
+			lastComponent.setContent(
+				inputBody,
+				outputBody,
+				isError,
+				maxOutputLines,
+				maxInputLines,
+				flushLeft,
+			);
+			view = lastComponent;
+		} else {
+			view = new ExpandedToolIoView(
+				theme,
+				inputBody,
+				outputBody,
+				isError,
+				maxOutputLines,
+				maxInputLines,
+				flushLeft,
+			);
+		}
+		if (context) rememberIoView(context, view);
+		return view;
+	}
+
+	if (context?.state) context.state.ccstyleIoView = undefined;
+	const color = isError ? "error" : "muted";
+	return new Text(theme.fg(color, renderCollapsedToolResult("Done")), 0, 0);
+}
+
+const toolViewMarker = (id: number, section: ToolIoSection) =>
+	`_cc:v${id}:${section === "input" ? "i" : "o"}`;
+
+/** Per-frame ExpandedToolIoView ids for unambiguous show-more hit testing. */
+export type IoViewFrameState = {
+	viewIds: Map<ExpandedToolIoView, number>;
+	idToView: Map<number, ExpandedToolIoView>;
+	nextId: number;
+};
+let activeIoViewFrame: IoViewFrameState | null = null;
+
+function frameViewId(view: ExpandedToolIoView): number | null {
+	if (!activeIoViewFrame) return null;
+	let id = activeIoViewFrame.viewIds.get(view);
+	if (id === undefined) {
+		id = activeIoViewFrame.nextId++;
+		activeIoViewFrame.viewIds.set(view, id);
+		activeIoViewFrame.idToView.set(id, view);
+	}
+	return id;
+}
+
+/** cachedLines stay clean; only the returned paint copy carries show-more view markers. */
+function withIoViewMarkers(view: ExpandedToolIoView, lines: string[]): string[] {
+	const id = frameViewId(view);
+	if (id === null) return lines;
+	// Mark by exact header row from render — never scan body text for Input/Output labels.
+	const marked = lines.slice();
+	for (const { section, line } of view.showMoreHeaderLineIndexes()) {
+		if (line < 0 || line >= marked.length) continue;
+		marked[line] = `${marked[line]}${toolViewMarker(id, section)}`;
+	}
+	return marked;
+}
+const ioViewInvalidators = new WeakMap<ExpandedToolIoView, () => void>();
+function rememberIoView(context: any, view: ExpandedToolIoView): void {
+	if (!context || typeof context !== "object") return;
+	if (typeof context.invalidate === "function") {
+		ioViewInvalidators.set(view, () => context.invalidate());
+	}
+	if (!context.state || typeof context.state !== "object") context.state = {};
+	context.state.ccstyleIoView = view;
+}
+
+/** hover 状态变更后刷新上一个/下一个视图（context.invalidate 缓存于 ioViewInvalidators）。 */
+export function invalidateIoView(view: ExpandedToolIoView): void {
+	ioViewInvalidators.get(view)?.();
+}
+
+/** 鼠标帧渲染期间读写当前 IoView 帧 id 表（mouse-interaction 的 doRender 包装使用）。 */
 export function getActiveIoViewFrame(): IoViewFrameState | null {
 	return activeIoViewFrame;
 }

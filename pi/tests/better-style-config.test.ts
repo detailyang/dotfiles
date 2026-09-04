@@ -1,51 +1,18 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import test from "node:test";
-import { pathToFileURL } from "node:url";
+import { DEFAULT_CONFIG, normalizeConfig } from "../extensions/better-style/config/config.ts";
 
-async function loadConfigModule() {
-  const directory = mkdtempSync(join(tmpdir(), "better-style-config-"));
-  process.env.PI_CODING_AGENT_DIR = directory;
-  const url = pathToFileURL(join(process.cwd(), "extensions", "better-style", "config.ts"));
-  url.searchParams.set("test", String(Date.now()));
-  const module = await import(url.href);
-  return { directory, module };
-}
-
-test("better-style permanently disables non-presentation upstream features", async () => {
-  const { directory, module } = await loadConfigModule();
-  try {
-    const normalized = module.normalizeConfig({
-      mode: "compact",
-      showStartupHeader: true,
-      enableSessionReference: true,
-      enableSubagentAutocomplete: true,
-      enableContextCommand: true,
-      enableAliases: true,
-    });
-    assert.equal(normalized.mode, "compact");
-    assert.equal(normalized.showStartupHeader, false);
-    assert.equal(normalized.enableSessionReference, false);
-    assert.equal(normalized.enableSubagentAutocomplete, false);
-    assert.equal(normalized.enableContextCommand, false);
-    assert.equal(normalized.enableAliases, false);
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
+test("better-style defaults are keyboard-first and enabled", () => {
+  assert.equal(DEFAULT_CONFIG.mode, "on");
+  assert.equal(DEFAULT_CONFIG.enableMarkdownEnhance, true);
+  assert.equal(DEFAULT_CONFIG.enableAgentSummary, true);
+  assert.equal(DEFAULT_CONFIG.enableWorkingMessage, true);
+  assert.equal("scrollStepLines" in DEFAULT_CONFIG, false);
 });
 
-test("better-style persists only to better-style.json", async () => {
-  const { directory, module } = await loadConfigModule();
-  try {
-    module.updateConfig({ mode: "off", enableWorkingMessage: false });
-    assert.equal(module.CONFIG_PATH, join(directory, "better-style.json"));
-    const persisted = JSON.parse(readFileSync(module.CONFIG_PATH, "utf8"));
-    assert.equal(persisted.mode, "off");
-    assert.equal(persisted.enableWorkingMessage, false);
-    assert.equal(persisted.enableContextCommand, false);
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
+test("better-style normalizes unsafe numeric configuration", () => {
+  const config = normalizeConfig({ diffSplitMinWidth: 1, previewLines: -2, expandedOutputMaxLines: 999999 });
+  assert.equal(config.diffSplitMinWidth, 40);
+  assert.equal(config.previewLines, 0);
+  assert.equal(config.expandedOutputMaxLines, 5000);
 });

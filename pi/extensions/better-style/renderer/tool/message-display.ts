@@ -10,7 +10,7 @@ import { showMoreHintText } from "./show-more-hint.ts";
 import { walkComponentTree } from "../../utils/component-tree.ts";
 
 /**
- * 接管三个消息组件（`<skill>` 块、压缩摘要、分支摘要），better-style on 时渲染为
+ * 接管三个消息组件（`<skill>` 块、压缩摘要、分支摘要），ccstyle on 时渲染为
  * 与工具调用一致的单行风格（● Title · hint），off 时回退原生。
  *
  * 三者结构同构：Box + markdownTheme + updateDisplay，构造/setExpanded/invalidate
@@ -18,6 +18,7 @@ import { walkComponentTree } from "../../utils/component-tree.ts";
  * ToolExecutionComponent，无法复用其原型 patch，这里单独统一管理。
  */
 
+// 与 renderer/index.ts renderCall 的成功勾一致：亮绿 ✓（truecolor ANSI）。
 const BRIGHT_GREEN = "\x1b[38;2;80;220;100m";
 const ANSI_FG_RESET = "\x1b[39m";
 
@@ -54,22 +55,34 @@ const BRANCH_KIND: DisplayKind = {
 	body: (component) => String(component.message?.summary ?? ""),
 };
 
-function renderBetterStyle(component: any, kind: DisplayKind): void {
+function ensureHintHover(component: any): void {
+	if (typeof component.setHintHovered === "function") return;
+	component.setHintHovered = function (this: any, hovered: boolean) {
+		if (this.hintHovered === hovered) return;
+		this.hintHovered = hovered;
+		this.invalidate?.();
+	};
+}
+
+function renderCcstyle(component: any, kind: DisplayKind): void {
 	const theme = displayTheme;
-	if (!theme) return;
-	if (component.bgFn) component.setBgFn?.(undefined);
+	if (!theme) return; // 主题未就绪时保留原生渲染
+	if (component.bgFn) component.setBgFn?.(undefined); // 与工具调用一致，去掉灰底
 	if (component.paddingY !== 0) {
 		component._betterStyleOriginalPaddingY = component.paddingY;
-		component.paddingY = 0;
+		component.paddingY = 0; // 工具组件 paddingY=0；原生 Box 默认 1，会上下各留一个空行
 	}
 	component.clear();
-	const icon = `${BRIGHT_GREEN}✓${ANSI_FG_RESET}`;
+	ensureHintHover(component);
+	const icon = `${BRIGHT_GREEN}✓${ANSI_FG_RESET}`; // 已完成消息，等同工具成功态
 	const title = theme.fg("toolTitle", kind.title(component));
 	if (!component.expanded) {
-		const hint = `${theme.fg("dim", " • ")}${theme.fg("dim", showMoreHintText())}`;
+		const hovered = component.hintHovered === true;
+		const hint = `${theme.fg("dim", " • ")}${theme.fg(hovered ? "text" : "dim", showMoreHintText())}`;
 		component.addChild(new Text(`${icon} ${title}${hint}`, 0, 0));
 		return;
 	}
+	// 展开卡与 tool 一致：userMessageBg + 上下左右 1 格
 	component.paddingX = 1;
 	component.paddingY = 1;
 	if (typeof theme.bg === "function" && typeof component.setBgFn === "function") {
@@ -105,12 +118,13 @@ export function installMessageDisplayRendering(): () => void {
 		const installed = function (this: any) {
 			if (patch.active && config.mode !== "off") {
 				try {
-					renderBetterStyle(this, kind);
+					renderCcstyle(this, kind);
 					return;
 				} catch {
-					// 渲染失败回退原生。
+					// 渲染失败回退原生
 				}
 			}
+			// 回退原生前恢复 paddingY，避免原生渲染丢失上下内边距
 			if (this._betterStyleOriginalPaddingY !== undefined) {
 				this.paddingY = this._betterStyleOriginalPaddingY;
 				delete this._betterStyleOriginalPaddingY;
@@ -148,7 +162,7 @@ export function isMessageDisplayComponent(value: any): boolean {
 	);
 }
 
-/** 遍历当前 transcript，让已挂载的消息组件按当前 mode 重渲染。 */
+/** 遍历当前 transcript，让已挂载的消息组件按当前 mode 重渲染（/better-style on|off 切换）。 */
 export function refreshMessageDisplays(root: any): void {
 	walkComponentTree(root, (value: any) => {
 		if (isMessageDisplayComponent(value)) {

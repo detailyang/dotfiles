@@ -34,7 +34,10 @@ export function refreshTranscriptComponent(value: unknown): boolean {
 }
 
 /**
- * 重绘已挂载的 transcript；单个组件失败不会阻断其余组件。
+ * 扫描挂载树，重绘所有已构造的 assistant/tool 组件。
+ * 用于 reload/resume/compaction 后"pi 用原始原型重建、补丁事后才装"的场景。
+ * 遍历 value.children 与 value.getMountedRoots?.()（seen 集合防环），
+ * 单个组件失败用 try/catch 隔离，不影响其余组件。
  */
 
 /**

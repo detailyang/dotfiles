@@ -1,6 +1,6 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { config } from "../../config/config.ts";
 import { formatDuration } from "../../utils/format.ts";
+import { config } from "../../config/config.ts";
 
 const REFRESH_INTERVAL_MS = 1_000;
 /** Elapsed time is only shown once the turn has run this long. */
@@ -20,8 +20,6 @@ type StreamMessage = {
 	content?: unknown;
 	usage?: { output?: unknown };
 };
-
-type TokenCount = { value: number; estimated: boolean };
 
 /** 每个 content index 的可见文本/思考长度；无对应块的 index 保持稀疏洞。 */
 function textBlockLengths(message: StreamMessage): number[] {
@@ -50,8 +48,10 @@ type WorkingUi = {
 
 /**
  * Extend Pi's footer working row while preserving its spinner and "Working...":
- * `⠋ Working... (↓ ~1,234 tokens · 12s)` while estimating, then remove `~`
- * once the provider exposes an exact output-token count.
+ * `⠋ Working... (↓ 1,234 tokens · 12s)`
+ *
+ * Live tokens use the same chars/4 estimate as pi-claude-code-ui, then switch to
+ * provider `usage.output` whenever the stream exposes an actual count.
  */
 export default function (pi: ExtensionAPI): void {
 	let turnActive = false;
@@ -64,9 +64,8 @@ export default function (pi: ExtensionAPI): void {
 	let lastMessage: string | null = null;
 	let activeCtx: { ui: WorkingUi | undefined; hasUI: boolean } | null = null;
 
-	function tokenCount(): TokenCount {
-		if (providerOutputTokens > 0) return { value: providerOutputTokens, estimated: false };
-		return { value: Math.max(0, Math.round(responseLength / 4)), estimated: true };
+	function tokenCount(): number {
+		return providerOutputTokens || Math.max(0, Math.round(responseLength / 4));
 	}
 
 	function setTextBlockLength(index: number, length: number): void {
@@ -90,10 +89,8 @@ export default function (pi: ExtensionAPI): void {
 		const elapsed = Date.now() - (agentStartTime || turnStartTime);
 		const tokens = tokenCount();
 		const parts: string[] = [];
-		if (tokens.value > 0) {
-			parts.push(`↓ ${tokens.estimated ? "~" : ""}${formatCount(tokens.value)} tokens`);
-		}
-		if (elapsed >= SHOW_TIMER_AFTER_MS || tokens.value > 0) {
+		if (tokens > 0) parts.push(`↓ ${formatCount(tokens)} tokens`);
+		if (elapsed >= SHOW_TIMER_AFTER_MS || tokens > 0) {
 			// formatDuration 低于 1 秒返回 ""，此处回退 "0s" 保持计时器连续跳动。
 			parts.push(formatDuration(elapsed) || "0s");
 		}
