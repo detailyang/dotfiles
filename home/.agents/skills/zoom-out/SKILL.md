@@ -1,6 +1,6 @@
 ---
 name: zoom-out
-description: Map an unfamiliar code area one abstraction level above the current file, including modules, callers, boundaries, flow, vocabulary, and test seams. Use when the user asks to zoom out, understand how code fits together, trace a subsystem, or get context before changing it. Do not use to implement or broadly refactor the area.
+description: Explain how an unfamiliar code area fits together by tracing ownership, callers, flow and test seams. Use for subsystem orientation, not implementation or broad refactoring.
 ---
 
 # Zoom Out
@@ -33,7 +33,7 @@ Use a shallow file tree for responsibility, a call tree for control flow, or Mer
 
 ## Output
 
-Return:
+Return one compact map with supporting explanation. Select only the relevant dimensions below; they are not nine mandatory output sections:
 
 - **Purpose** — what the area owns and why it exists
 - **Map** — main modules/concepts grouped by responsibility

@@ -1,6 +1,6 @@
 ---
 name: to-goal
-description: Convert a finished spec or design into a right-sized execution plan, durable progress ledger, and copy-ready Codex /goal starter. Use when the user asks for phases, an execution checklist, progress JSON, batch processing, or a /goal plan. Do not use for brainstorming, writing the original spec, or implementing the work.
+description: Turn an approved spec into a right-sized execution checklist, phased/batch ledger and optional Codex /goal starter. Not for discovery, writing the original spec or executing the plan.
 ---
 
 # To Goal
@@ -23,13 +23,13 @@ If the source is still a fuzzy idea, route back to discovery or specification in
 
 The installed client and current official documentation are authoritative for version-sensitive `/goal` behavior. Verify them when accessible rather than relying on memory.
 
-The current known objective limit is 4,000 characters; keep the starter much shorter and point it to repository files. Design the ledger for context loss and handoff regardless of how the client persists goals.
+Do not hard-code a remembered objective limit or assume `/goal` is available. Check the installed client when needed; otherwise label compatibility unverified and provide a plain-language starter pointing to repository files. Keep durable state independent of client persistence.
 
 ## Workflow
 
 ### 1. Anchor and review the spec
 
-Read the source spec, every document it references, applicable repository rules, and relevant implementation evidence.
+Read the source spec and applicable repository rules, then follow only references needed to resolve requirements, dependencies, acceptance or implementation boundaries. Do not recursively load every referenced document.
 
 Report whether the spec is executable. Proceed with explicit assumptions for non-blocking gaps. Stop only for a missing decision that changes product behavior, architecture ownership, migration, or acceptance.
 
@@ -83,7 +83,7 @@ Every M/L plan must record:
 - baseline smoke command
 - plan and ledger paths
 
-Execution rules:
+Execution rules (for later execution, not permission for this planning step to create a worktree or commit):
 
 1. Create the worktree before implementation; keep the primary checkout read-only.
 2. If planning files are absent from the worktree, copy them and make a clean-start commit containing only those artifacts.
@@ -124,7 +124,7 @@ Fix ordinary gaps directly. Ask only if the correction changes the approved dire
 
 ## /goal starter
 
-End with a copy-ready starter, normally under 1,000 characters:
+When supported by the selected client, end with a compact copy-ready starter. Omit the `/goal` prefix for a client without that command:
 
 ```text
 /goal Implement <plan-path> using <progress-path>. Use repo-relative paths.
@@ -132,7 +132,7 @@ End with a copy-ready starter, normally under 1,000 characters:
 Each turn:
 1. Read <progress-path> and work only in its dedicated worktree.
 2. Read the current task in <plan-path>, recent git log, and baseline status.
-3. Repair broken baseline state before starting new work.
+3. Separate pre-existing failures from regressions; fix only task-owned failures and record relevant blockers.
 4. Complete only the current unit, run its named verification, then update allowed ledger fields.
 5. Commit code and progress together with the task ID only after verification passes.
 6. Continue automatically until all acceptance is evidenced.
@@ -142,9 +142,9 @@ Never edit the primary checkout; never commit failed checks; never push, merge, 
 
 ## Output
 
-When proposing in chat, report: spec readiness, size, implementation map, ledger choice, outline, artifact paths, worktree/branch/base, and starter.
+When proposing in chat, give the executable outline and the few assumptions or blockers that affect readiness; include artifact paths, isolation settings and a starter only for the selected plan level. Do not create files for a proposal-only request.
 
-When writing files, create the selected plan and ledger/progress artifacts, then report their paths, validation performed, remaining risks, and whether execution can start.
+When writing files, reuse the canonical plan location and create only the selected artifacts: one checklist for small M work, or a plan plus machine-updated ledger when needed. Report paths, validation, material risks and readiness without repeating file contents.
 
 ## Guardrails
 

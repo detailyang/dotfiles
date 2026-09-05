@@ -1,157 +1,34 @@
 ---
 name: show-me
-description: Explain the current topic visually with a focused diagram, code-shape sketch, diff, or self-contained HTML artifact. Use when the user asks to show, visualize, diagram, map, compare, or make a technical/UI concept easier to see. Do not add visuals when plain text is already clearer.
+description: Explain a technical or UI concept visually when asked to show, diagram, map or compare it. Choose text, a diagram, a diff or a focused HTML artifact only when clearer than prose.
 ---
 
 # Show Me
 
 <!-- Adapted from humanlayer/skills/plugins/show-me/skills/show-me/SKILL.md (MIT). See LICENSE. -->
 
-Skip the preamble. Pick the smallest truthful visual that makes the key point clear, place it next to the short explanation it supports, and omit irrelevant calls, files, states, or components.
+Choose one small truthful visual, next to the explanation it supports. Ground
+repository paths and symbols in inspected evidence; label hypothetical examples.
+Prefer ASCII over Mermaid when equally clear. Do not add a preamble or repeat the
+same information in several representations.
 
-## Choose the representation
+| Question | Representation |
+| --- | --- |
+| Algorithm or state | Pseudocode or state flow |
+| Runtime interactions | Call tree or sequence diagram |
+| Responsibility or UI composition | Shallow file/component tree |
+| Existing shape changing | Diff-shaped sketch |
+| Dense layout or interactive comparison | One self-contained HTML file |
 
-```text
-logic / algorithm       -> pseudocode or state flow
-runtime control flow    -> call tree or sequence diagram
-module responsibility   -> shallow file tree
-UI composition          -> component tree
-before vs after         -> diff-shaped sketch
-dense UI/layout concept -> one focused HTML artifact
-```
+Read [examples](references/examples.md) only for the selected representation.
+Show a complete copyable block instead of a diff when omitted context would hide
+ownership/order or most of the block is new.
 
-Prefer plain text over Mermaid when both communicate the same thing. Ground repository visuals in inspected paths and symbols; label assumptions instead of inventing structure.
+For HTML, answer one question with representative data, responsive layout, semantic
+markup, keyboard/focus behavior and repository-consistent visual conventions. Do
+not add external dependencies or decoration that obscures the point. Open/render
+with an available tool where possible; otherwise provide the exact artifact path
+and say what was not inspected. Writing a file is not proof it was rendered.
 
-## Pseudocode
-
-```text
-on(save)
-  if content is unchanged
-    return cached result
-  write new content
-  return fresh result
-```
-
-## Call tree
-
-```text
-submitForm
-  createSession
-    persistPrompt
-    launchAgent
-  navigateToSession
-```
-
-## Component tree
-
-Include state and module boundaries only when they matter:
-
-```tsx
-<SessionPage> (apps/example/src/routes/session.tsx)
-  useSessionEvents()
-  <SessionToolbar>
-    <RunSkillButton> (packages/ui)
-```
-
-## File tree
-
-Show responsibility, not an exhaustive inventory:
-
-```text
-src/
-├── commands/       # parses user actions
-├── sessions/       # owns session state
-└── transport/      # sends API requests
-```
-
-## Mermaid
-
-Use for multiple participants, branches, or state transitions that are hard to follow in text:
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant UI
-    participant Daemon
-    User->>UI: choose command
-    UI->>Daemon: send expanded prompt
-    Daemon-->>UI: stream result
-```
-
-Keep node labels concrete and the diagram small enough to read without zooming.
-
-## Diff-shaped sketches
-
-Use a diff when the surrounding shape already exists and the point is what changes.
-
-Component change:
-
-```diff
- <SessionPage>
-   useSessionEvents()
-   <SessionToolbar>
-+    <RunSkillButton />
-   <SessionTimeline>
-+    <SkillResultCard />
-```
-
-File-layout change:
-
-```diff
- src/
- ├── commands/
-+│   └── show-me.ts       # expands the command
- ├── sessions/
--└── transport.ts
-+└── transport/
-+    ├── client.ts
-+    └── stream.ts
-```
-
-Control-flow change:
-
-```diff
- on(save)
--  write content
-+  if content is unchanged
-+    return cached result
-+  write new content
-+  invalidate cache
-```
-
-Show the complete block instead when most of it is new, omitted context would hide ownership/order, or the user needs a copyable target:
-
-```ts
-function expandSkill(command: string): string {
-  const skillName = command.slice(1)
-  return `use the ${skillName} skill`
-}
-```
-
-## Focused HTML artifact
-
-For a visual UI, responsive layout, state comparison, infographic, or concept too dense for Mermaid, create one self-contained HTML file.
-
-Requirements:
-
-- one question or concept per artifact
-- real labels and representative data
-- responsive desktop/mobile layout
-- semantic HTML and readable keyboard/focus behavior
-- product-consistent typography, spacing, and components when repository evidence exists
-- no external dependency unless the environment already provides it
-- no decorative complexity that obscures the explanation
-
-Open the file with the environment's supported file-opening tool when available. Otherwise report its exact path. Do not claim it was opened when it was only written.
-
-## Final check
-
-Before presenting a visual, verify:
-
-- it answers the user's actual question
-- direction, ownership, and ordering are unambiguous
-- code/path labels are factual or explicitly marked as illustrative
-- the visual is smaller than the prose it replaces
-- no second representation repeats the same information without adding value
-
-Use one representation by default; combine several only when each resolves a different part of the question.
+Before delivery, check direction, ownership, ordering, labels and readability.
+Remove nodes that do not help answer the user's question.

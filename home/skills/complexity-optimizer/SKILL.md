@@ -1,6 +1,6 @@
 ---
 name: complexity-optimizer
-description: Analyze a software codebase for algorithmic complexity and performance hotspots, then propose or implement safe optimizations without breaking behavior. Use when Codex is asked to scan many files, find inefficient loops, nested iteration, repeated scans, costly rendering/recomputation, N+1 queries, avoidable O(n^2) or O(n) operations, or reduce complexity such as O(n^2) to O(n log n) / O(n), while preserving tests, APIs, outputs, and maintainability.
+description: Find or fix algorithmic hotspots such as repeated scans, nested loops, N+1 queries and recomputation. Preserve semantics and separate complexity estimates from measured speedups; not generic cleanup.
 ---
 
 # Complexity Optimizer
@@ -11,7 +11,7 @@ Optimize only when the current behavior is understood and can be preserved. Pref
 
 ## Default Behavior
 
-When the user asks to analyze, scan, audit, review, or "give me a report" for a codebase, produce the full complexity report automatically. Do not require the user to specify report fields.
+When the user asks to analyze, scan, audit, review, or "give me a report" for a codebase, report material evidence-backed findings without padding empty sections or forcing a fixed finding count. Do not require the user to specify report fields.
 
 Default report contents:
 
@@ -33,7 +33,7 @@ Only edit files when the user asks to implement, fix, optimize, apply, change, r
 1. Establish the baseline:
    - Identify the language, framework, test command, build command, and performance-sensitive paths.
    - Inspect existing tests before touching code.
-   - Run `scripts/analyze_complexity.py <repo>` for a first-pass hotspot list when scanning a repository.
+   - Use `scripts/analyze_complexity.py` only for a requested broad scan. For a named function or narrow path, inspect that surface first rather than scanning the entire repository.
 
 2. Rank opportunities:
    - Prioritize code on hot paths, large input paths, rendering loops, database/API loops, and shared utilities.
@@ -59,7 +59,7 @@ Only edit files when the user asks to implement, fix, optimize, apply, change, r
 
 ## First-Pass Scanner
 
-Use the bundled scanner from the skill directory:
+Resolve the bundled `scripts/analyze_complexity.py` relative to this skill, not the target repository. From the skill directory, use an absolute target path:
 
 ```bash
 python3 scripts/analyze_complexity.py /path/to/repo --format markdown

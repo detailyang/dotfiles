@@ -1,6 +1,6 @@
 ---
 name: run-autoresearch
-description: Run sustained, evidence-driven optimization loops against an objective evaluator while preserving correctness, experiment history, and multiple candidate families. Use when Codex is asked to autoresearch, keep iterating, beat a benchmark or leaderboard score, reduce latency/cost/memory, improve throughput or quality, search an algorithm or implementation space, profile a bottleneck, or optimize until a quantitative target is reached. Best suited to tasks with a repeatable verifier or benchmark; do not use for vague research without an executable evaluation signal or for one-off implementation tasks that do not require experimental search.
+description: Run sustained experimental optimization only when explicitly asked to iterate against a repeatable evaluator or quantitative target. Not for one-off profiling, vague research or ordinary code changes.
 ---
 
 # Run Autoresearch
@@ -19,7 +19,7 @@ Inspect the repository and current evaluation path before changing code. Define:
 - the baseline, target, minimum meaningful improvement, and available budget;
 - prohibited shortcuts, external side effects, and evaluator rules.
 
-Build or repair the cheapest reliable evaluator before optimizing when it is missing. Ask the user only when a required choice cannot be inferred safely and would materially change the work.
+Establish the cheapest reliable evaluator first. Use only authorized compute and external services; make the experiment budget explicit. Without a supplied budget, bound the current batch and report its stopping point rather than promising indefinite background work. Ask only for material, non-inferable decisions.
 
 Protect evaluation integrity:
 
@@ -73,7 +73,7 @@ Avoid single-incumbent hill climbing. Maintain three or more live candidate fami
 - **Structural:** a higher-risk algorithm, architecture, representation, or routing change.
 - **Instrumentation or cleanup:** only while it unlocks better evidence or removes a measured cost.
 
-For each family, track its parent, hypothesis, target bottleneck, changed surface, best evidence, next discriminating experiment, and kill criteria.
+Track each family's parent, hypothesis, evidence, next experiment and kill criteria; keep records proportional to the search.
 
 Do not kill a structural family after one slower prototype. Allow a reasonable implementation and tuning path when the hypothesis remains plausible. Kill it when correctness is inherently incompatible, repeated meaningful regressions survive reasonable tuning, plausible combinations fail, profiling shows the targeted cost is immaterial, or its opportunity cost exceeds stronger experiments.
 
@@ -94,7 +94,7 @@ When several experiments fail to improve the score, do not continue a blind para
 - consulting primary documentation, papers, or a stronger advisor;
 - assigning distinct candidate families to subagents when available.
 
-Give advisors and subagents the research contract, current evidence, and relevant raw profiles. Ask them for falsifiable hypotheses and concrete experiments, not generic optimization lists. Keep execution and verification in the main loop.
+When delegation is available and useful, give advisors the contract and relevant evidence. Request falsifiable experiments, not generic lists; keep verification in the main loop.
 
 ## Optimize the real objective
 
@@ -109,7 +109,7 @@ Distinguish algorithmic work from framework overhead. Move work into matrix-, ba
 Stop only when one of these conditions is true:
 
 - the quantitative target and correctness criteria are achieved;
-- the user-specified budget is exhausted;
+- the user-specified budget or the explicitly bounded current batch is exhausted;
 - a required external resource or decision blocks further valid experiments;
 - evidence shows diminishing returns below the agreed threshold and the remaining families have explicit kill reasons.
 

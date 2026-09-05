@@ -1,6 +1,6 @@
 ---
 name: ship
-description: Implement a concrete engineering task with minimal, verified changes and a final diff review. Use when the user asks to build, fix, implement, modify code, execute an approved issue, or complete work from specs/<slug>/issues.md. Do not use for brainstorming, specification writing, planning-only requests, or review-only work.
+description: Implement a concrete feature, bug fix or approved issue with scoped changes, verification and a final diff review. Not for brainstorming, planning, spec writing or review-only requests.
 ---
 
 # Ship
@@ -18,7 +18,7 @@ Deliver the requested behavior through the smallest production-shaped change. Ke
 
 ## Before editing
 
-1. Read applicable `AGENTS.md` and any referenced `specs/<slug>/` files.
+1. Read applicable `AGENTS.md` and the referenced specification sections that define the selected task; expand to other files only when a dependency or contract requires it.
 2. Inspect the real entry point, direct callers, shared utilities, tests, and adjacent conventions.
 3. Record the review fixed point with `git rev-parse HEAD` and the initial `git status --short`.
 4. Identify task-owned paths and the highest stable seam that can prove the requested behavior.
@@ -38,7 +38,7 @@ For business logic, data transforms, API/CLI/UI behavior, state transitions, ret
 4. Run the focused test and adjacent checks.
 5. **Refactor** — improve touched structure only after green, then rerun tests.
 
-Read `references/tdd.md` for the cycle, `references/testing.md` for seam selection and mocking, and `references/refactoring.md` before structural cleanup.
+Read `references/tdd.md` only when cycle details are needed, `references/testing.md` when seam selection or mocking is unclear, and `references/refactoring.md` before structural cleanup. Do not preload all three.
 
 When no reasonable automated seam exists, do not fabricate one or halt by default. Use the strongest deterministic alternative—rendering, parsing, type checking, a focused harness, or a reproducible smoke check—and state what remains unproved. Never replace deterministic routing, validation, retry, transformation, or state-machine behavior with LLM judgment.
 

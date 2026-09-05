@@ -1,6 +1,6 @@
 ---
 name: improve
-description: Analyze or apply maintainability and architecture improvements in an existing codebase. Use when the user asks to improve, refactor, simplify, deepen, decouple, reduce technical debt, clarify module boundaries, or make code easier to test. Do not use for a narrowly specified feature/bug fix or a review that should not propose structural change.
+description: Audit or apply maintainability improvements when asked to simplify, refactor, clarify boundaries or reduce technical debt. Not for a narrow feature/bug fix or read-only review without structural scope.
 ---
 
 # Improve
@@ -21,7 +21,7 @@ Ask before editing only when competing options materially change public behavior
 3. Map dependencies and the highest stable verification seam.
 4. Identify only candidates supported by concrete evidence.
 5. Rank candidates by expected maintainability gain, verification cost, confidence, and blast radius.
-6. In audit mode, report the best 3–5. In apply mode, make each selected change as a separate coherent step and verify it before continuing.
+6. In audit mode, report up to five substantial findings; do not invent findings to meet a quota. In apply mode, make each selected change as a separate coherent step and verify it before continuing.
 7. Review the final diff for behavior drift and unrelated cleanup.
 
 Prefer a shallow dependency, ownership, or before/after tree when it makes the recommendation clearer.
@@ -41,7 +41,7 @@ Useful candidates include:
 
 Do not report generic style preferences, deterministic lint findings, or pre-existing issues outside the requested boundary.
 
-For each reported candidate include:
+For each reported candidate include the following information only where it changes the decision; combine fields rather than forcing separate headings:
 
 - problem and concrete evidence
 - recommended change

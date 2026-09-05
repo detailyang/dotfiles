@@ -34,13 +34,18 @@ function check_if_available() {
 echo "=== Dotfiles Validation ==="
 echo ""
 
-for validation_group in \
-    shell \
-    installer \
-    toolchain \
-    integrations \
-    agents
-do
+# With no arguments, run the complete suite as before. Validate all requested
+# names before running any group; never source an arbitrary user-supplied path.
+if [[ $# -eq 0 ]]; then
+    set -- shell installer toolchain integrations agents
+fi
+for validation_group in "$@"; do
+    case "$validation_group" in
+        shell|installer|toolchain|integrations|agents) ;;
+        *) echo "Unknown validation group: $validation_group" >&2; exit 2 ;;
+    esac
+done
+for validation_group in "$@"; do
     source "tests/validate/$validation_group.sh"
 done
 unset validation_group
