@@ -54,7 +54,8 @@ Replaced files are copied to a timestamped `$HOME/.dotfiles-backup-*`
 directory. A non-dry-run installation may also change the login shell, macOS
 defaults, installed packages, and Home Manager generations. By default it
 attempts to fast-forward from `origin/master`; use `--no-pull` to install the
-current checkout unchanged.
+current checkout unchanged. Files removed from the repository are not automatically
+pruned from `$HOME`; the installer does not delete existing NVM or Oh My Zsh data.
 
 ## Windows installation
 
@@ -86,6 +87,11 @@ make check-dotfiles
 make check-pi
 ```
 
+Bash startup regressions use a temporary home and stubbed integrations, not the
+host's installed toolchain. Run them directly with `python3 -B tests/test-shell-startup.py`.
+Pi discovers every `tests/*.test.ts` through `npm --prefix pi test`; for one suite,
+run `node --test tests/commit.test.ts` from `pi/` instead of maintaining per-suite aliases.
+
 For installer changes, also exercise the non-mutating deployment path:
 
 ```bash
@@ -99,6 +105,10 @@ For installer changes, also exercise the non-mutating deployment path:
 - Anything tracked under `home/` is deployed; untracked files are
   intentionally excluded. Keep secrets untracked (see `.gitignore`).
 - Home Manager owns common CLI packages, while Mise owns Node.js, Python, Go,
-  and Rust toolchains.
+  and Rust toolchains. Bash/Fish no longer auto-load NVM; migrate any required
+  Node version into the Mise configuration and use `mise exec -- <command>` for
+  non-interactive jobs that need managed runtimes. Zsh uses Mise and Starship without
+  bootstrapping Oh My Zsh. Nix loads its installed profile instead of injecting
+  legacy channel paths.
 - Homebrew is reserved for the remaining optional macOS applications.
 - Run `make help` to list available Make targets.

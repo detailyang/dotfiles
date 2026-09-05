@@ -31,11 +31,11 @@ test("diff-view contains only edit/write diff behavior", () => {
   assert.doesNotMatch(source, /registerCommand|compact-thinking|tool-grouping|working-message|agent-summary/);
 });
 
-test("package runs only the diff-view test suite", () => {
+test("package discovers all test suites without retired presentation dependencies", () => {
   const pkg = JSON.parse(readFileSync(join(PI_ROOT, "package.json"), "utf8"));
   assert.equal(pkg.scripts["test:better-style"], undefined);
-  assert.equal(pkg.scripts["test:diff-view"], "node --test tests/diff-view-*.test.ts");
+  assert.equal(pkg.scripts.test, "node --test --test-concurrency=1 tests/*.test.ts");
   assert.doesNotMatch(pkg.scripts.check, /test:better-style/);
-  assert.match(pkg.scripts.check, /npm run test:diff-view/);
+  assert.match(pkg.scripts.check, /npm test/);
   assert.equal(pkg.dependencies["grok-mermaid"], undefined);
 });

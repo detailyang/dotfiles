@@ -1,13 +1,11 @@
-if test -e /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh; then
-    source /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh
-fi
-
-if test -f ~/bash/nix-common.sh; then
-    source ~/bash/nix-common.sh
-elif test -f ~/dotfiles/bash/nix-common.sh; then
-    source ~/dotfiles/bash/nix-common.sh
-elif test -f $(dirname "${BASH_SOURCE}")/../bash/nix-common.sh; then
-    source $(dirname "${BASH_SOURCE}")/../bash/nix-common.sh
-else
-    echo "Warning: nix-common.sh not found"
-fi
+# Let the installed Nix profile own its environment; this repository uses Flakes.
+for nix_profile in \
+    /nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh \
+    "$HOME/.nix-profile/etc/profile.d/nix.sh"
+do
+    if test -f "$nix_profile" && test -r "$nix_profile"; then
+        source "$nix_profile" || return $?
+        break
+    fi
+done
+unset nix_profile

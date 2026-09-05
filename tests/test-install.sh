@@ -156,7 +156,7 @@ test_macos_standard_plan_does_not_require_homebrew() {
 
     fake_bin="$(mktemp -d)"
     home_dir="$(mktemp -d)"
-    mkdir -p "$home_dir/.oh-my-zsh" "$home_dir/.local/share/omf"
+    mkdir -p "$home_dir/.local/share/omf"
     ln -s /bin/bash "$fake_bin/bash"
     ln -s /usr/bin/dirname "$fake_bin/dirname"
     ln -s "$(command -v git)" "$fake_bin/git"
@@ -289,6 +289,7 @@ test_agent_skills_live_in_the_home_mirror() {
 test_remote_bootstrap_download_failures_are_reported() {
     local fake_bin
     local home_dir
+    local output
     local result=0
     local status=0
 
@@ -298,14 +299,36 @@ test_remote_bootstrap_download_failures_are_reported() {
     printf '#!/bin/sh\nexit 0\n' > "$fake_bin/fish"
     chmod +x "$fake_bin/curl" "$fake_bin/fish"
 
-    HOME="$home_dir" PATH="$fake_bin:$PATH" bash -c 'source "$1"; set +o pipefail; ybw::postinstall::setup_oh_my_zsh' _ "$PWD/bootstrap.sh" > /dev/null 2>&1 || status=$?
-    [[ $status -ne 0 ]] || result=1
+    output="$(HOME="$home_dir" PATH="$fake_bin:$PATH" bash -c 'source "$1"; set +o pipefail; ybw::remote::run_installer fixture https://example.invalid/install.sh sh' _ "$PWD/bootstrap.sh" 2>&1)" || status=$?
+    [[ $status -eq 1 && "$output" == *"Failed to download fixture"* ]] || result=1
 
     status=0
-    HOME="$home_dir" PATH="$fake_bin:$PATH" bash -c 'source "$1"; set +o pipefail; ybw::postinstall::setup_oh_my_fish' _ "$PWD/bootstrap.sh" > /dev/null 2>&1 || status=$?
-    [[ $status -ne 0 ]] || result=1
+    output="$(HOME="$home_dir" PATH="$fake_bin:$PATH" bash -c 'source "$1"; set +o pipefail; ybw::postinstall::setup_oh_my_fish' _ "$PWD/bootstrap.sh" 2>&1)" || status=$?
+    [[ $status -eq 1 && "$output" == *"Failed to download oh-my-fish"* ]] || result=1
 
     rm -rf "$fake_bin" "$home_dir"
+    return "$result"
+}
+
+test_macos_postinstall_uses_only_configured_integrations() {
+    local home_dir
+    local output
+    local result=0
+
+    home_dir="$(mktemp -d)"
+    output="$(HOME="$home_dir" bash -c '
+        source "$1"
+        ybw::platform::is_macos() { return 0; }
+        ybw::remote::run_installer() { echo "unexpected remote installer"; return 1; }
+        ybw::postinstall::setup_oh_my_fish() { echo "fish-ready"; }
+        ybw::postinstall::setup_lazygit_symlink() { echo "lazygit-ready"; }
+        ybw::postinstall::run
+        printf "warnings:%s" "$YBW_INSTALL_WARNING_COUNT"
+    ' _ "$PWD/bootstrap.sh" 2>&1)" || result=1
+    rm -rf "$home_dir"
+
+    [[ "$output" == *"fish-ready"* && "$output" == *"lazygit-ready"* ]] || result=1
+    [[ "$output" == *"warnings:0"* && "$output" != *"unexpected remote installer"* ]] || result=1
     return "$result"
 }
 
@@ -322,6 +345,7 @@ check "macOS prefers Home Manager Fish over PATH fallbacks" test_macos_prefers_h
 check "requested npx failures produce a failed result" test_requested_npx_failure_is_reported
 check "requested PI failures produce a failed result" test_requested_pi_failure_is_reported
 check "optional post-install failures are counted" test_optional_postinstall_failure_is_counted
+check "macOS post-install runs only configured integrations" test_macos_postinstall_uses_only_configured_integrations
 check "remote bootstrap download failures are reported" test_remote_bootstrap_download_failures_are_reported
 
 echo ""
