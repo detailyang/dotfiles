@@ -1,6 +1,6 @@
 ---
 name: to-issue
-description: Split an approved product/technical spec or design into dependency-aware, agent-executable issue briefs under specs/<slug>/issues.md. Use when the user asks for implementation issues, tasks, tickets, milestones, TODOs, or independently verifiable slices. Do not use for brainstorming, writing the source spec, or implementing the resulting issues.
+description: Split an approved spec into dependency-aware implementation issue briefs with binary acceptance. Use for task/ticket breakdowns, not brainstorming, writing the source spec or implementing issues.
 ---
 
 # To Issue
@@ -11,13 +11,13 @@ Turn durable product and technical context into a dependency graph of independen
 
 Prefer `specs/<slug>/product.md`, `tech.md`, `thinking.md`, existing `issues.md`, the current conversation, and relevant repository evidence.
 
-Write or update:
+Reuse the repository's canonical issue location when present; otherwise write or update:
 
 ```text
 specs/<english-kebab-slug>/issues.md
 ```
 
-Match the language of nearby spec files or the user. Record the source documents and their precedence at the top.
+For a proposal-only request, return the briefs in chat without writing files or creating remote issues. Match the language of nearby spec files or the user. Record the source documents and their precedence at the top.
 
 If context is incomplete but a safe split is still possible, state assumptions and proceed. Ask only when a missing product/architecture decision changes issue boundaries or acceptance.
 
@@ -61,7 +61,7 @@ expand new form beside old
 - Keep blocker edges acyclic.
 - Add a concise change note when boundaries, acceptance, or dependencies change materially.
 - Do not add owners, estimates, labels, or workflow machinery unless requested.
-- Hand executable issues to `/ship`; do not implement them here.
+- Implementation can use `/ship` when requested; do not start it or require another workflow merely to finish the issue brief.
 
 ## Quality gate
 

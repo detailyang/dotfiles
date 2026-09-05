@@ -1,37 +1,53 @@
 # Repository Guidelines
 
-## Project Structure & Module Organization
+## Layout and scope
 
-This is a personal dotfiles repository organized around one invariant: `home/` mirrors `$HOME`, and every tracked file under `home/` deploys to the same relative path in `$HOME`. Root dotfiles such as `home/.zshrc`, `home/.gitconfig`, `home/.tmux.conf`, and `home/.vimrc` sit at the top of the mirror. Shell config is split between `home/bash/` and `home/fish/`. Application config lives under `home/.config/` for WezTerm, Alacritty, Zed, yazi, Home Manager, and lazygit. Reusable command examples live in `home/snippet/`. Agent material is under `home/.agents/`, `home/skills/`, and `pi/`; the repository root `.agents` is a symlink into `home/.agents` for project-skill discovery. Installer phases live in `installer/`; validation lives in `tests/validate.sh` and `tests/validate/`. Platform setup scripts are `bootstrap.sh` and `bootstrap.ps1`.
+`home/` mirrors `$HOME`: only tracked files there deploy, at the same relative path.
+Keep deployment paths stable. The root `.agents` symlink points to `home/.agents`;
+do not replace it with a copied directory.
 
-## Build, Test, and Development Commands
+- `home/bash/`, `home/fish/`, root home dotfiles and `home/.config/`: shell/application configuration.
+- `home/.agents/`: global instructions and nine workflow skills; `home/skills/`: domain skills.
+- `pi/`: Pi extensions, prompts, skills and themes; skills share static validation, while runtime tests remain separate.
+- `installer/`, `bootstrap.sh`, `bootstrap.ps1`: platform installation; `tests/validate/`: validation groups.
 
-- `./tests/validate.sh`: run consistency checks for shell functions, paths, install-script features, and expected removals.
-- `./bootstrap.sh --dry-run`: exercise the Unix installer without applying changes.
-- `./bootstrap.sh --mac-apps --npx --pi`: opt into macOS packages, npm, Go, and Pi extension setup.
-- `./bootstrap.ps1 -NoPull -Verbose`: run Windows setup without pulling first.
-- `make help`: list Makefile targets.
+## Verification
 
-## Coding Style & Naming Conventions
+Run from the repository root; use the checks for the changed surface.
 
-Keep shell scripts Bash or Fish-specific according to their directory. Bash automation should use `set -euo pipefail` and indentation consistent with the touched file. Fish functions use `function name` and `end`, with lowercase hyphenated filenames such as `proxy.fish`. TypeScript under `pi/extensions/` uses ES modules and camelCase identifiers. Preserve existing dotfile formatting unless the change requires otherwise.
+| Surface | Command |
+| --- | --- |
+| Dotfiles and installer | `make check-dotfiles` |
+| Agent instructions and all three skill roots | `bash tests/validate.sh agents` |
+| Installer deployment | `./bootstrap.sh --no-pull --dry-run` |
+| Pi | `make check-pi` |
+| Both dotfiles and Pi | `make check` |
 
-## Testing Guidelines
+Use `make help` for other targets. Do not run an installation, package activation,
+login-shell change or OS-default mutation just to validate documentation.
+Add regression checks to the relevant `tests/validate/` group, not the dispatcher.
+Report unavailable tools, baseline failures and skipped checks separately.
 
-Run `./tests/validate.sh` after changes to shell config, install scripts, snippets, or dotfiles. For installer work, also run `./bootstrap.sh --dry-run` and avoid host-mutating commands unless explicitly requested. Add focused checks to `tests/validate.sh` for regressions detectable with grep or file-existence assertions.
+## Editing conventions
 
-## Commit & Pull Request Guidelines
+Keep the language and formatting of touched files. Bash automation normally uses
+`set -euo pipefail`; test dispatchers may deliberately aggregate failures. Fish
+functions use `function` / `end` and lowercase hyphenated filenames. Pi TypeScript
+uses ES modules and camelCase. Preserve unrelated user changes.
 
-Recent history mostly follows Conventional Commits, for example `feat(tmux-status): add animated spinner` and `fix(tmux-status): use TMUX_PANE for window id lookup`. Prefer `feat`, `fix`, `chore`, or `refactor` with an optional scope. Pull requests should explain the affected tool or shell, list validation commands, and call out host-impacting changes such as package installs, symlinks, macOS defaults, or credential-sensitive config.
+Before changing agent material, read [global instructions](home/.agents/AGENTS.md)
+and only the relevant skill entries. Keep entry points short and reference detail
+on demand. In this repository, `name` and `description` are one-line plain YAML
+strings; names match skill directories. Repository entry budgets are 4 KiB for the
+global AGENTS.md and 8 KiB per SKILL.md, not client token limits. The validator checks local references,
+not external URL availability or model behavior. It uses Python 3.9+ standard library.
+For tracked-file inventory, prefer `git ls-files`; hidden agent paths must not be
+accidentally excluded by default search settings.
 
-## Security & Configuration Tips
+## Delivery and safety
 
-Do not commit secrets, machine-specific tokens, or private hostnames. Treat `.ssh/`, package manager config, and install scripts as sensitive. Prefer placeholders and document required local values.
-
-## Agent-Specific Instructions
-
-Before editing agent material, read `.agents/AGENTS.md` and the relevant `SKILL.md` files. Keep prompt, skill, and extension changes scoped and verify generated paths with `rg --files`.
-
-## Documentation Index
-
-- **Architecture decisions:** Before architecture-affecting work, read `docs/adr/README.md` and the relevant accepted records in `docs/adr/`. Follow the workflow linked from the index.
+Use Conventional Commits. PRs explain affected tools, verification and any host or
+credential impact; use a small ASCII flow when it clarifies the change. Never commit
+secrets, machine tokens or private hostnames. Treat SSH and installer configuration
+as sensitive. Read [the ADR index](docs/adr/README.md) and relevant accepted decisions
+only for architecture-affecting work; follow its workflow before adding an ADR.

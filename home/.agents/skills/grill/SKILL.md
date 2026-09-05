@@ -1,76 +1,43 @@
 ---
 name: grill
-description: Clarify or stress-test a fuzzy engineering or product decision before specification or implementation. Use when the user asks to grill, challenge, interrogate, sharpen, or think through a plan, feature, trade-off, or architecture. Do not use for a finished spec, straightforward implementation, or ordinary code review.
+description: Clarify or stress-test an engineering/product decision when the user asks to challenge, interrogate or sharpen it. Not for straightforward implementation or ordinary code review.
 ---
 
 # Grill
 
-Turn ambiguity into explicit, evidence-backed decisions. Explore facts independently; reserve questions for choices that genuinely belong to the user. Do not implement the plan.
+Turn ambiguity into evidence-backed decisions without implementing the plan.
 
-## Choose the mode
+## Mode
 
-- **Interactive interview** — use when the user wants to discover the direction together. Ask exactly one decision question at a time and wait for the answer.
-- **One-pass stress test** — use when the user supplies an artifact or asks for a review/challenge. Return the strongest objections, decisions, and recommendation in one response. Do not pause for non-blocking questions.
+Use an interactive interview only when the user wants to explore together: ask one
+material decision question and wait. For an artifact review or one-pass challenge,
+return the strongest objections and a recommendation without non-blocking pauses.
 
-State the chosen mode only when it is not obvious.
+## Process
 
-## Evidence first
+1. Read applicable instructions and the relevant parts of the supplied artifact.
+   Inspect code, callers, tests or accepted decisions only where they settle a fact.
+2. Separate facts, assumptions and missing observations. Resolve repository facts
+   independently before asking the user.
+3. Challenge the earliest decision that changes downstream choices. Examine users
+   and success, scope/ownership, state lifecycle, failures/concurrency, migration
+   and verification only as relevant; do not run an exhaustive checklist by habit.
+4. Use concrete counterexamples and identify evidence that would falsify the
+   recommendation. For non-blocking gaps, state a working assumption and continue.
 
-Before asking anything:
+A question should contain the decision, decisive evidence, recommended option and
+its main trade-off. Do not expand a simple question into five mandatory headings.
+Ask only for choices belonging to the user that materially change the outcome or
+make proceeding unsafe.
 
-1. Read applicable `AGENTS.md`, source documents, existing specs, `CONTEXT.md`, ADRs, relevant interfaces, direct callers, and tests.
-2. Separate confirmed facts, assumptions, and missing observations.
-3. Resolve repository facts yourself. Do not ask the user for information available locally.
-4. Identify the earliest unresolved decision that changes downstream choices.
+## Persistence and result
 
-## Decision order
+Use repository vocabulary. Write durable notes only when requested or approved;
+reuse the canonical location, otherwise `specs/<english-kebab-slug>/thinking.md`.
+Preserve prior decisions and unresolved questions. Propose a `CONTEXT.md` update
+only for reusable terminology, and an ADR only for a consequential trade-off under
+the repository's ADR workflow.
 
-Cover only branches that materially affect the outcome, usually in this order:
-
-1. users, problem, and observable success
-2. scope, non-goals, and ownership
-3. state or data lifecycle
-4. failure, retry, cancellation, and concurrency
-5. compatibility, migration, rollout, and rollback
-6. interfaces, test seams, risks, and verification
-
-Use concrete scenarios to expose hidden assumptions. Skip dimensions that do not affect this decision.
-
-## Question contract
-
-Ask only when the answer would change the recommendation or make proceeding unsafe. Every question must include:
-
-```text
-Decision: <what must be chosen>
-Evidence: <known facts and uncertainty>
-Recommendation: <preferred option and why>
-Trade-off: <what it gives up>
-Question: <one answerable choice>
-```
-
-If a decision is not blocking, state the working assumption and continue. Do not turn ordinary implementation details into user decisions.
-
-## One-pass stress-test output
-
-When not interviewing, return:
-
-- current framing and assumptions
-- strongest failure paths or counterexamples
-- decisions already implied by the artifact
-- unresolved decisions, ranked by impact
-- recommended direction and rejected alternatives
-- verification that would falsify the recommendation
-
-Prefer a small decision tree or flow sketch when it reduces prose.
-
-## Durable documentation
-
-Use the repository's canonical vocabulary.
-
-- Propose a `CONTEXT.md` update when a domain term becomes precise and reusable. Write it only when persistence was requested or approved.
-- Propose an ADR only for a hard-to-reverse, surprising decision with a real trade-off. Follow the repository's ADR convention after approval.
-- When asked to preserve the broader discussion, create or update `specs/<english-kebab-slug>/thinking.md`, retaining prior decisions and unresolved questions.
-
-## Done
-
-Close with confirmed decisions, assumptions still in force, unresolved blockers, excluded options, risks, and the next appropriate workflow. Do not claim readiness for `/to-spec` while a product or architecture decision that changes the contract remains unresolved.
+Finish once with the recommendation, strongest risks, confirmed decisions and any
+remaining blockers. Do not repeat the same inventory as a second summary or claim
+specification readiness while a contract-changing decision remains unresolved.

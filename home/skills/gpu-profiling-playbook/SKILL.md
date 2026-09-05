@@ -1,12 +1,6 @@
 ---
 name: gpu-profiling-playbook
-description: >
-  Profile and optimize PyTorch/CUDA workloads with an evidence-driven funnel from
-  torch.profiler to Nsight Systems and Nsight Compute, then validate torch.compile
-  or operator-fusion experiments. Use when GPU utilization looks high but latency
-  remains poor, synchronization points or timeline gaps may be misleading, or a
-  bottleneck must be prioritized across framework, system, and kernel layers. Do
-  not use for general GPU terminology or isolated Nsight Compute metric lookup.
+description: Diagnose end-to-end PyTorch/CUDA bottlenecks with a measured funnel from framework trace to system timeline and selected kernels. Not for general GPU terminology or isolated NCU metric lookup.
 ---
 
 # GPU Profiling Playbook
@@ -14,6 +8,8 @@ description: >
 Build an evidence chain from end-to-end latency to the operation and kernel that
 deserve optimization. A busy GPU timeline is not proof that its kernels use the
 hardware efficiently.
+
+Use only the layers needed to answer the question. Reuse supplied traces when sufficient; do not run all three profilers merely because they appear below. Include launch, transfer, layout conversion and realistic concurrent load when validating an end-to-end gain.
 
 ## Profiling Funnel
 
