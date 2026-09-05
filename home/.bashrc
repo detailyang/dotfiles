@@ -15,12 +15,6 @@ case ":$PATH:" in
     *) export PATH="$HOME/bin:$PATH" ;;
 esac
 
-# Initialize NVM so login shells use the configured default Node.js version.
-export NVM_DIR="$HOME/.nvm"
-if [[ -s "$NVM_DIR/nvm.sh" ]]; then
-    source "$NVM_DIR/nvm.sh"
-fi
-
 case $- in
     *i*) ;;
     *) return 0 ;;

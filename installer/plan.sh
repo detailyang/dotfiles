@@ -139,9 +139,6 @@ ybw::plan::validate() {
         if [[ "$YBW_INSTALL_PLAN_MAC_APPS" == true ]]; then
             ybw::command::require brew "Visit https://brew.sh" || return 1
         fi
-        if [[ ! -d "$HOME/.oh-my-zsh" || ! -d "$HOME/.local/share/omf" ]]; then
-            ybw::command::require curl "Install curl from Xcode Command Line Tools or Nix" || return 1
-        fi
     elif ! ybw::linux::find_fish > /dev/null; then
         package_manager=""
         for package_manager in apt-get dnf yum pacman zypper apk; do
@@ -159,7 +156,7 @@ ybw::plan::validate() {
         fi
     fi
 
-    if [[ "$platform" != "macOS" && ! -d "$HOME/.local/share/omf" ]]; then
+    if [[ ! -d "$HOME/.local/share/omf" ]]; then
         ybw::command::require curl "Install curl with the system package manager" || return 1
     fi
 

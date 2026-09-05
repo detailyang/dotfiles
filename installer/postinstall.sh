@@ -33,10 +33,6 @@ ybw::postinstall::run() {
         fi
     done
 
-    if ybw::platform::is_macos && ! ybw::postinstall::setup_oh_my_zsh; then
-        ybw::result::warn "Continuing without oh-my-zsh"
-    fi
-
     if ! ybw::postinstall::setup_oh_my_fish; then
         ybw::result::warn "Continuing with incomplete oh-my-fish setup"
     fi
@@ -80,26 +76,6 @@ ybw::remote::run_installer() {
         ybw::log::warn "$name installer failed with exit code $status"
         return 1
     fi
-}
-
-ybw::postinstall::setup_oh_my_zsh() {
-    if [[ -d "$HOME/.oh-my-zsh" ]]; then
-        ybw::log::success "oh-my-zsh already installed"
-        return 0
-    fi
-
-    ybw::log::info "Installing oh-my-zsh..."
-    if ybw::remote::run_installer \
-        "oh-my-zsh" \
-        "https://raw.github.com/ohmyzsh/ohmyzsh/master/tools/install.sh" \
-        sh
-    then
-        ybw::log::success "oh-my-zsh installed"
-        return 0
-    fi
-
-    ybw::log::warn "Failed to install oh-my-zsh"
-    return 1
 }
 
 ybw::postinstall::setup_oh_my_fish() {
