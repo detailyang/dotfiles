@@ -14,11 +14,11 @@ export default function diffView(pi: ExtensionAPI): void {
       config = loadDiffViewConfig(settingsPath);
     } catch (error) {
       config = { ...DEFAULT_TOOL_DISPLAY_CONFIG };
-      ctx.ui.notify(`无法读取 ${settingsPath}，使用默认设置：${error instanceof Error ? error.message : String(error)}`, "warning");
+      ctx.ui.notify(`Could not load ${settingsPath}; using defaults: ${error instanceof Error ? error.message : String(error)}`, "warning");
     }
   });
   pi.registerCommand("diff-view", {
-    description: "配置 edit/write diff 展示（自动保存）",
+    description: "Configure edit/write diff display (auto-save)",
     handler: async (_args, ctx) => {
       await openDiffViewSettings(ctx, () => config, (next) => {
         saveDiffViewConfig(settingsPath, next);
