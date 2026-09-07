@@ -4,6 +4,9 @@
 [log]
     date = iso
 
+[branch]
+    sort = committerdate
+
 [http "https://github.com"]
     proxy = http://127.0.0.1:7890
 
