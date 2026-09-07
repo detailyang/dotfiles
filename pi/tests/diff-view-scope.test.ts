@@ -22,13 +22,17 @@ test("diff-view is the only vendored presentation extension", () => {
   assert.equal(existsSync(join(PI_ROOT, "scripts", "sync-better-style.mjs")), false);
 });
 
-test("diff-view contains only edit/write diff behavior", () => {
+test("diff-view contains only edit/write diff behavior and its settings command", () => {
   const source = sourceFiles(DIFF_VIEW_ROOT)
     .map((path) => readFileSync(path, "utf8"))
     .join("\n");
   assert.match(source, /createEditToolDefinition/);
   assert.match(source, /createWriteToolDefinition/);
-  assert.doesNotMatch(source, /registerCommand|compact-thinking|tool-grouping|working-message|agent-summary/);
+  assert.deepEqual(
+    [...source.matchAll(/registerCommand\(\s*"([^"]+)"/g)].map((match) => match[1]),
+    ["diff-view"],
+  );
+  assert.doesNotMatch(source, /compact-thinking|tool-grouping|working-message|agent-summary/);
 });
 
 test("package discovers all test suites without retired presentation dependencies", () => {

@@ -2,6 +2,7 @@ export type DiffViewMode = "auto" | "split" | "unified";
 export type DiffIndicatorMode = "bars" | "classic" | "none";
 
 export interface ToolDisplayConfig {
+  showEditCall: boolean;
   diffViewMode: DiffViewMode;
   diffIndicatorMode: DiffIndicatorMode;
   diffSplitMinWidth: number;
@@ -12,6 +13,7 @@ export interface ToolDisplayConfig {
 }
 
 export const DEFAULT_TOOL_DISPLAY_CONFIG: ToolDisplayConfig = {
+  showEditCall: false,
   diffViewMode: "auto",
   diffIndicatorMode: "bars",
   diffSplitMinWidth: 120,

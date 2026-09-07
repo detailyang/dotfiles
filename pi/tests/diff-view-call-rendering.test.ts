@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createWriteToolDefinition, initTheme } from "@earendil-works/pi-coding-agent";
-import { installDiffViewTools } from "../extensions/diff-view/renderer/tool/diff/index.ts";
+import {
+  DEFAULT_TOOL_DISPLAY_CONFIG, installDiffViewTools, WriteExecutionMetadataStore,
+  type ToolDisplayConfig,
+} from "../extensions/diff-view/renderer/tool/diff/index.ts";
 
 initTheme("dark");
 
@@ -11,7 +14,7 @@ const theme = {
   bold(text: string) { return text; },
 } as any;
 
-function tools(editSource = "builtin"): any[] {
+function tools(editSource = "builtin", config: () => ToolDisplayConfig = () => DEFAULT_TOOL_DISPLAY_CONFIG, store = new WriteExecutionMetadataStore()): any[] {
   const registered: any[] = [];
   installDiffViewTools({
     getAllTools: () => [
@@ -19,7 +22,7 @@ function tools(editSource = "builtin"): any[] {
       { name: "write", sourceInfo: { source: "builtin" } },
     ],
     registerTool: (tool: unknown) => registered.push(tool),
-  } as any);
+  } as any, store, process.cwd(), config);
   return registered;
 }
 
@@ -32,7 +35,7 @@ test("edit call slot is empty before, during, and after execution", () => {
       { argsComplete: true, executionStarted: true, expanded: true },
       { argsComplete: true, executionStarted: true, isError: true },
     ]) {
-      const component = edit.renderCall(args, theme, { args, state: {}, ...context });
+      const component = edit.renderCall(args, theme, { args, state: {}, cwd: process.cwd(), ...context });
       assert.ok(component, "an absent renderer would trigger Pi's native fallback");
       for (const width of [0, 1, 80, 140]) {
         assert.deepEqual(component.render(width), []);
@@ -70,7 +73,7 @@ test("write keeps its native call rendering", () => {
   const native = createWriteToolDefinition(process.cwd()) as any;
   const args = { path: "sample.ts", content: "const value = 1;\n" };
   for (const expanded of [false, true]) {
-    const context = () => ({ args, state: {}, argsComplete: true, executionStarted: true, expanded });
+    const context = () => ({ args, state: {}, cwd: process.cwd(), argsComplete: true, executionStarted: true, expanded });
     const actual = write.renderCall(args, theme, context());
     const expected = native.renderCall(args, theme, context());
     for (const width of [80, 140]) {
@@ -82,4 +85,55 @@ test("write keeps its native call rendering", () => {
 
 test("diff-view does not replace another extension's edit tool", () => {
   assert.deepEqual(tools("extension").map((tool) => tool.name), ["write"]);
+});
+
+test("native edit visibility changes on the same component without re-registering tools", () => {
+  let config = { ...DEFAULT_TOOL_DISPLAY_CONFIG };
+  const edit = tools("builtin", () => config).find((tool) => tool.name === "edit");
+  const args = { path: "sample.ts" };
+  const component = edit.renderCall(args, theme, {
+    args, state: {}, cwd: process.cwd(), argsComplete: false, executionStarted: false,
+  });
+  assert.deepEqual(component.render(80), []);
+  config = { ...config, showEditCall: true };
+  assert.match(component.render(80).join("\n"), /edit.*sample\.ts/);
+  config = { ...config, showEditCall: false };
+  component.invalidate();
+  assert.deepEqual(component.render(80), []);
+});
+
+test("registered edit and write results share the live display configuration", () => {
+  let config: ToolDisplayConfig = { ...DEFAULT_TOOL_DISPLAY_CONFIG, diffViewMode: "unified", writeDiffCollapsedLines: 4 };
+  const store = new WriteExecutionMetadataStore();
+  store.set("write", { fileExistedBeforeWrite: false });
+  const registered = tools("builtin", () => config, store);
+  const edit = registered.find((tool) => tool.name === "edit");
+  const write = registered.find((tool) => tool.name === "write");
+  const results = [
+    edit.renderResult(
+      { details: { diff: "@@ -1 +1 @@\n-1|old\n+1|new" }, content: [] },
+      { expanded: true }, theme, { args: { path: "sample.ts" } },
+    ),
+    write.renderResult(
+      { content: [] }, { expanded: true }, theme,
+      { toolCallId: "write", args: { path: "sample.ts", content: "new\n" } },
+    ),
+  ];
+  for (const result of results) assert.match(result.render(80).join("\n"), /▌/);
+  config = { ...config, diffIndicatorMode: "none" };
+  for (const result of results) {
+    assert.doesNotMatch(result.render(80).join("\n"), /▌/);
+    assert.match(result.render(80).join("\n"), /new/);
+  }
+});
+
+test("an error previously displayed in a hidden native preview remains visible and sanitized", () => {
+  const edit = tools().find((tool) => tool.name === "edit");
+  const result = edit.renderResult(
+    { content: [{ type: "text", text: "edit failed\x1b]52;c;SECRET\x07" }] },
+    {}, theme,
+    { args: { path: "sample.ts" }, isError: true, state: { callComponent: { preview: { error: "edit failed" } } } },
+  );
+  assert.match(result.render(80).join("\n"), /edit failed/);
+  assert.doesNotMatch(result.render(80).join("\n"), /SECRET|\x1b\]/);
 });
