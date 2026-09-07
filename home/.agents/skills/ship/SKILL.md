@@ -27,6 +27,11 @@ Deliver the requested behavior through the smallest production-shaped change. Ke
 A dirty worktree is not an automatic blocker. Preserve pre-existing changes, compare overlapping hunks, and continue when the task can be isolated safely. Stop only when ownership cannot be separated without risking user work.
 
 For multi-step work, use a short plan with one observable checkpoint per step.
+Record the selected scope and explicitly authorized delivery endpoint, such as a
+local diff, commit, PR, or merge, in the existing plan or handoff. Preserve that
+boundary across continuation turns; do not ask again for an already authorized
+step or infer new publication authority from “continue”. A requested single PR
+round ends after that round. Update the boundary when the user changes it.
 
 ## TDD for behavior changes
 
@@ -80,13 +85,26 @@ Review the complete task-owned diff against the fixed point:
 
 Use a dedicated review skill when one is available, but do not depend on a particular optional skill name. Treat confirmed correctness or specification gaps as unfinished work.
 
+Tie each check to its command, result, environment, and tested source version
+(HEAD plus the relevant uncommitted diff or file hashes). Reuse evidence only
+when its inputs still match; rerun affected checks after source, dependency, or
+environment changes. Distinguish completed results from running jobs and old CI.
+
+Before declaring completion, compare the result with the authorized endpoint.
+For a requested PR delivery, verify its current head, base, and required checks;
+for a requested merge, verify integration into the target branch. Report a
+remaining delivery step as unfinished rather than silently downgrading scope.
+
 ## Operation log
 
 For work under `specs/<slug>/`, create or update `specs/<slug>/operation.md` with:
 
-- task and fixed point
+- task, accepted decisions, authorized delivery endpoint, and fixed point
 - pre-existing worktree changes
 - task-owned paths and files changed
-- commands run and observed results
+- commands, tested versions/environments, and observed results
 - final-review findings and disposition
 - deviations, residual risks, and follow-ups
+
+For smaller tasks, keep this information in the existing task handoff; do not
+create a separate log solely to satisfy this skill.

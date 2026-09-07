@@ -10,7 +10,9 @@ focused on repository-specific constraints rather than duplicating global policy
   `$HOME`. Keep these paths stable; new untracked files are excluded from previews.
   Windows has a separate, narrower installer.
 - Root `AGENTS.md` is repository-local; `home/.agents/AGENTS.md` is deployed global
-  policy. Preserve `.agents -> home/.agents` as a symlink, not a copied directory.
+  policy. `home/.codex/AGENTS.md` routes Codex to that shared policy; resolve its
+  references relative to the shared file. Preserve `.agents -> home/.agents`
+  as a symlink, not a copied directory.
 - Home Manager owns shared CLI packages, Mise owns runtimes, and Homebrew supplies
   optional macOS casks. Linux login Fish must remain a stable system executable,
   not a Nix-generation path.

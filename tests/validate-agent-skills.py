@@ -118,7 +118,7 @@ def validate(root: Path) -> list[str]:
         errors.append("missing global AGENTS.md")
     elif global_entry.stat().st_size > GLOBAL_LIMIT:
         errors.append(f"global AGENTS.md exceeds {GLOBAL_LIMIT} bytes")
-    for document in [root / "AGENTS.md", global_entry]:
+    for document in [root / "AGENTS.md", global_entry, root / "home/.codex/AGENTS.md"]:
         if document.is_file():
             errors.extend(f"{document.relative_to(root)}: {message}"
                           for message in link_errors(document, root))
