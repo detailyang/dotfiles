@@ -38,7 +38,7 @@ $$A_t = \log p_T(y_t \mid x, y_{<t}) - \log p_S(y_t \mid x, y_{<t})$$
 - $A_t > 0$: teacher rates this token above student → positive update
 - $A_t < 0$: teacher rates this token below student → negative update
 
-This makes OPD a **natural replacement for the advantage term in GRPO-style RL**.
+This motivates advantage-like estimators in some OPD/RL methods. Verify the objective, sampling, normalization and gradient treatment before substituting it into GRPO or another RL loss.
 
 ## RL–Distillation Hybrid Methods
 
@@ -110,10 +110,10 @@ OPD should be viewed as a **fragile communication protocol** between teacher and
 
 ### 1. Token Overlap / Thinking-Pattern Failure (Li et al. 2026)
 
-**Problem:** OPD success requires compatible teacher–student thinking patterns. ~97-99% of probability mass in top-K tokens must overlap for supervision to be useful. A stronger teacher may actually pull an RL-improved student backward toward older reasoning patterns.
+**Problem:** Teacher usefulness can change on student-generated prefixes. A stronger benchmark score does not guarantee helpful supervision for an RL-improved student. Token overlap can diagnose some mismatches, but a reported overlap percentage is specific to its models, support definition and evaluation; it is not a universal success threshold.
 
-**Fixes:**
-- **Off-policy cold start** before OPD (align student's reasoning style to teacher first)
+**Candidate responses to measured mismatch:**
+- Test an off-policy warm start if it improves compatibility without erasing useful student behavior; do not require it for an already suitable checkpoint
 - Select prompts aligned with teacher's reasoning style (benchmark superiority ≠ good OPD teacher)
 - Monitor overlap among high-probability tokens at student-visited prefixes
 - Track teacher continuation advantage vs. rollout prefix length (advantage can drop sharply on long prefixes)
@@ -131,25 +131,29 @@ OPD should be viewed as a **fragile communication protocol** between teacher and
 
 ### 3. Sampled-Token Bias (Fu et al. 2026)
 
-**Problem:** Sampled-token OPD observes only one token per position → biased and fragile when student samples from low-probability regions where teacher guidance is unreliable.
+**Problem:** Single-token feedback may have high variance or miss important parts of the teacher distribution. Whether an estimator is biased depends on its sampling, truncation and objective; student sampling alone does not establish bias.
 
-**Fixes:**
+**Candidate experiments when this failure is observed:**
 - Replace single-token supervision with **teacher top-K local support matching** (renormalize both distributions over teacher's plausible next-token set)
 - Use **top-p rollout sampling** to reduce chance of drifting to very low-probability prefixes
 - Mask special tokens and tokenizer artifacts to avoid fake disagreements from token boundary mismatches
 - Prefer truncated reverse KL over one-token log-ratio updates when teacher top-K logits are affordable
 - Evaluate whether per-token advantages combine into coherent gradient directions (not canceling across positions)
 
-## Practical Training Loop
+## Example Frozen-Teacher Training Loop
+
+Use this only for the selected frozen-teacher setup. Other teacher update policies
+need their own refresh and gradient rules; these steps do not require a prior SFT
+or RL stage.
 
 1. **Sample prompts** from task dataset or synthetic prompt pool
 2. **Student generates rollout** — record token IDs, attention masks, per-token student log-probs
-3. **Teacher evaluates rollout** — computes token-level log-probs conditioned on student's exact prefixes (much cheaper than full generation; teacher only evaluates, not generates)
+3. **Teacher evaluates rollout** — scores the student's exact prefixes; benchmark teacher scoring and rollout costs separately for the actual serving setup
 4. **Compute divergence/advantage** — teacher–student discrepancies → dense learning signals
 5. **Apply clipping/masking** — suppress unstable or low-value updates; separate reasoning vs. formatting token weights
 6. **Backpropagate through student only** — teacher remains fixed
 
-**Key efficiency insight:** Teacher only needs to *evaluate* the student's trajectory, not generate its own. This makes teacher inference substantially cheaper than full rollout generation.
+**Efficiency hypothesis:** Scoring a supplied trajectory can batch its positions rather than generating autoregressively. Measure the actual gain including rollout, log-prob extraction, transfer and serving overhead; it is not a universal cost ratio.
 
 ## When to Choose On-Policy Distillation
 

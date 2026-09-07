@@ -112,9 +112,9 @@ return _mm_movemask_epi8(hit) != 0;
 
 **来源**：2026 年 ARM NEON 博客文章
 
-**朴素 SIMD 版**：对 4 元素向量做前缀和需要 2 shift + 2 add，外加跨块传播，不比 scalar 快甚至更慢。
+**该案例的朴素 SIMD 版**：对 4 元素向量做前缀和需要 2 shift + 2 add，外加跨块传播；在报告的目标负载中没有胜过 scalar，不能推广为所有实现的结论。
 
-**正确做法：交错 load + 转置**
+**该案例的候选：交错 load + 转置**
 ```c
 // vld4q_u32：加载 16 个 uint32，自动去交织成 4 个向量
 uint32x4x4_t vals = vld4q_u32(data + 16 * i);
@@ -129,7 +129,7 @@ vst4q_u32(data + 16 * i, vals);  // 交织写回
 
 **结果**：scalar 3.9 Gint/s → fast SIMD 8.9 Gint/s（Apple M4，2.3× 提升）
 
-**教训**：朴素 SIMD prefix sum（naive 版）比 scalar 慢！必须用转置+并行才能赢。
+**该案例的教训**：在所测 Apple M4 负载中，朴素 SIMD 版本受跨块依赖影响，转置和并行处理更快。其他 ISA、编译器和输入规模需比较标量、自动向量化与手写候选，不能推出转置是所有 prefix sum 的必要条件。
 
 ---
 
@@ -230,14 +230,14 @@ __m512i to_string_avx512ifma_8digits(uint64_t n) {
 - SIMD 里手动用 IFMA/MULHI 做同样的事，8 路并行
 - Lemire et al. 2021 有精确界的理论保证
 
-### 3.5 不要相信 Naive SIMD
-- Prefix sum 朴素 SIMD 版比 scalar 慢
-- 必须改变数据布局（如转置、交错 load）才能让 SIMD 真正并行
-- 先想清楚数据依赖，再写 intrinsic
+### 3.5 先验证数据依赖
+- Prefix sum 的朴素 SIMD 版本可能受依赖链限制，未必胜过 scalar。
+- 只有布局变换能增加有效并行且覆盖转换成本时，才采用转置或交错 load。
+- 先检查现有库和编译器生成代码，再比较必要的 intrinsic 候选。
 
-### 3.6 两变体策略
-- 提供"branch-heavy"（同质输入）和"branch-light"（混合输入）两个实现
-- 在运行时或编译时选择，避免"最优实现在最差输入上退化"
+### 3.6 按输入分布比较候选
+- 当分支预测是已测成本时，可比较 branch-heavy 与 branch-light 版本。
+- 只在真实负载证明各有收益、且分派成本可接受时保留多个实现；否则保留最简单的有效版本。
 
 ---
 
@@ -265,14 +265,14 @@ __m512i to_string_avx512ifma_8digits(uint64_t n) {
 ### 写代码时
 - [ ] 用 intrinsics 而非汇编（更可移植，编译器可以进一步优化）
 - [ ] 处理好 tail（未对齐或不足一个向量的剩余元素）
-- [ ] 用 `static_assert` / compile-time 检查对齐和类型大小
-- [ ] 提供 scalar fallback（非 SIMD 路径），用于不支持的平台
+- [ ] 用类型与对齐检查证明相关假设；运行时地址不能仅靠 `static_assert` 验证
+- [ ] 需要支持缺少目标指令的平台时，提供能力检测和正确的 scalar 路径；固定平台不额外引入分派框架
 
 ### 性能验证
 - [ ] 测 warm cache（数据在 L1/L2）和 cold cache（数据在内存/L3）
 - [ ] 分别测小数据（< 1 KB）和大数据（> 1 MB）
 - [ ] 用 `perf stat` / `VTune` / `Instruments` 确认 instructions/byte
-- [ ] 注意：小数据集上处理器会"学会"分支，benchmark 结果不可信（Lemire 2019 警告）
+- [ ] 重复小数据可能让分支预测适应固定输入；使用代表性分布，并区分 warm/cold 条件，而不是把所有小输入基准判为无效
 
 ---
 

@@ -59,7 +59,7 @@ $$\mathcal{L}_{OPSD}(\theta) = \mathbb{E}_{(x, y^\star)}\mathbb{E}_{\hat{y} \sim
 - Student: generates on-policy response $\hat{y} \sim p_S(\cdot \mid x)$
 - Teacher: evaluates that trajectory with privileged solution info $p_T(\cdot \mid x, y^\star, \hat{y}_{<n})$
 
-Gradients backpropagate **only through student logits**.
+Gradients backpropagate **only through student logits** in this example. A stop-gradient teacher view is not necessarily a permanently frozen checkpoint; record whether its parameters are shared, refreshed or fixed.
 
 **Key insight:** Models are often substantially better at *evaluating* a correct answer than *generating* it from scratch. Privileged teacher conditioning exploits this asymmetry.
 
@@ -75,7 +75,7 @@ Gradients backpropagate **only through student logits**.
 Per-token advantage from self-distillation:
 $$A_t = \log p_T(y_t) - \log p_S(y_t)$$
 
-This integrates naturally into PPO-, GRPO-, and RLVR-style training loops.
+This can motivate an advantage-like signal in a specified training objective. Verify sampling, normalization and gradient treatment before integrating it with PPO, GRPO or RLVR; shared terminology does not establish estimator equivalence.
 
 ## Key Papers
 

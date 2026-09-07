@@ -39,7 +39,7 @@ $$A_t^{(k)} = \log p_{T_k}(y_t \mid x, y_{<t}) - \log p_S(y_t \mid x, y_{<t})$$
 Aggregated update:
 $$A_t = \sum_{k=1}^{K} w_k\, A_t^{(k)}$$
 
-This formulation allows each teacher to contribute a **dense advantage estimate**, insertable directly into GRPO- or PPO-style policy optimization loops.
+This motivates advantage-like estimators in some methods. Before integrating with GRPO or PPO, verify the objective, sampling, normalization and gradient treatment; a weighted token log-ratio is not automatically a drop-in advantage.
 
 ## Teacher Selection and Routing Strategies
 
@@ -68,7 +68,7 @@ Post-training LLMs with Cascade RL and Multi-Domain On-Policy Distillation.
 Describes MOPD as "a new post-training primitive" — capability consolidation tool after or during RL.
 
 **Advantages of MOPD over sequential training:**
-- All specialist knowledge transferred simultaneously (avoids catastrophic forgetting)
+- Specialist signals transferred jointly; evaluate whether this mitigates forgetting on the required domains
 - See-saw oscillations dampened by joint teacher constraints
 - Reverse KL advantages aggregate naturally into single policy gradient update
 - Compatible with standard RL infrastructure (GRPO, PPO)
@@ -88,7 +88,7 @@ Describes MOPD as "a new post-training primitive" — capability consolidation t
 
 | Advantage | Description |
 |---|---|
-| **Capability consolidation** | Merges specialist knowledge without sequential catastrophic forgetting |
+| **Capability consolidation** | Can combine specialist signals; measure remaining or introduced domain regressions |
 | **See-saw mitigation** | Domain regressions dampened by simultaneous multi-domain constraints |
 | **RL integration** | Weighted advantage aggregation fits naturally into GRPO/PPO loops |
 | **Flexible teacher composition** | Teachers can be: different model families, RL-trained specialists, best checkpoints across stages |
@@ -101,7 +101,7 @@ Describes MOPD as "a new post-training primitive" — capability consolidation t
 | **Teacher inference cost** | $K\times$ cost per rollout; may bottleneck throughput |
 | **Teacher conflict** | Conflicting teacher signals on ambiguous prompts can produce incoherent updates |
 | **Routing errors** | Misrouting a prompt to the wrong specialist teacher degrades supervision quality |
-| **Architecture coupling** | All teachers must share student's tokenizer (critical constraint) |
+| **Architecture coupling** | Direct token-probability comparison needs aligned support and tokenization; text-level or aligned alternatives have different contracts |
 | **Weight sensitivity** | Poorly tuned teacher weights can cause one domain to dominate and replicate see-saw effect |
 
 ## When to Choose Multi-Teacher Distillation

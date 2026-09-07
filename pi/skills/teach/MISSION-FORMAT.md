@@ -8,7 +8,7 @@
 # Mission: {Topic}
 
 ## Why
-{1-3 sentences. The concrete real-world goal the user is chasing. What changes in their life or work when they have this skill? Avoid abstract framings like "to understand X" — push for the underlying outcome.}
+{1-3 sentences describing the agreed purpose. Understanding a concept is sufficient when that is the user's goal; do not invent a project or interview merely to replace it.}
 
 ## Success looks like
 - {A specific, observable thing the user will be able to do}
@@ -24,8 +24,8 @@
 
 ## Rules
 
-- **One mission per workspace.** If the user wants to learn two unrelated things, that is two workspaces.
-- **Concrete over abstract.** "Run a half marathon by October" beats "get fitter." "Ship a Rust CLI to my team" beats "learn Rust."
-- **Push back on vagueness.** If the user cannot articulate why, interview them before writing anything. A bad mission is worse than no mission.
-- **Revise when reality shifts.** Missions change. When the user's goal moves, update this file — don't leave a stale mission steering future sessions.
+- **Scope the workspace by the agreed goal.** Related topics can share a workspace. Separate unrelated goals only when their records or constraints would otherwise become confusing.
+- **Make success observable.** Building something, explaining a concept accurately, or solving a representative problem can each be a valid goal.
+- **Resolve material ambiguity.** Use the topic and purpose already supplied. Ask only when a missing decision changes the lesson or success criteria; otherwise record a working assumption.
+- **Confirm goal changes.** Propose a revision when the user's direction shifts and update the mission after that direction is agreed.
 - **Keep it short.** If `MISSION.md` runs past a screen, it has stopped being a compass and started being a plan.

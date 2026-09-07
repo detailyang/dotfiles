@@ -1,39 +1,19 @@
-# Report Template
+# Complexity Report
 
-Use this structure by default when the user asks for a complexity analysis, audit, scan, review, or report. Do not wait for the user to ask for these fields.
+Use only fields that change the decision. Lead with material findings, not a stack
+inventory or an empty template. Do not add a changes section to a read-only report.
 
-## Summary
+For each finding, combine:
 
-- Scope analyzed:
-- Stack detected:
-- Test/build commands detected:
-- Highest-impact hotspot:
-- Patch status: proposed / implemented / blocked
-- Files modified: yes / no
+- location and the costly behavior on realistic inputs;
+- current and proposed complexity, with assumptions and memory trade-offs;
+- the recommended change and why observable behavior should remain equivalent;
+- material correctness risks and the test or measurement needed to resolve them.
 
-## Findings
+Separate measured time from asymptotic estimates. Avoid repeating one finding as
+both a summary table and a full report unless the table enables a useful comparison.
 
-For each finding:
-
-- Location:
-- Current pattern:
-- Estimated current complexity:
-- Recommended change:
-- Estimated complexity after:
-- Why behavior should remain equivalent:
-- Risk level:
-- Tests or measurements needed:
-
-## Changes Made
-
-- Files changed:
-- Main algorithmic change:
-- Complexity before:
-- Complexity after:
-
-## Verification
-
-- Tests run:
-- Build/type/lint run:
-- Benchmark or measurement:
-- Residual risk:
+End with the inspected scope and its important limits. For implementation, add the
+actual changes, correctness results and comparable before/after measurements.
+Clearly distinguish passed, failed and unrun checks; do not invent benchmark values
+or fill irrelevant fields with boilerplate.

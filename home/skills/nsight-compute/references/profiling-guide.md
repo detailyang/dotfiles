@@ -52,8 +52,8 @@ ncu --metrics sm__warps_active.avg.pct_of_peak_sustained_active ./program
 ncu --list-sections ./program
 ncu --list-sets ./program
 
-# 生成报告文件（供 GUI 打开）
-ncu --set full -o report ./program
+# 生成指定 kernel 的少量 launch 报告（按当前假设选择 sections）
+ncu --kernel-name myKernel --launch-count 1 -o report ./program
 ncu-ui report.ncu-rep
 
 # 跳过前 N 次启动，只分析第 N+1 次
@@ -101,14 +101,16 @@ Nsight Compute 用 Section Sets 决定收集哪些指标。每个 Set 包含一�
 | `L1/TEX Cache Throughput` | L1 缓存利用率 |
 | `L2 Cache Throughput` | L2 缓存利用率 |
 
-**瓶颈判断四种情况：**
+**诊断线索，不是仅凭相对百分比确定瓶颈：**
 
 ```
-Compute >> Memory   → 计算瓶颈：换算法，用 Tensor Core，减少 FLOP
-Memory  >> Compute  → 访存瓶颈（最常见）：Shared Memory + Coalescing
-两个都低          → 待验证假设：延迟、依赖、并行度、指令供给或工作量太小；不直接等同于低占用率
-两个都高          → 检查具体饱和子单元、有效工作量与端到端时间，不能据此证明全局最优
+Compute 高于 Memory → 检查饱和计算子单元、有效工作量与指令供给
+Memory 高于 Compute → 检查具体内存层级、访问量、复用与带宽
+两个都低           → 检查延迟、依赖、并行度、指令供给或工作量太小
+两个都高           → 检查具体饱和子单元与端到端成本，不能证明全局最优
 ```
+
+数值高低还受指标分母与采样口径影响；结合绝对时间及区分假设的实验判断。
 
 ### 4.2 时间与 SM 活跃度
 
@@ -122,8 +124,8 @@ Memory  >> Compute  → 访存瓶颈（最常见）：Shared Memory + Coalescing
 
 **关键比值：**
 ```
-SM Active Cycles / Elapsed Cycles ≈ 100%  → SM 全程无空闲 ✅
-SM Active Cycles / Elapsed Cycles 低      → SM 大量空闲，需提高占用率
+SM Active Cycles / Elapsed Cycles 高 → 活跃时间比例高，不证明每周期有效发射或吞吐高
+SM Active Cycles / Elapsed Cycles 低 → 检查工作量、负载分布及采样范围，再判断是否有资源或调度问题
 ```
 
 ### 4.3 占用率（Occupancy Section）
@@ -165,15 +167,15 @@ Warp Stall 是性能的隐形杀手，每种 stall 对应不同优化方向：
 
 理想情况：L1 命中率高，DRAM 压力小
 L1 吞吐高 + DRAM 低 → 不能据此证明 shared-memory 复用；区分吞吐、命中率与实际访问路径
-L1 低 + DRAM 高  → 数据没有复用，需要引入 Shared Memory
-L2 高            → L1 命中不足，检查访问模式和 Coalescing
+L1 低 + DRAM 高  → 检查命中率、工作集和访问量；无复用的流式访问不因加 shared memory 就更快
+L2 高            → 区分吞吐和命中率，检查实际请求路径后再判断访问模式
 ```
 
 ---
 
 ## 五、Roofline 模型详解
 
-Roofline 图将 GPU 的峰值计算性能和内存带宽，与 Arithmetic Intensity（计算量与数据搬移量之比）结合在一张图里，更真实地反映 kernel 的实际性能。Ridge Point 将图分为两个区域：左侧蓝色区域是访存瓶颈区（Memory Bound），右侧绿色区域是计算瓶颈区（Compute Bound）。kernel 的 achieved value 离 Roofline 边界越近，说明优化得越好。
+Roofline 将特定算术精度、计算吞吐与某一内存层级的带宽上限关联。Ridge Point 是两类上限的交点；点落在哪一侧说明该模型下哪类上限更低，不单独证明实际性能由它限制。远低于屋顶线的 kernel 还可能受依赖、延迟或并行度限制。接近一条屋顶线也不证明算法、有效工作量或整条调用路径已最优。
 
 ```
 ↑ 计算性能 (TFLOPS)
@@ -188,16 +190,14 @@ Roofline 图将 GPU 的峰值计算性能和内存带宽，与 Arithmetic Intens
 
 **Arithmetic Intensity = 总 FLOP 数 ÷ 总数据搬移字节数**
 
-- **点在 Ridge Point 左侧**：访存瓶颈，优化内存访问（Coalescing/Shared Memory）
-- **点在 Ridge Point 右侧**：计算瓶颈，优化算法或使用 Tensor Core
-- **点靠近 Roofline 线**：接近硬件极限，优化充分
+- **点在 Ridge Point 左侧**：检查所选内存层级的带宽上限是否实际限制性能。
+- **点在 Ridge Point 右侧**：检查对应精度和计算管线的上限是否实际限制性能。
+- **点靠近 Roofline 线**：说明接近所选模型的一项上限，仍需验证有效工作量和端到端收益。
 
 **启用 Roofline（命令行）：**
 ```bash
-# 2025.1 起 --set full 已包含所有 Roofline
-ncu --set full -o report ./program
-# 或单独收集
-ncu --section SpeedOfLight_RooflineChart -o report ./program
+# 对代表性 launch 收集所需 Roofline section；以安装版本查询结果为准
+ncu --kernel-name myKernel --launch-count 1 --section SpeedOfLight_RooflineChart -o report ./program
 ```
 
 **分层 Roofline（Hierarchical Roofline）：**
@@ -211,7 +211,7 @@ Nsight Compute 支持按内存层级分别画 Roofline（L1/L2/DRAM），可以�
 ### Summary 页
 - 交通灯系统（红/黄/绿）直接标出问题区域
 - 内置 NVIDIA 工程师写的优化建议（Guided Analysis）
-- 优先从红色项目开始处理
+- 优先检查绝对耗时对目标有实质影响的项目，颜色和规则引擎提示只作为线索
 
 ### Source 页
 - 把指标数据标注到每一行源代码
@@ -225,60 +225,47 @@ Nsight Compute 支持按内存层级分别画 Roofline（L1/L2/DRAM），可以�
 
 ### Baseline 对比
 ```bash
-# 保存第一次结果为 baseline
-ncu --set full -o baseline ./program_v1
+# 相同输入和采样范围下比较 kernel 报告；这里以 Occupancy 假设为例
+ncu --kernel-name myKernel --launch-count 1 --section Occupancy -o baseline ./program_v1
+ncu --kernel-name myKernel --launch-count 1 --section Occupancy -o v2 ./program_v2
 
-# 在 GUI 里加载两份报告对比
-# 或命令行比较
-ncu --set full --import-source yes -o v2 ./program_v2
+# 在 GUI 加载两份报告；实际端到端收益另用未插桩的正常运行测量
 ```
 
 ---
 
-## 七、完整诊断流程
+## 七、按假设选择诊断路径
 
+已有报告足够时直接分析。只有需要源码归因时才重新编译并加 `--lineinfo`。
+
+```text
+正常运行基线与端到端成本
+    -> 已定位的 kernel 与代表性 launch
+    -> 读取已有报告，或进行少量基础采样
+       ncu --kernel-name myKernel --launch-count 1 -o report ./program
+    -> 联合绝对耗时、SOL 和资源数据形成假设
+    -> 按假设补采 Occupancy、SchedulerStats、WarpStateStats、Memory 或 Roofline
+    -> 仅在源码位置能改变判断时检查 Source
+    -> 获授权后修改一个候选，检查正确性，并在正常环境复测
 ```
-Step 1：编译加 --lineinfo
-  nvcc -o program program.cu --lineinfo
-          ↓
-Step 2：基础 profile，快速看高层指标
-  ncu --set full -o report ./program
-          ↓
-Step 3：看 SOL → 判断瓶颈类型
-  Compute vs Memory → 哪个高哪个是瓶颈
-          ↓
-Step 4：看 Occupancy → 占用率够不够
-  Achieved vs Theoretical → 差距大就找资源瓶颈
-          ↓
-Step 5：看 WarpStateStats → Warp 在等什么
-  stall 原因 → 对应优化方向
-          ↓
-Step 6：看 Memory Workload → 内存层级命中情况
-  L1/L2/DRAM 哪层压力大
-          ↓
-Step 7：看 Source 页 → 定位最慢的代码行
-          ↓
-Step 8：看 Roofline → 离硬件极限还有多远
-          ↓
-Step 9：改代码 → 重新 profile → 对比数据
-  按正确性与端到端性能目标决定是否继续，不把贴近 Roofline 作为唯一完成条件
-```
+
+不要求顺序读完所有 section。按正确性、端到端目标与实验预算决定是否继续；
+报告中的单个百分比、规则引擎建议或 Roofline 距离均不是唯一完成条件。
 
 ---
 
 ## 八、常见问题诊断速查表
 
-| 问题 | 关键指标 | 解决方法 |
+| 假设或观测 | 待核对指标 | 候选实验，不是默认修复 |
 |------|---------|---------|
-| 访存瓶颈 | Memory >> Compute，DRAM 高 | Shared Memory + Coalescing |
-| 计算瓶颈 | Compute 接近 100% | 换算法，用 Tensor Core |
-| 占用率低 | Achieved << Theoretical | 调整 Block 大小（试 128/256） |
-| Warp 等内存 | stall_mem_throttle 高 | 减少全局内存访问，预取 |
-| Warp 分歧 | stall_branch_resolving 高 | 消除 if/else 分支 |
-| Bank Conflict | Shared Memory Efficiency 低 | 加 +1 padding |
-| 寄存器溢出 | 编译器 spill 报告与可用 local-memory 指标 | 检查活跃值和生命周期；盲目降低寄存器上限可能增加 spilling |
-| 数据复用好 | L1 高，DRAM 低 | 保持，考虑向量化读取 |
-| SM 全程活跃 | SM Active / Elapsed ≈ 100% | 好信号，看 Roofline 找下一步 |
+| 访存限制 | 对应层级吞吐、访问量、命中率与绝对耗时 | 在存在复用或低效事务时测试 tiling/coalescing |
+| 计算限制 | 饱和管线、指令类型与有效工作量 | 测试减少工作量；精度和形状允许时考虑 Tensor Core |
+| 占用率差距 | Achieved、Theoretical、负载分布与资源分配 | 比较 block 配置或资源变体，不以占用率高低决定快慢 |
+| Warp 等待 | 已安装工具的具体 stall 定义、eligible warps、issue rate | 区分依赖、队列压力和同步后再实验 |
+| Bank Conflict | 共享内存请求与冲突数据 | 验证 padding 或布局变化能否覆盖额外成本 |
+| 寄存器溢出 | 编译器 spill 报告与 local-memory 指标 | 检查活跃值和生命周期；降低寄存器上限可能增加 spilling |
+| L1 吞吐高、DRAM 吞吐低 | 命中率、访问路径与实际复用 | 不能据此单独认定 shared-memory 优化有效 |
+| SM 活跃比例高 | issue rate、eligible warps 和绝对时间 | 继续区分有效计算与延迟，不据此宣布接近极限 |
 
 ---
 
@@ -349,27 +336,30 @@ Compute Throughput    4%   ← 计算单元几乎闲着
 Memory Throughput    89%   ← 访存压力极大
 DRAM Throughput      85%   ← 频繁访问显存
 stall_mem_throttle   高    ← Warp 大量时间在等内存
-→ 结论：引入 Shared Memory + Tiling，减少全局内存访问
+→ 假设：若源码和访问量表明重复读取主导耗时，可测试 Shared Memory + Tiling，并计入搬运与同步成本
 ```
 
-### 案例二：优化良好（Shared Memory 矩阵乘法）
+### 案例二：Shared Memory 矩阵乘法的示例观测
 ```
-Compute Throughput   67%   ← 计算单元大幅提升
-Memory Throughput    12%   ← 访存压力大幅下降
-L1 Throughput        94%   ← 数据主要在 L1/Shared
-DRAM Throughput       8%   ← 很少去显存取数
-→ 结论：Shared Memory 有效，Roofline 点右移，可考虑 Tensor Core
+Compute Throughput   67%
+Memory Throughput    12%
+L1 Throughput        94%
+DRAM Throughput       8%
+→ 假设：tiling 可能改变了访存路径；需对比访问量、命中率和实际时间证明复用收益
 ```
 
-### 案例三：接近硬件极限
+### 案例三：高吞吐百分比不等于全局最优
 ```
-Compute Throughput   96.72%  ← 计算跑满
-Memory Throughput    96.72%  ← 访存跑满
-L1 Throughput        96.87%  ← L1 跑满
-DRAM Throughput      34.36%  ← 数据主要在 L1（DRAM 压力小）
-SM Active / Elapsed  99.85%  ← SM 全程无空闲
-→ 结论：已接近极限，剩余方向：float4 向量化读取 或 Tensor Core
+Compute Throughput   96.72%
+Memory Throughput    96.72%
+L1 Throughput        96.87%
+DRAM Throughput      34.36%
+SM Active / Elapsed  99.85%
+→ 下一步：确认各指标分母与饱和子单元，核对有效工作量和端到端贡献
 ```
+
+这些示例没有提供足以复现的完整环境和负载，不能用来设定当前任务的阈值，
+也不能仅凭吞吐百分比推断缓存命中、shared-memory 复用或剩余优化空间。
 
 ---
 

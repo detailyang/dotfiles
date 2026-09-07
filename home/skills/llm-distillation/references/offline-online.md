@@ -39,9 +39,9 @@ Most offline distillation is also off-policy, but **offline can be on-policy** �
 
 ### Limitations
 - **Teacher staleness:** Cannot adapt to student's evolving weaknesses
-- **Distribution mismatch:** Student may not learn to recover from its own mistakes
-- **Storage costs:** Precomputing token-level distributions is expensive
-- **Capability ceiling:** Student fundamentally bounded by teacher performance and biases
+- **State coverage:** Fixed external data may omit student-generated errors; a frozen teacher can still score on-policy rollouts.
+- **Storage costs:** Precomputing token-level distributions is expensive.
+- **Teacher limitations:** Results depend on the teacher signal, data, student capacity and other objectives; teacher performance is not a universal hard ceiling.
 
 ### Modern LLM Usage
 
@@ -62,11 +62,11 @@ Used for: compressing frontier models, generating synthetic instruction/reasonin
 
 ### Core Definition
 
-Multiple models train simultaneously, teaching each other; supervision distribution **evolves** during training:
+The teacher signal evolves during training through co-training, checkpoint refresh or another defined update policy. Mutual learning is one example in which several models teach each other:
 
 $$\mathcal{L}_i(\theta_i) = \mathcal{L}_{\text{task}}(\theta_i) + \lambda \sum_{j \neq i} D\left(p_j(\cdot \mid x) \,\Vert\, p_i(\cdot \mid x)\right)$$
 
-All models update concurrently: $\nabla_{\theta_j} \mathcal{L}_j \neq 0$ for all participants.
+In the mutual-learning example, every participant updates under its own loss. Other online setups may update only a teacher subset or refresh checkpoints periodically; record the actual update and stop-gradient policy.
 
 Canonical example: **Deep Mutual Learning** (Zhang et al. 2017) — peer networks learn collaboratively, each acting as both student and teacher.
 
@@ -114,7 +114,9 @@ Most historical online distillation is **online + off-policy** (shared minibatch
 
 Online principles appear in: multi-agent self-improvement systems, self-play and debate frameworks, checkpoint-based teacher refresh pipelines, distributed co-training, self-distillation with periodically updated snapshots.
 
-### Implementation Pattern
+### Mutual-Learning Implementation Example
+
+This example is for co-trained peers, not a requirement to instantiate multiple models for every evolving teacher setup.
 
 1. **Initialize multiple models/peers** — may differ in architecture, initialization, objective, or specialization
 2. **Train each model on primary objective** — supervised, RL, or hybrid loss per participant

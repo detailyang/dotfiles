@@ -61,7 +61,7 @@ For deep dives, read the appropriate reference:
 
 ### Multi-Teacher Distillation (MOPD)
 - Student learns from **multiple specialist teachers** simultaneously
-- Solves the "see-saw problem" — gaining in one domain without regressing in others
+- Can mitigate the "see-saw problem"; verify gains and regressions separately in each required domain
 - Key papers: MOPD article (yumo.dev), Yang et al. 2026 (Nemotron-Cascade 2)
 
 ### Online Distillation
@@ -86,16 +86,20 @@ Positive = teacher prefers this token; Negative = teacher rates it worse than st
 
 ---
 
-## Common Training Progressions
+## Example Training Progressions
 
-**Standard Modern LLM Pipeline:**
+These illustrate possible combinations, not prerequisites. Reuse an existing
+checkpoint or corpus when it already meets the task's needs; justify extra stages
+with evaluation evidence.
+
+**One LLM Pipeline:**
 1. **Off-Policy SFT** — Train on teacher-generated synthetic data (broad capability acquisition)
 2. **Reinforcement Learning** — RLHF or RLVR for alignment/reasoning (sparse rewards)
 3. **On-Policy Distillation** — Dense token-level feedback over student rollouts (capability consolidation)
 
 **Multi-Domain Post-Training:**
 1. Parallel RL training across domains → specialist teacher checkpoints
-2. MOPD to merge specialists into one student without see-saw regression
+2. MOPD to combine specialists; evaluate whether it mitigates see-saw regression
 3. Optional: OPSD / hindsight alignment for further self-improvement
 
 ---
@@ -120,7 +124,7 @@ Positive = teacher prefers this token; Negative = teacher rates it worse than st
 
 Three critical failure patterns (read `on-policy.md` for full detail):
 
-1. **Token Overlap Failure** (Li et al. 2026) — Teacher and student thinking patterns must be compatible; use off-policy cold start before OPD
+1. **Teacher/Student Mismatch** (Li et al. 2026) — inspect teacher usefulness on student prefixes; test an off-policy warm start only when mismatch evidence justifies it
 2. **Length Inflation / Repetition Collapse** (Luo et al. 2026 / StableOPD) — Add reference-based divergence constraint; mix on-policy with clean reference rollouts
 3. **Sampled-Token Bias** (Fu et al. 2026) — Replace single-token supervision with teacher top-K local support matching
 
@@ -132,4 +136,4 @@ Three critical failure patterns (read `on-policy.md` for full detail):
 - **Reinforcement learning** = play games, get win/loss at the end → on-policy but sparse
 - **On-policy distillation** = chess engine evaluates every move in *your own* games → dense feedback on self-generated states
 
-This is the clearest intuition for why OPD outperforms off-policy KD on long-horizon reasoning tasks.
+This illustrates why on-policy coverage can help with self-generated errors; it is not evidence that OPD outperforms other objectives on every reasoning task.

@@ -55,7 +55,7 @@ For noisy metrics, record a representative statistic and dispersion, such as `me
 | B3 | structural | baseline | ... | ... | ... | ... | active |
 ```
 
-Update the ranking and next experiments every three to five material runs. Preserve killed beams with their evidence so future sessions do not repeat them unchanged.
+Maintain a candidate table only when multiple hypotheses warrant tracking. Update rankings when results, bottlenecks or budget change the next choice. Preserve rejected candidates with their evidence so future sessions do not repeat them unchanged; the example rows are not a required candidate count.
 
 ## Experiment note
 

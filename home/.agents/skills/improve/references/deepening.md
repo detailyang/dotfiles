@@ -4,7 +4,7 @@ Deepening means moving real complexity behind a smaller, more useful interface.
 
 ## Dependency categories
 
-Classify dependencies before recommending a refactor. The category determines how the new seam can be tested.
+Classify dependencies when it changes the verification strategy. The category does not by itself justify merging modules or introducing a port.
 
 ### 1. In-process
 
@@ -16,18 +16,18 @@ Dependencies with local test stand-ins, such as in-memory filesystem or test dat
 
 ### 3. Remote but owned
 
-Services you own across a network boundary. Define a port at the seam. Keep logic in the deep module; inject transport adapters for production and test.
+Services you own across a network boundary. Keep transport separate from domain policy where callers or tests need that distinction; introduce a port only when it reduces concrete coupling.
 
 ### 4. True external
 
-Third-party services you do not control. Isolate them behind injected boundaries. Tests use mocks or fakes at that external seam.
+Third-party services you do not control. Reuse an existing client or injectable dependency when it already provides the needed boundary; add a port only for a concrete contract or verification need. Tests can use mocks or fakes at that external boundary.
 
 ## Seam discipline
 
-- One adapter is usually hypothetical indirection; two justified adapters make a real seam.
+- Require a current behavior, ownership, external-boundary, or verification need; do not use adapter counts as an architecture rule.
 - Do not expose internal seams just because tests want them.
 - The interface is the test surface.
-- Replace shallow-module tests with tests at the deepened module interface when safe.
+- Before removing old tests, map their behavior, boundary and error assertions to retained or replacement tests and run those checks. Delete only tests proved redundant or tied to intentionally removed behavior.
 - Tests should assert observable outcomes, not internal state.
 
 ## Smells

@@ -82,7 +82,7 @@ Students trained purely off-policy tend to exhibit:
 | RLHF / RLVR | Student | Sparse sequence-level |
 | On-policy distillation | Student | Dense token-level |
 
-Off-policy distillation is highly sample-efficient but less robust than on-policy approaches.
+Off-policy distillation can reuse data efficiently. Whether on-policy coverage improves robustness depends on the task, teacher signal and evaluation; compare the relevant error cases.
 
 ## Modern Pipeline Staging
 
@@ -110,4 +110,4 @@ The RLHF Book presents this as "the path to on-policy distillation":
 - Teacher inference can be amortized offline and reused across many experiments
 - Student is unlikely to diverge substantially from training distribution during deployment
 - Primary goal is broad capability transfer rather than maximal robustness to self-generated errors
-- It remains the **dominant starting point** for most practical pipelines, even when OPD or RL stages are planned
+- It is a useful starting point when data coverage and reuse justify it; an existing suitable student or corpus does not need to repeat synthetic generation before OPD or RL.

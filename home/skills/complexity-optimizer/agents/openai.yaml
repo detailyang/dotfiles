@@ -1,4 +1,4 @@
 interface:
   display_name: "Complexity Optimizer"
-  short_description: "Find and reduce code complexity safely"
-  default_prompt: "Use $complexity-optimizer to analyze this codebase and give me a full complexity report."
+  short_description: "Find algorithmic hotspots and costly recomputation"
+  default_prompt: "Use $complexity-optimizer to identify material algorithmic hotspots in the selected scope and report evidence-backed findings without editing."

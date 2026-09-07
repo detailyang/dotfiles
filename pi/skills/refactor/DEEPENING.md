@@ -4,34 +4,32 @@ How to deepen a cluster of shallow modules safely, given its dependencies. Assum
 
 ## Dependency categories
 
-When assessing a candidate for deepening, classify its dependencies. The category determines how the deepened module is tested across its seam.
+When assessing a candidate, classify dependencies only where this changes how its behavior can be verified. A category is not permission to merge modules or introduce a port.
 
 ### 1. In-process
 
-Pure computation, in-memory state, no I/O. Always deepenable — merge the modules and test through the new interface directly. No adapter needed.
+Pure computation or in-memory state with no I/O. Test directly through the relevant interface. Merge modules only when doing so removes observed coupling or duplicated knowledge.
 
 ### 2. Local-substitutable
 
-Dependencies that have local test stand-ins (PGLite for Postgres, in-memory filesystem). Deepenable if the stand-in exists. The deepened module is tested with the stand-in running in the test suite. The seam is internal; no port at the module's external interface.
+Dependencies with local test stand-ins, such as a test database or in-memory filesystem. Reuse a stand-in only when it preserves the semantics under test; differences in transactions, concurrency or failure behavior may require integration checks.
 
 ### 3. Remote but owned (Ports & Adapters)
 
-Your own services across a network boundary (microservices, internal APIs). Define a **port** (interface) at the seam. The deep module owns the logic; the transport is injected as an **adapter**. Tests use an in-memory adapter. Production uses an HTTP/gRPC/queue adapter.
-
-Recommendation shape: *"Define a port at the seam, implement an HTTP adapter for production and an in-memory adapter for testing, so the logic sits in one deep module even though it's deployed across a network."*
+Your own services across a network boundary. Separate transport from policy where it reduces concrete coupling. A port can make production transport and a test substitute explicit, but an existing client may already provide the needed boundary. Keep integration coverage for network and service semantics a substitute cannot prove.
 
 ### 4. True external (Mock)
 
-Third-party services (Stripe, Twilio, etc.) you don't control. The deepened module takes the external dependency as an injected port; tests provide a mock adapter.
+Third-party services you do not control. Reuse an existing client or injectable dependency when it already isolates the required behavior. Introduce a port only for a concrete contract or verification need; use mocks or fakes at that external boundary.
 
 ## Seam discipline
 
-- **One adapter means a hypothetical seam. Two adapters means a real one.** Don't introduce a port unless at least two adapters are justified (typically production + test). A single-adapter seam is just indirection.
+- **Require a present need, not an adapter quota.** Current behavior, ownership, a real external boundary or a meaningful verification requirement can justify a seam with one production adapter. Additional adapters alone do not justify one.
 - **Internal seams vs external seams.** A deep module can have internal seams (private to its implementation, used by its own tests) as well as the external seam at its interface. Don't expose internal seams through the interface just because tests use them.
 
-## Testing strategy: replace, don't layer
+## Preserve coverage while moving tests
 
-- Old unit tests on shallow modules become waste once tests at the deepened module's interface exist — delete them.
-- Write new tests at the deepened module's interface. The **interface is the test surface**.
-- Tests assert on observable outcomes through the interface, not internal state.
-- Tests should survive internal refactors — they describe behaviour, not implementation. If a test has to change when the implementation changes, it's testing past the interface.
+- Map existing behavior, boundary and error assertions to retained or replacement tests before removing old tests. New interface tests merely existing is not proof of equivalent coverage.
+- Run the mapped checks; keep old tests when they still protect a distinct invariant or failure path. Delete only tests proved redundant or tied to intentionally removed behavior.
+- Prefer observable outcomes through stable interfaces. A focused unit or property test can remain useful alongside broader interface tests.
+- Review test changes for weakened assertions, lost failure cases and accidental dependence on the new implementation.

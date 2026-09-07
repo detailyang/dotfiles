@@ -1,6 +1,6 @@
 ---
 name: improve
-description: Audit or apply maintainability improvements when asked to simplify, refactor, clarify boundaries or reduce technical debt. Not for a narrow feature/bug fix or read-only review without structural scope.
+description: Audit or apply structural simplification and maintainability improvements. Not for narrow feature fixes or ordinary code review.
 ---
 
 # Improve
@@ -58,7 +58,7 @@ Read `references/deepening.md` when moving complexity behind a smaller interface
 - Keep every changed line traceable to the request.
 - Do not mix unrelated improvements, broad renames, reformatting, or cleanup.
 - Preserve project vocabulary unless it is actively misleading.
-- Do not introduce a seam for a hypothetical future caller; require at least two concrete policies, callers, or adapters unless an external boundary already justifies it.
+- Require a present need for an abstraction: current behavior, ownership, an external boundary, or a meaningful verification requirement. Neither hypothetical callers nor an adapter count justify it.
 - Treat any behavior change or bug fix as implementation work and use the repository's behavior-change discipline.
 - Preserve unrelated user changes. Stop only when an overlapping change cannot be separated safely.
 

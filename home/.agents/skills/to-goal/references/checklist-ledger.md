@@ -1,54 +1,55 @@
-# Checklist Ledger (M Level And Batch Inventory)
+# Checklist And Batch Ledgers
 
-Two uses of the same single-layer shape: a flat checklist for small M-level work, and a batch ledger for large enumerable inventories. No phases, no phase gates in either form.
+Use the execution location and authorization policy established in the skill entry.
+A checklist does not imply a new worktree, branch or commit workflow.
 
-## M-Level Flat Checklist
+## Flat Checklist
 
-Use for 2-10 verifiable work units with no natural stage boundaries.
-
-- A short markdown checklist is acceptable when the list is small and mostly read by humans; use JSON when the agent must update it repeatedly.
-- Each item needs: title, binary acceptance, verification command or check, and status.
-- Keep the whole plan in one document; do not split small work across files.
-
-Minimal markdown shape:
+Use one Markdown document for a short, mostly human-read plan. Use JSON if repeated
+machine updates make it more reliable. Each item needs an observable result,
+prerequisites, scope, binary acceptance, a verification command/check and status.
 
 ```markdown
 # <topic> Execution Checklist
 
-Worktree: ../<repo>-<topic>-worktree
-Branch: <dedicated-branch-name>
-Base ref: <target-base-ref>
-Verification baseline: <smoke command>
+Source: <approved spec>
+Execution location: <selected checkout or authorized worktree>
+Git policy: <explicit user/repository permissions; no commits unless authorized>
+Verification baseline: <smoke command and observed result, or not yet run>
 
-- [ ] 1. <work unit> — accept: <binary check> — verify: `<command>`
-- [ ] 2. <work unit> — accept: <binary check> — verify: `<command>`
+- [ ] 1. <outcome> - scope: <surface/non-goals> - depends: none
+  Accept: <binary criterion>; verify: `<command>` -> <expected result>
+- [ ] 2. <outcome> - scope: <surface/non-goals> - depends: 1
+  Accept: <binary criterion>; verify: `<command>` -> <expected result>
+
+## Evidence And Blockers
 ```
 
-Execute the checklist only inside the dedicated worktree. Commit each verified item with its checklist update in the same commit, with the item number in the commit message. Do not store commit hashes here; `git log` from the worktree branch is the audit trail.
+Update evidence after verification and continue to ready items. If commits are
+authorized, include the relevant checklist update with each coherent verified
+change; otherwise leave changes uncommitted. Use Git history for commit evidence
+rather than copying hashes into the checklist.
 
-## Batch Inventory Ledger
+## Batch Inventory
 
-Use when the work is a large list of similar items: reverse engineering, migrations, route audits, API extraction, processing many files.
-
-- Generate the item list with a script or structured parser whenever possible. Do not ask the agent to hand-maintain a large inventory from memory.
-- Batch size defaults to 10-20 items per turn; one-item batches require justification.
-- Every turn: read the ledger, process only the next batch, verify, then commit the batch changes and the ledger update together in one commit with the batch number in the message.
-- After compaction or handoff, trust the ledger over chat memory.
-
-Minimal JSON shape:
+Use for similar enumerable items, such as route audits or mechanical migrations.
+Generate the inventory from a script or structured parser when possible. Choose a
+batch that can be meaningfully verified; a costly item can justify its own batch.
+A batch boundary is a recovery checkpoint, not an instruction to end the turn.
 
 ```json
 {
-  "goal": "Reverse engineer the target subsystem",
+  "goal": "Audit the target subsystem",
   "source": "scripts/generated-inventory.json",
-  "worktree_path": "../<repo>-<topic>-worktree",
-  "branch": "<dedicated-branch-name>",
-  "base_ref": "<target-base-ref>",
-  "run_only_inside_worktree": true,
-  "batching": { "batch_size": 20, "current_batch": 1 },
+  "execution_path": "<selected checkout>",
+  "git_policy": "No commits or new worktrees unless explicitly authorized",
+  "baseline": "<check and observed result, or not yet run>",
+  "progress": { "next_item": "route.users.create", "blocked": [] },
   "items": [
     {
       "id": "route.users.create",
+      "acceptance": "<binary criterion>",
+      "check": "<command or reproducible inspection>",
       "status": "pending",
       "evidence": [],
       "notes": "",
@@ -58,14 +59,17 @@ Minimal JSON shape:
 }
 ```
 
-The executing agent may only flip `status`, fill `evidence`, `notes`, `verification`, and advance `current_batch`. Item ids, worktree path, branch, base ref, and rules are read-only during execution.
+The executing agent may update progress, item status, evidence, notes and observed
+verification. Definitions, item IDs, acceptance, execution location and Git policy
+remain stable unless their revision is authorized. After handoff, use the ledger
+as the starting point and verify it against the checkout rather than relying on
+chat memory. Record evidence before advancing.
 
 ## File Naming
 
-Follow repo conventions if a plan directory already exists. Otherwise:
+Reuse repository conventions. Otherwise choose only the needed artifacts:
 
 ```text
-docs/plans/<date>-<topic>-checklist.md        # M-level flat checklist
-docs/plans/<date>-<topic>-execution-ledger.md # batch work: rules document
-docs/plans/<date>-<topic>-checklist.json      # batch work: item ledger
+docs/plans/<date>-<topic>-checklist.md   # flat checklist
+docs/plans/<date>-<topic>-checklist.json # machine-updated batch inventory
 ```
