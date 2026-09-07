@@ -3,7 +3,7 @@ import {
   createWriteToolDefinition,
   type ExtensionAPI,
 } from "@earendil-works/pi-coding-agent";
-import { truncateToWidth } from "@earendil-works/pi-tui";
+import { Container, truncateToWidth } from "@earendil-works/pi-tui";
 import { DEFAULT_TOOL_DISPLAY_CONFIG } from "../../../config/config.ts";
 import {
   renderEditDiffResult,
@@ -99,6 +99,8 @@ function withDiffRenderer(
 ): any {
   return {
     ...nativeTool,
+    // An empty component suppresses Pi's native call slot without triggering fallback.
+    ...(toolName === "edit" ? { renderCall: () => new Container() } : {}),
     renderResult(result: any, options: any, theme: any, context: any) {
       return (
         renderRichToolResult(toolName, result, options, theme, context, store) ??
