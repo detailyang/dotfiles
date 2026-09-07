@@ -14,31 +14,31 @@ type Setting = {
 
 const SETTINGS: readonly Setting[] = [
   {
-    key: "showEditCall", label: "原生 edit 调用区",
-    choices: [{ label: "隐藏（只显示 diff）", value: false }, { label: "显示", value: true }],
+    key: "showEditCall", label: "Native edit call",
+    choices: [{ label: "Hidden (diff only)", value: false }, { label: "Visible", value: true }],
   },
   {
-    key: "diffViewMode", label: "Diff 布局",
+    key: "diffViewMode", label: "Diff layout",
     choices: [
-      { label: "自动", value: "auto" }, { label: "左右对比", value: "split" },
-      { label: "统一视图", value: "unified" },
+      { label: "Auto", value: "auto" }, { label: "Side-by-side", value: "split" },
+      { label: "Unified", value: "unified" },
     ],
   },
   {
-    key: "diffIndicatorMode", label: "增删标记",
+    key: "diffIndicatorMode", label: "Change markers",
     choices: [
-      { label: "竖线", value: "bars" }, { label: "+ / -", value: "classic" },
-      { label: "无", value: "none" },
+      { label: "Bars", value: "bars" }, { label: "+ / -", value: "classic" },
+      { label: "None", value: "none" },
     ],
   },
   {
-    key: "diffWordWrap", label: "自动换行",
-    choices: [{ label: "开启", value: true }, { label: "关闭", value: false }],
+    key: "diffWordWrap", label: "Word wrap",
+    choices: [{ label: "On", value: true }, { label: "Off", value: false }],
   },
-  { key: "editDiffCollapsedLines", label: "Edit 折叠行数", min: 1, max: 10000 },
-  { key: "writeDiffCollapsedLines", label: "Write 折叠行数（0 = 仅摘要）", min: 0, max: 10000 },
-  { key: "expandedPreviewMaxLines", label: "展开行数上限（0 = 不限制）", min: 0, max: 10000 },
-  { key: "diffSplitMinWidth", label: "自动左右对比最小宽度", min: 20, max: 1000 },
+  { key: "editDiffCollapsedLines", label: "Edit collapsed lines", min: 1, max: 10000 },
+  { key: "writeDiffCollapsedLines", label: "Write collapsed lines (0 = summary only)", min: 0, max: 10000 },
+  { key: "expandedPreviewMaxLines", label: "Expanded line limit (0 = unlimited)", min: 0, max: 10000 },
+  { key: "diffSplitMinWidth", label: "Auto split minimum width", min: 20, max: 1000 },
 ];
 
 function validValue(setting: Setting, value: unknown): boolean {
@@ -95,11 +95,11 @@ export async function openDiffViewSettings(
   save: (config: ToolDisplayConfig) => void,
 ): Promise<void> {
   if (!ctx.hasUI) {
-    ctx.ui.notify("/diff-view 需要交互模式。", "warning");
+    ctx.ui.notify("/diff-view requires interactive mode.", "warning");
     return;
   }
 
-  const resetLabel = "恢复默认设置";
+  const resetLabel = "Reset to defaults";
   while (true) {
     const current = getConfig();
     const labels = SETTINGS.map((setting) => {
@@ -107,12 +107,12 @@ export async function openDiffViewSettings(
       const label = setting.choices?.find((choice) => choice.value === value)?.label ?? String(value);
       return `${setting.label}: ${label}`;
     });
-    const selected = await ctx.ui.select("Diff view（修改后自动保存，Esc 退出）", [...labels, resetLabel]);
+    const selected = await ctx.ui.select("Diff view (changes auto-save; Esc to close)", [...labels, resetLabel]);
     if (selected === undefined) return;
 
     let next: ToolDisplayConfig;
     if (selected === resetLabel) {
-      if (!await ctx.ui.confirm("恢复默认设置", "将恢复全部 diff-view 显示设置，是否继续？")) continue;
+      if (!await ctx.ui.confirm("Reset to defaults", "Reset all diff-view display settings to their defaults?")) continue;
       next = { ...DEFAULT_TOOL_DISPLAY_CONFIG };
     } else {
       const setting = SETTINGS[labels.indexOf(selected)];
@@ -124,13 +124,13 @@ export async function openDiffViewSettings(
         value = setting.choices.find((item) => item.label === choice)?.value;
       } else {
         const input = await ctx.ui.input(
-          `${setting.label}（整数 ${setting.min}–${setting.max}）`, String(current[setting.key]),
+          `${setting.label} (integer ${setting.min}–${setting.max})`, String(current[setting.key]),
         );
         if (input === undefined) continue;
         value = /^\d+$/.test(input.trim()) ? Number(input.trim()) : undefined;
       }
       if (!validValue(setting, value)) {
-        ctx.ui.notify("无效设置，原值未更改。", "warning");
+        ctx.ui.notify("Invalid value. The setting was not changed.", "warning");
         continue;
       }
       next = { ...current, [setting.key]: value };
@@ -140,7 +140,7 @@ export async function openDiffViewSettings(
       // The caller persists first, then replaces the live config only on success.
       save(next);
     } catch (error) {
-      ctx.ui.notify(`配置未保存，原设置保持不变：${error instanceof Error ? error.message : String(error)}`, "error");
+      ctx.ui.notify(`Could not save settings; previous settings are unchanged: ${error instanceof Error ? error.message : String(error)}`, "error");
     }
   }
 }

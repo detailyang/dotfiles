@@ -91,10 +91,21 @@ test("atomic save creates parent directories and cleans up after rename failure"
   } finally { f.cleanup(); }
 });
 
-test("menu exposes every setting and cancellation never writes", async () => {
-  const m = menu((_title, options) => {
+test("menu exposes every setting in English and cancellation never writes", async () => {
+  const m = menu((title, options) => {
     assert.equal(options.length, Object.keys(DEFAULT_TOOL_DISPLAY_CONFIG).length + 1);
-    assert.match(options[0], /隐藏/);
+    assert.equal(title, "Diff view (changes auto-save; Esc to close)");
+    assert.deepEqual(options, [
+      "Native edit call: Hidden (diff only)",
+      "Diff layout: Auto",
+      "Change markers: Bars",
+      "Word wrap: On",
+      "Edit collapsed lines: 24",
+      "Write collapsed lines (0 = summary only): 0",
+      "Expanded line limit (0 = unlimited): 40",
+      "Auto split minimum width: 120",
+      "Reset to defaults",
+    ]);
     return undefined;
   });
   await openDiffViewSettings(m.ctx, m.get, m.save);
@@ -105,8 +116,8 @@ test("native edit visibility is configurable and the menu reflects the new value
   let step = 0;
   const m = menu((_title, options) => {
     if (step++ === 0) return options[0];
-    if (step === 2) return "显示";
-    assert.match(options[0], /: 显示$/);
+    if (step === 2) return "Visible";
+    assert.match(options[0], /: Visible$/);
     return undefined;
   });
   await openDiffViewSettings(m.ctx, m.get, m.save);
@@ -116,13 +127,16 @@ test("native edit visibility is configurable and the menu reflects the new value
 
 test("every enumerated option maps its label to the stored value", async () => {
   for (const [index, choice, key, expected] of [
-    [1, "左右对比", "diffViewMode", "split"], [1, "统一视图", "diffViewMode", "unified"],
-    [2, "+ / -", "diffIndicatorMode", "classic"], [2, "无", "diffIndicatorMode", "none"],
-    [3, "关闭", "diffWordWrap", false],
+    [0, "Hidden (diff only)", "showEditCall", false], [0, "Visible", "showEditCall", true],
+    [1, "Auto", "diffViewMode", "auto"], [1, "Side-by-side", "diffViewMode", "split"],
+    [1, "Unified", "diffViewMode", "unified"], [2, "Bars", "diffIndicatorMode", "bars"],
+    [2, "+ / -", "diffIndicatorMode", "classic"], [2, "None", "diffIndicatorMode", "none"],
+    [3, "On", "diffWordWrap", true], [3, "Off", "diffWordWrap", false],
   ] as const) {
     let step = 0;
     const m = menu((_title, options) => step++ === 0 ? options[index] : step === 2 ? choice : undefined);
     await openDiffViewSettings(m.ctx, m.get, m.save);
+    assert.equal(m.saved.length, 1, `selection ${choice} must save its value`);
     assert.equal(m.get()[key], expected);
   }
 });
@@ -135,13 +149,26 @@ test("numeric input is validated, including blank input and supported zero seman
   ] as const) {
     let step = 0;
     const m = menu((_title, options) => step++ === 0 ? options[index] : undefined);
-    m.ctx.ui.input = async () => input;
+    m.ctx.ui.input = async (title: string) => {
+      const prompts = [
+        "Edit collapsed lines (integer 1–10000)",
+        "Write collapsed lines (0 = summary only) (integer 0–10000)",
+        "Expanded line limit (0 = unlimited) (integer 0–10000)",
+        "Auto split minimum width (integer 20–1000)",
+      ];
+      assert.equal(title, prompts[index - 4]);
+      return input;
+    };
     await openDiffViewSettings(m.ctx, m.get, m.save);
     assert.equal(m.saved.length, expected === undefined ? 0 : 1);
     assert.equal(m.notices.length, expected === undefined ? 1 : 0);
     if (expected !== undefined) {
       const key = ["editDiffCollapsedLines", "writeDiffCollapsedLines", "expandedPreviewMaxLines", "diffSplitMinWidth"][index - 4];
       assert.equal((m.get() as any)[key], expected);
+    } else {
+      assert.deepEqual(m.notices[0], {
+        message: "Invalid value. The setting was not changed.", level: "warning",
+      });
     }
   }
 });
@@ -159,6 +186,11 @@ test("cancelling a nested selector, numeric input, or reset leaves settings inta
 test("confirmed reset restores all defaults", async () => {
   let step = 0;
   const m = menu((_title, options) => step++ === 0 ? options[8] : undefined);
+  m.ctx.ui.confirm = async (title: string, message: string) => {
+    assert.equal(title, "Reset to defaults");
+    assert.equal(message, "Reset all diff-view display settings to their defaults?");
+    return true;
+  };
   m.save({ ...DEFAULT_TOOL_DISPLAY_CONFIG, showEditCall: true, diffWordWrap: false });
   await openDiffViewSettings(m.ctx, m.get, m.save);
   assert.deepEqual(m.get(), DEFAULT_TOOL_DISPLAY_CONFIG);
@@ -167,11 +199,11 @@ test("confirmed reset restores all defaults", async () => {
 
 test("save failure is visible and does not update the active config", async () => {
   let step = 0;
-  const m = menu((_title, options) => step++ === 0 ? options[0] : step === 2 ? "显示" : undefined);
+  const m = menu((_title, options) => step++ === 0 ? options[0] : step === 2 ? "Visible" : undefined);
   await openDiffViewSettings(m.ctx, m.get, () => { throw new Error("read-only filesystem"); });
   assert.equal(m.get().showEditCall, false);
   assert.equal(m.notices[0].level, "error");
-  assert.match(m.notices[0].message, /read-only filesystem/);
+  assert.equal(m.notices[0].message, "Could not save settings; previous settings are unchanged: read-only filesystem");
 });
 
 test("non-interactive mode does not open a menu or write settings", async () => {
@@ -180,4 +212,5 @@ test("non-interactive mode does not open a menu or write settings", async () => 
   await openDiffViewSettings(m.ctx, m.get, m.save);
   assert.equal(m.saved.length, 0);
   assert.equal(m.notices[0].level, "warning");
+  assert.equal(m.notices[0].message, "/diff-view requires interactive mode.");
 });
