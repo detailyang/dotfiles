@@ -54,8 +54,9 @@ test_deploy_is_scoped_and_backed_up() {
     local untracked_nested_path="$PWD/home/.config/install-test-untracked-$$"
 
     home_dir="$(mktemp -d)"
-    mkdir -p "$home_dir/.config/fish"
+    mkdir -p "$home_dir/.config/fish" "$home_dir/.codex"
     printf 'old fish config\n' > "$home_dir/.config/fish/config.fish"
+    printf 'old codex rules\n' > "$home_dir/.codex/AGENTS.md"
     printf 'must not deploy\n' > "$untracked_path"
     printf 'must not deploy\n' > "$untracked_nested_path"
 
@@ -63,6 +64,10 @@ test_deploy_is_scoped_and_backed_up() {
         HOME="$home_dir"
         export HOME
         source "$PWD/bootstrap.sh"
+        ybw::deploy::run true > /dev/null || exit 1
+        [[ "$(< "$home_dir/.codex/AGENTS.md")" == "old codex rules" ]] || exit 1
+        [[ ! -e "$home_dir/.agents/AGENTS.md" ]] || exit 1
+        ybw::deploy::run false > /dev/null || exit 1
         ybw::deploy::run false > /dev/null
     ) || status=1
 
@@ -77,13 +82,18 @@ test_deploy_is_scoped_and_backed_up() {
     [[ -f "$home_dir/.bashrc" ]] || status=1
     [[ -f "$home_dir/.config/fish/config.fish" ]] || status=1
     [[ -f "$home_dir/.agents/AGENTS.md" ]] || status=1
+    cmp "$PWD/home/.codex/AGENTS.md" "$home_dir/.codex/AGENTS.md" || status=1
+    cmp "$PWD/home/.agents/AGENTS.md" "$home_dir/.codex/../.agents/AGENTS.md" || status=1
+    [[ -s "$home_dir/.codex/../.agents/references/reasoning.md" ]] || status=1
     [[ -L "$home_dir/.config/opencode/AGENTS.md" ]] || status=1
     [[ "$(readlink "$home_dir/.config/opencode/AGENTS.md")" == "../../.agents/AGENTS.md" ]] || status=1
     if [[ -n "$backup_dir" ]]; then
         [[ -f "$backup_dir/.config/fish/config.fish" ]] || status=1
         [[ "$(< "$backup_dir/.config/fish/config.fish")" == "old fish config" ]] || status=1
+        [[ -f "$backup_dir/.codex/AGENTS.md" ]] && [[ "$(< "$backup_dir/.codex/AGENTS.md")" == "old codex rules" ]] || status=1
         rsync -a "$backup_dir/" "$home_dir/" > /dev/null || status=1
         [[ "$(< "$home_dir/.config/fish/config.fish")" == "old fish config" ]] || status=1
+        [[ "$(< "$home_dir/.codex/AGENTS.md")" == "old codex rules" ]] || status=1
     else
         status=1
     fi
