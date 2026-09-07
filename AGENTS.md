@@ -1,53 +1,74 @@
 # Repository Guidelines
 
-## Layout and scope
+Read [global instructions](home/.agents/AGENTS.md), then only task-relevant skills.
+Use [README.md](README.md) for layout, installation, and Pi usage; keep this file
+focused on repository-specific constraints rather than duplicating global policy.
 
-`home/` mirrors `$HOME`: only tracked files there deploy, at the same relative path.
-Keep deployment paths stable. The root `.agents` symlink points to `home/.agents`;
-do not replace it with a copied directory.
+## Boundaries
 
-- `home/bash/`, `home/fish/`, root home dotfiles and `home/.config/`: shell/application configuration.
-- `home/.agents/`: global instructions and nine workflow skills; `home/skills/`: domain skills.
-- `pi/`: Pi extensions, prompts, skills and themes; skills share static validation, while runtime tests remain separate.
-- `installer/`, `bootstrap.sh`, `bootstrap.ps1`: platform installation; `tests/validate/`: validation groups.
+- Unix deployment copies only Git-tracked `home/` files to the same paths under
+  `$HOME`. Keep these paths stable; new untracked files are excluded from previews.
+  Windows has a separate, narrower installer.
+- Root `AGENTS.md` is repository-local; `home/.agents/AGENTS.md` is deployed global
+  policy. Preserve `.agents -> home/.agents` as a symlink, not a copied directory.
+- Home Manager owns shared CLI packages, Mise owns runtimes, and Homebrew supplies
+  optional macOS casks. Linux login Fish must remain a stable system executable,
+  not a Nix-generation path.
+- `pi/package.json` owns Pi resources, dependencies, and test commands. The local
+  Pi package is separate from the external extensions installed by `--pi`.
+
+## Editing
+
+Check `git status --short` and `git worktree list` before editing. Isolate parallel
+work in separate branches under the ignored `.worktrees/`; preserve other tasks'
+checkouts and changes. Use `git ls-files` for inventories, including hidden agent
+paths. Verify claims against scripts and manifests, not just help or old docs.
+
+Keep README a short personal quick reference, not a setup tutorial.
+Keep existing Bash, Fish, and TypeScript conventions. Bash automation normally
+uses `set -euo pipefail`; test dispatchers may aggregate failures. Read
+[the ADR index](docs/adr/README.md) and relevant accepted decisions only for
+architecture-affecting work; follow its workflow before adding an ADR.
 
 ## Verification
 
-Run from the repository root; use the checks for the changed surface.
+Run from the repository root; choose checks for the changed surface.
 
 | Surface | Command |
 | --- | --- |
-| Dotfiles and installer | `make check-dotfiles` |
+| Documentation | `git diff --check`; inspect local links and documented commands |
 | Agent instructions and all three skill roots | `bash tests/validate.sh agents` |
-| Installer deployment | `./bootstrap.sh --no-pull --dry-run` |
-| Pi | `make check-pi` |
+| Dotfiles and installer | `make check-dotfiles` |
+| Deployment or installation instructions | `./bootstrap.sh --no-pull --dry-run` |
+| Pi types, inventory, and unit tests | `make check-pi` |
 | Both dotfiles and Pi | `make check` |
 
-Use `make help` for other targets. Do not run an installation, package activation,
-login-shell change or OS-default mutation just to validate documentation.
-Add regression checks to the relevant `tests/validate/` group, not the dispatcher.
-Report unavailable tools, baseline failures and skipped checks separately.
+The dotfiles groups are `shell`, `installer`, `toolchain`, `integrations`, and
+`agents`; add regression checks to `tests/validate/`, not the dispatcher. Pi
+collects `tests/*.test.ts` through `npm --prefix pi test`; do not add per-suite
+npm aliases. See the README for dependency setup. For a focused Pi suite,
+run `node --test tests/<name>.test.ts` from `pi/`.
 
-## Editing conventions
+Always pair previews with `--no-pull`. Do not validate docs by installing packages,
+activating Home Manager, changing login shells, or mutating OS defaults. Static
+checks and dry runs do not prove installation success. Report unavailable tools,
+baseline failures, and skipped checks separately from passes.
 
-Keep the language and formatting of touched files. Bash automation normally uses
-`set -euo pipefail`; test dispatchers may deliberately aggregate failures. Fish
-functions use `function` / `end` and lowercase hyphenated filenames. Pi TypeScript
-uses ES modules and camelCase. Preserve unrelated user changes.
+## Agent material
 
-Before changing agent material, read [global instructions](home/.agents/AGENTS.md)
-and only the relevant skill entries. Keep entry points short and reference detail
-on demand. In this repository, `name` and `description` are one-line plain YAML
-strings; names match skill directories. Repository entry budgets are 4 KiB for the
-global AGENTS.md and 8 KiB per SKILL.md, not client token limits. The validator checks local references,
-not external URL availability or model behavior. It uses Python 3.9+ standard library.
-For tracked-file inventory, prefer `git ls-files`; hidden agent paths must not be
-accidentally excluded by default search settings.
+Skill roots: `home/.agents/skills/`, `home/skills/`, and `pi/skills/`. Keep entries
+short and references on demand. `name` and `description` are one-line plain YAML
+strings; names match directories and are unique across roots. Update the inventory
+in `tests/validate-agent-skills.py` when adding or removing workflow skills.
 
-## Delivery and safety
+The Python 3.9+ standard-library validator checks metadata, inventory, local links,
+and entry budgets: 4 KiB for global AGENTS.md and 8 KiB per SKILL.md. These are
+repository budgets, not client token limits; checks do not verify external URLs
+or model behavior.
 
-Use Conventional Commits. PRs explain affected tools, verification and any host or
-credential impact; use a small ASCII flow when it clarifies the change. Never commit
-secrets, machine tokens or private hostnames. Treat SSH and installer configuration
-as sensitive. Read [the ADR index](docs/adr/README.md) and relevant accepted decisions
-only for architecture-affecting work; follow its workflow before adding an ADR.
+## Delivery
+
+Never commit secrets, tokens, credentials, or private hostnames; `.gitignore` does
+not protect tracked files. Treat SSH and installer configuration as sensitive.
+When requested, use Conventional Commits and describe affected tools, verification,
+and host or credential impact in PRs. Follow the global authorization boundaries.
