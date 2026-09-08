@@ -15,7 +15,7 @@ export interface ToolDisplayConfig {
 export const DEFAULT_TOOL_DISPLAY_CONFIG: ToolDisplayConfig = {
   showEditCall: false,
   diffViewMode: "auto",
-  diffIndicatorMode: "bars",
+  diffIndicatorMode: "classic",
   diffSplitMinWidth: 120,
   editDiffCollapsedLines: 24,
   writeDiffCollapsedLines: 0,

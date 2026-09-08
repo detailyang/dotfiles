@@ -56,7 +56,6 @@ const MIN_SPLIT_COLUMN_WIDTH = 24;
 function resolveIndicatorGlyph(
 	kind: DiffLineKind,
 	indicatorMode: DiffIndicatorMode,
-	continuation: boolean,
 ): string {
 	if (kind === "context") {
 		return " ";
@@ -66,9 +65,6 @@ function resolveIndicatorGlyph(
 		case "bars":
 			return "▌";
 		case "classic":
-			if (continuation) {
-				return " ";
-			}
 			return kind === "add" ? "+" : "-";
 		case "none":
 		default:
@@ -81,11 +77,14 @@ function renderChangeMarker(
 	theme: DiffTheme,
 	rowBg: string | undefined,
 	indicatorMode: DiffIndicatorMode,
-	continuation = false,
 ): string {
-	const glyph = resolveIndicatorGlyph(kind, indicatorMode, continuation);
+	const glyph = resolveIndicatorGlyph(kind, indicatorMode);
 	if (glyph === " ") {
 		return rowBg ? `${rowBg} ${rowBg}` : " ";
+	}
+	if (indicatorMode === "classic") {
+		// Signs stay readable even when the diff colors are gray or low-contrast.
+		return theme.fg("text", glyph);
 	}
 	if (kind === "add") {
 		return colorizeSegment(theme, "toolDiffAdded", glyph, rowBg);
@@ -104,13 +103,7 @@ function getHashlineGutterMarkerWidth(_indicatorMode: DiffIndicatorMode): number
 	return 0;
 }
 
-function getLineDividerPlainWidth(
-	indicatorMode: DiffIndicatorMode,
-	hashlineGutter = false,
-): number {
-	if (hashlineGutter) {
-		return 2;
-	}
+function getLineDividerPlainWidth(indicatorMode: DiffIndicatorMode): number {
 	return indicatorMode === "classic" ? 1 : 2;
 }
 
@@ -118,12 +111,11 @@ function renderCodeDivider(
 	theme: DiffTheme,
 	rowBg: string | undefined,
 	indicatorMode: DiffIndicatorMode,
-	hashlineGutter = false,
 ): string {
 	return colorizeSegment(
 		theme,
 		"dim",
-		hashlineGutter || indicatorMode !== "classic" ? "│ " : "│",
+		indicatorMode !== "classic" ? "│ " : "│",
 		rowBg,
 	);
 }
@@ -164,29 +156,12 @@ function getLineContentIndicatorPrefixPlainWidth(indicatorMode: DiffIndicatorMod
 	return indicatorMode === "classic" ? 2 : 0;
 }
 
-function renderClassicContentPrefix(
-	kind: DiffLineKind,
-	theme: DiffTheme,
-	rowBg: string | undefined,
-	continuation = false,
-): string {
-	if (kind === "context" || continuation) {
-		return rowBg ? `${rowBg}  ${rowBg}` : "  ";
-	}
-
-	const glyph = kind === "add" ? "+" : "-";
-	const glyphColor = kind === "add" ? "toolDiffAdded" : "toolDiffRemoved";
-	const spacer = rowBg ? `${rowBg} ` : " ";
-	return `${colorizeSegment(theme, glyphColor, glyph, rowBg)}${spacer}`;
-}
-
 function renderLinePrefix(
 	kind: DiffLineKind,
 	lineNumber: string,
 	theme: DiffTheme,
 	rowBg: string | undefined,
 	indicatorMode: DiffIndicatorMode,
-	continuation = false,
 	hashlineGutter = false,
 ): string {
 	const number = renderLineNumberSegment(kind, lineNumber, theme, rowBg);
@@ -197,7 +172,7 @@ function renderLinePrefix(
 	if (indicatorMode !== "bars") {
 		return `${number}${spacer}`;
 	}
-	const marker = renderChangeMarker(kind, theme, rowBg, indicatorMode, continuation);
+	const marker = renderChangeMarker(kind, theme, rowBg, indicatorMode);
 	return `${marker}${spacer}${number}${spacer}`;
 }
 
@@ -210,7 +185,7 @@ function renderLineContinuationPrefix(
 	hashlineGutter = false,
 ): string {
 	const blankLineNumber = " ".repeat(lineNumberWidth);
-	return renderLinePrefix(kind, blankLineNumber, theme, rowBg, indicatorMode, true, hashlineGutter);
+	return renderLinePrefix(kind, blankLineNumber, theme, rowBg, indicatorMode, hashlineGutter);
 }
 
 function renderLineContentIndicatorPrefix(
@@ -218,10 +193,9 @@ function renderLineContentIndicatorPrefix(
 	theme: DiffTheme,
 	rowBg: string | undefined,
 	indicatorMode: DiffIndicatorMode,
-	continuation = false,
 ): string {
 	return indicatorMode === "classic"
-		? renderClassicContentPrefix(kind, theme, rowBg, continuation)
+		? renderCompactLinePrefix(kind, theme, rowBg, indicatorMode)
 		: "";
 }
 
@@ -230,9 +204,8 @@ function renderCompactLinePrefix(
 	theme: DiffTheme,
 	rowBg: string | undefined,
 	indicatorMode: DiffIndicatorMode,
-	continuation = false,
 ): string {
-	const marker = renderChangeMarker(kind, theme, rowBg, indicatorMode, continuation);
+	const marker = renderChangeMarker(kind, theme, rowBg, indicatorMode);
 	const spacer = rowBg ? `${rowBg} ` : " ";
 	return `${marker}${spacer}`;
 }
@@ -263,10 +236,8 @@ function computeLineCellCodeWidth(
 	hashlineGutter: boolean,
 ): number {
 	const prefixPlainWidth = getLinePrefixPlainWidth(lineNumberWidth, indicatorMode, hashlineGutter);
-	const dividerPlainWidth = getLineDividerPlainWidth(indicatorMode, hashlineGutter);
-	const contentIndicatorWidth = hashlineGutter
-		? 0
-		: getLineContentIndicatorPrefixPlainWidth(indicatorMode);
+	const dividerPlainWidth = getLineDividerPlainWidth(indicatorMode);
+	const contentIndicatorWidth = getLineContentIndicatorPrefixPlainWidth(indicatorMode);
 	return Math.max(0, width - prefixPlainWidth - dividerPlainWidth - contentIndicatorWidth);
 }
 
@@ -298,13 +269,12 @@ function renderCompactLineCell({
 	}
 
 	const prefix = renderCompactLinePrefix(kind, theme, undefined, indicatorMode);
-	const continuationPrefix = renderCompactLinePrefix(kind, theme, undefined, indicatorMode, true);
 	const prefixPlainWidth = 2;
 	const codeWidth = Math.max(0, width - prefixPlainWidth);
 	const wrappedCodeLines = wrapToWidth(code, codeWidth, wordWrap);
 	return renderWrappedRowsWithOptionalBackground(
 		wrappedCodeLines,
-		(index, line) => `${index === 0 ? prefix : continuationPrefix}${line}`,
+		(_index, line) => `${prefix}${line}`,
 		width,
 		rowBg,
 		restoreBgAnsi,
@@ -332,7 +302,6 @@ function renderLineCell(
 		theme,
 		undefined,
 		indicatorMode,
-		false,
 		hashlineGutter,
 	);
 	const continuationPrefix = renderLineContinuationPrefix(
@@ -343,19 +312,13 @@ function renderLineCell(
 		indicatorMode,
 		hashlineGutter,
 	);
-	const divider = renderCodeDivider(theme, undefined, indicatorMode, hashlineGutter);
-	const firstContentPrefix = hashlineGutter
-		? ""
-		: renderLineContentIndicatorPrefix(kind, theme, undefined, indicatorMode);
-	const continuationContentPrefix = hashlineGutter
-		? ""
-		: renderLineContentIndicatorPrefix(kind, theme, undefined, indicatorMode, true);
+	const divider = renderCodeDivider(theme, undefined, indicatorMode);
+	const contentPrefix = renderLineContentIndicatorPrefix(kind, theme, undefined, indicatorMode);
 	const wrappedCodeLines = wrapToWidth(code, codeWidth, wordWrap);
 	return renderWrappedRowsWithOptionalBackground(
 		wrappedCodeLines,
 		(index, line) => {
 			const linePrefix = index === 0 ? prefix : continuationPrefix;
-			const contentPrefix = index === 0 ? firstContentPrefix : continuationContentPrefix;
 			return `${linePrefix}${divider}${contentPrefix}${line}`;
 		},
 		width,
@@ -506,13 +469,10 @@ function renderSplitBlankCell(
 		theme,
 		undefined,
 		indicatorMode,
-		true,
 		hashlineGutter,
 	);
-	const divider = renderCodeDivider(theme, undefined, indicatorMode, hashlineGutter);
-	const contentPrefix = hashlineGutter
-		? ""
-		: renderLineContentIndicatorPrefix("context", theme, undefined, indicatorMode, true);
+	const divider = renderCodeDivider(theme, undefined, indicatorMode);
+	const contentPrefix = renderLineContentIndicatorPrefix("context", theme, undefined, indicatorMode);
 	return stabilizeBackgroundResets(`${prefix}${divider}${contentPrefix}${" ".repeat(codeWidth)}`);
 }
 
@@ -619,14 +579,12 @@ function renderSplitHeaderCell(
 			: "";
 	const lineNumberLabel = fitToWidth(label, lineNumberWidth);
 	const lineNumberSpacer = hashlineGutter ? "" : " ";
-	const divider = hashlineGutter || indicatorMode !== "classic" ? "│ " : "│";
+	const divider = indicatorMode !== "classic" ? "│ " : "│";
 	const prefix = `${theme.fg("dim", markerPad)}${theme.fg("muted", lineNumberLabel)}${theme.fg("dim", lineNumberSpacer)}${theme.fg("dim", divider)}`;
 	const prefixWidth = visibleWidth(`${markerPad}${lineNumberLabel}${lineNumberSpacer}${divider}`);
-	const contentIndicatorWidth = hashlineGutter
-		? 0
-		: getLineContentIndicatorPrefixPlainWidth(indicatorMode);
+	const contentIndicatorWidth = getLineContentIndicatorPrefixPlainWidth(indicatorMode);
 	const codeWidth = Math.max(0, columnWidth - prefixWidth - contentIndicatorWidth);
-	const contentPad = !hashlineGutter && indicatorMode === "classic" ? "  " : "";
+	const contentPad = indicatorMode === "classic" ? "  " : "";
 	return stabilizeBackgroundResets(`${prefix}${contentPad}${" ".repeat(codeWidth)}`);
 }
 
