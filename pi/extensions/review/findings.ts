@@ -181,50 +181,42 @@ function hasNeedsAttentionVerdict(messageText: string): boolean {
 	return false;
 }
 
-type ReviewJsonFinding = {
-	priority?: string;
-};
-
 type ReviewJsonSummary = {
-	verdict?: string;
-	findings?: ReviewJsonFinding[];
+	verdict: "correct" | "needs_attention";
+	findings: Array<{ priority: string }>;
 };
 
-function extractReviewJsonSummary(messageText: string): ReviewJsonSummary | null {
-	const fencedMatches = [...messageText.matchAll(/```(?:review-json|json)\s*([\s\S]*?)```/gi)];
-	for (const match of fencedMatches) {
-		const raw = match[1]?.trim();
-		if (!raw) continue;
-		try {
-			const parsed = JSON.parse(raw) as ReviewJsonSummary;
-			if (parsed && typeof parsed === "object" && ("verdict" in parsed || "findings" in parsed)) {
-				return parsed;
-			}
-		} catch {
-			// Ignore malformed auxiliary JSON blocks and fall back to markdown parsing.
+function extractReviewJsonSummary(messageText: string, requireReviewTag = false): ReviewJsonSummary | null {
+	const tagged = [...messageText.matchAll(/```review-json\s*([\s\S]*?)```/gi)];
+	const matches = tagged.length || requireReviewTag
+		? tagged
+		: [...messageText.matchAll(/```json\s*([\s\S]*?)```/gi)];
+	const raw = matches.at(-1)?.[1];
+	if (!raw) return null;
+	try {
+		const parsed = JSON.parse(raw);
+		if (!parsed || typeof parsed !== "object" ||
+			! ["correct", "needs_attention"].includes(parsed.verdict) ||
+			!Array.isArray(parsed.findings) ||
+			!parsed.findings.every((finding: unknown) => finding !== null && typeof finding === "object" &&
+				"priority" in finding && typeof finding.priority === "string" && /^P[0-3]$/.test(finding.priority))) {
+			return null;
 		}
+		return parsed;
+	} catch {
+		return null;
 	}
-
-	return null;
 }
 
-function hasBlockingStructuredReviewFindings(messageText: string): boolean | null {
-	const summary = extractReviewJsonSummary(messageText);
-	if (!summary) return null;
-
-	const verdict = normalizeVerdictValue(summary.verdict ?? "").replace(/[\s-]+/g, "_");
-	if (verdict === "needs_attention" || verdict === "fail" || verdict === "needs_work") {
-		return true;
-	}
-
-	const findings = Array.isArray(summary.findings) ? summary.findings : [];
-	return findings.some((finding) => /^(P0|P1|P2)$/i.test(String(finding.priority ?? "")));
+export function getReviewDecision(messageText: string): "correct" | "needs_attention" | "invalid" {
+	if (!extractReviewJsonSummary(messageText, true)) return "invalid";
+	return hasBlockingReviewFindings(messageText) ? "needs_attention" : "correct";
 }
 
 export function hasBlockingReviewFindings(messageText: string): boolean {
-	const structuredDecision = hasBlockingStructuredReviewFindings(messageText);
-	if (structuredDecision !== null) {
-		return structuredDecision;
+	const summary = extractReviewJsonSummary(messageText);
+	if (summary?.verdict === "needs_attention" || summary?.findings.some((finding) => /^P[0-2]$/.test(finding.priority))) {
+		return true;
 	}
 
 	const lines = messageText.split(/\r?\n/);

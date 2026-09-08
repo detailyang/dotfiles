@@ -8,10 +8,10 @@ export type UsageSnapshot = {
 
 export function tokenDeltaFromUsage(usage: UsageSnapshot): number {
 	if (!usage) return 0;
-	if (typeof usage.totalTokens === "number") return Math.max(0, usage.totalTokens);
-	const input = Number(usage.input) || 0;
-	const output = Number(usage.output) || 0;
-	const cacheRead = Number(usage.cacheRead) || 0;
-	const cacheWrite = Number(usage.cacheWrite) || 0;
-	return Math.max(0, input + output + cacheRead + cacheWrite);
+	if (typeof usage.totalTokens === "number" && Number.isFinite(usage.totalTokens) && usage.totalTokens >= 0) {
+		return Math.min(Number.MAX_SAFE_INTEGER, Math.round(usage.totalTokens));
+	}
+	const total = [usage.input, usage.output, usage.cacheRead, usage.cacheWrite]
+		.reduce<number>((sum, value) => sum + (typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0), 0);
+	return Math.min(Number.MAX_SAFE_INTEGER, total);
 }

@@ -33,7 +33,7 @@ import {
   parseBtwThinkingArgs,
   parseOverlayBtwCommand,
   type SessionThinkingLevel,
-} from "./command.js";
+} from "./command.ts";
 import {
   buildResolvedBtwSettings,
   describeResolvedBtwModel as describeResolvedModel,
@@ -42,7 +42,7 @@ import {
   resolveBtwModelWithCredentialStatus,
   type ResolvedBtwModel,
   type ResolvedBtwSettings,
-} from "./settings.js";
+} from "./settings.ts";
 import {
   appendPersistedBtwTranscriptTurn,
   applyBtwTranscriptEvent,
@@ -58,12 +58,12 @@ import {
   type BtwTranscriptEntry,
   type BtwTranscriptEvent,
   type BtwTranscriptState,
-} from "./transcript.js";
+} from "./transcript.ts";
 import {
   buildBtwDetailsFromResponse,
   getBtwAuthFailureMessage,
   getLastAssistantMessage,
-} from "./session-run.js";
+} from "./session-run.ts";
 import {
   BTW_ENTRY_TYPE,
   BTW_MODEL_OVERRIDE_TYPE,
@@ -81,7 +81,7 @@ import {
   type BtwResetDetails,
   type BtwThinkingOverrideDetails,
   type BtwHandoffExchange,
-} from "./thread.js";
+} from "./thread.ts";
 
 const BTW_FOCUS_SHORTCUTS = [Key.alt("/"), Key.ctrlAlt("w")] as const;
 
@@ -120,6 +120,7 @@ type SaveState = "not-saved" | "saved" | "queued";
 type BtwSessionRuntime = {
   session: AgentSession;
   mode: BtwThreadMode;
+  settingsKey: string;
   subscriptions: Set<() => void>;
   sideThreadStartIndex: number;
 };
@@ -163,21 +164,14 @@ function createBtwResourceLoader(
 }
 
 async function createBtwModelRuntime(ctx: ExtensionCommandContext): Promise<ModelRuntime> {
+  const providers = ctx.modelRegistry.getRegisteredProviderIds().map((id) => ({
+    id, native: ctx.modelRegistry.getRegisteredNativeProvider(id), config: ctx.modelRegistry.getRegisteredProviderConfig(id),
+  }));
   const runtime = await ModelRuntime.create();
-
-  for (const providerId of ctx.modelRegistry.getRegisteredProviderIds()) {
-    const nativeProvider = ctx.modelRegistry.getRegisteredNativeProvider(providerId);
-    if (nativeProvider) {
-      runtime.registerNativeProvider(nativeProvider);
-      continue;
-    }
-
-    const providerConfig = ctx.modelRegistry.getRegisteredProviderConfig(providerId);
-    if (providerConfig) {
-      runtime.registerProvider(providerId, providerConfig);
-    }
+  for (const provider of providers) {
+    if (provider.native) runtime.registerNativeProvider(provider.native);
+    else if (provider.config) runtime.registerProvider(provider.id, provider.config);
   }
-
   return runtime;
 }
 
@@ -652,7 +646,15 @@ class BtwOverlayComponent extends Container implements Focusable {
   }
 }
 
-export default function (pi: ExtensionAPI) {
+export function registerBtwExtension(pi: ExtensionAPI, dependencies = { createAgentSession, createBtwModelRuntime }): void {
+  let generation = 0;
+  let shuttingDown = false;
+  let runningGeneration: number | null = null;
+  const summarySessions = new Set<AgentSession>();
+  const isCurrent = (expected: number) => expected === generation && !shuttingDown;
+  const assertCurrent = (expected: number) => {
+    if (!isCurrent(expected)) throw new Error("BTW operation cancelled");
+  };
   let pendingThread: BtwDetails[] = [];
   let pendingMode: BtwThreadMode = "contextual";
   let btwModelOverride: SessionModel | null = null;
@@ -665,6 +667,7 @@ export default function (pi: ExtensionAPI) {
   let activeBtwSession: BtwSessionRuntime | null = null;
 
   function syncUi(ctx?: ExtensionContext | ExtensionCommandContext): void {
+    if (shuttingDown) return;
     const activeCtx = ctx ?? lastUiContext;
     if (activeCtx?.hasUI) {
       activeCtx.ui.setWidget("btw", undefined);
@@ -779,21 +782,22 @@ export default function (pi: ExtensionAPI) {
     sessionRuntime.subscriptions.add(unsubscribe);
   }
 
-  async function disposeBtwSession(): Promise<void> {
+  async function disposeBtwSession(invalidate = true): Promise<void> {
+    if (invalidate) {
+      generation++;
+      ensureBtwSessionInFlight = null;
+    }
     const current = activeBtwSession;
     activeBtwSession = null;
-    if (!current) {
-      return;
-    }
-
+    const summaries = invalidate ? [...summarySessions] : [];
+    await Promise.allSettled(summaries.map((session) => session.abort()));
+    if (!current) return;
     clearBtwSessionSubscriptions(current);
-
     try {
       await current.session.abort();
     } catch {
       // Ignore abort errors during BTW session replacement/shutdown.
     }
-
     current.session.dispose();
   }
 
@@ -809,7 +813,7 @@ export default function (pi: ExtensionAPI) {
     let overrideHasCredentials: boolean | undefined;
     if (btwModelOverride) {
       const auth = await ctx.modelRegistry.getApiKeyAndHeaders(btwModelOverride);
-      overrideHasCredentials = auth.ok && !!auth.apiKey;
+      overrideHasCredentials = auth.ok;
     }
 
     const resolved = resolveBtwModelWithCredentialStatus({
@@ -842,8 +846,12 @@ export default function (pi: ExtensionAPI) {
       ? { action: "set", timestamp: Date.now(), provider: nextModel.provider, id: nextModel.id, api: nextModel.api }
       : { action: "clear", timestamp: Date.now() };
     pi.appendEntry(BTW_MODEL_OVERRIDE_TYPE, details);
-    await disposeBtwSession();
+    const disposal = disposeBtwSession();
+    const expected = generation;
+    await disposal;
+    if (!isCurrent(expected)) return;
     const settings = await resolveBtwSettings(ctx);
+    if (!isCurrent(expected)) return;
     const message = nextModel
       ? `BTW model override set to ${formatModelRef(nextModel)}.`
       : "BTW model override cleared. BTW now inherits the main thread model.";
@@ -860,8 +868,12 @@ export default function (pi: ExtensionAPI) {
       ? { action: "set", timestamp: Date.now(), thinkingLevel: nextThinkingLevel }
       : { action: "clear", timestamp: Date.now() };
     pi.appendEntry(BTW_THINKING_OVERRIDE_TYPE, details);
-    await disposeBtwSession();
+    const disposal = disposeBtwSession();
+    const expected = generation;
+    await disposal;
+    if (!isCurrent(expected)) return;
     const settings = await resolveBtwSettings(ctx);
+    if (!isCurrent(expected)) return;
     const message = nextThinkingLevel
       ? `BTW thinking override set to ${nextThinkingLevel}.`
       : "BTW thinking override cleared. BTW now inherits the main thread thinking level.";
@@ -869,57 +881,64 @@ export default function (pi: ExtensionAPI) {
     notify(ctx, `${message} ${describeResolvedThinking(settings)}`, "info");
   }
 
-  async function createBtwSubSession(ctx: ExtensionCommandContext, mode: BtwThreadMode): Promise<BtwSessionRuntime> {
-    const settings = await resolveBtwSettings(ctx, true);
-    if (!settings.model) {
-      throw new Error(settings.fallbackReason || "No active model selected.");
-    }
+  function settingsKey(ctx: ExtensionCommandContext, mode: BtwThreadMode, settings: ResolvedBtwSettings<SessionModel>): string {
+    return JSON.stringify([ctx.cwd, mode, settings.model?.provider, settings.model?.id, settings.model?.api, settings.thinkingLevel]);
+  }
 
-    const { session } = await createAgentSession({
-      sessionManager: SessionManager.inMemory(),
-      model: settings.model,
-      modelRuntime: await createBtwModelRuntime(ctx),
-      thinkingLevel: settings.thinkingLevel,
-      // Match pi's default coding-agent toolset (read/bash/edit/write).
-      tools: ["read", "bash", "edit", "write"],
-      resourceLoader: createBtwResourceLoader(ctx),
-    });
-
+  async function createBtwSubSession(ctx: ExtensionCommandContext, mode: BtwThreadMode, settings: ResolvedBtwSettings<SessionModel>): Promise<BtwSessionRuntime> {
+    if (!settings.model) throw new Error(settings.fallbackReason || "No active model selected.");
+    const expected = generation;
+    const key = settingsKey(ctx, mode, settings);
+    const cwd = ctx.cwd;
     const { messages: seedMessages, sideThreadStartIndex } = buildBtwSeedState(ctx, pendingThread, mode, settings.model);
-    if (seedMessages.length > 0) {
-      session.state.messages = seedMessages;
-    }
-
-    return { session, mode, subscriptions: new Set(), sideThreadStartIndex };
+    const resourceLoader = createBtwResourceLoader(ctx);
+    const modelRuntime = await dependencies.createBtwModelRuntime(ctx);
+    assertCurrent(expected);
+    const { session } = await dependencies.createAgentSession({
+      cwd,
+      sessionManager: SessionManager.inMemory(cwd),
+      model: settings.model,
+      modelRuntime,
+      thinkingLevel: settings.thinkingLevel,
+      tools: ["read", "bash", "edit", "write"],
+      resourceLoader,
+    });
+    if (seedMessages.length > 0) session.state.messages = seedMessages;
+    return { session, mode, settingsKey: key, subscriptions: new Set(), sideThreadStartIndex };
   }
 
   let ensureBtwSessionInFlight: Promise<BtwSessionRuntime | null> | null = null;
+  const pendingCreations = new Set<Promise<BtwSessionRuntime | null>>();
+  const pendingSummaries = new Set<Promise<string>>();
 
-  async function ensureBtwSession(ctx: ExtensionCommandContext, mode: BtwThreadMode): Promise<BtwSessionRuntime | null> {
+  async function ensureBtwSession(ctx: ExtensionCommandContext, mode: BtwThreadMode, resolved?: ResolvedBtwSettings<SessionModel>): Promise<BtwSessionRuntime | null> {
+    const expected = generation;
     if (ensureBtwSessionInFlight) {
-      return ensureBtwSessionInFlight;
+      await ensureBtwSessionInFlight;
+      if (!isCurrent(expected)) return null;
+      return ensureBtwSession(ctx, mode, resolved);
     }
-
-    ensureBtwSessionInFlight = (async () => {
-      try {
-        const settings = await resolveBtwSettings(ctx);
-        if (!settings.model) {
-          return null;
-        }
-
-        if (activeBtwSession?.mode === mode) {
-          return activeBtwSession;
-        }
-
-        await disposeBtwSession();
-        activeBtwSession = await createBtwSubSession(ctx, mode);
-        return activeBtwSession;
-      } finally {
-        ensureBtwSessionInFlight = null;
+    const pending = (async () => {
+      const settings = resolved ?? await resolveBtwSettings(ctx, true);
+      if (!isCurrent(expected) || !settings.model) return null;
+      if (activeBtwSession?.settingsKey === settingsKey(ctx, mode, settings)) return activeBtwSession;
+      if (activeBtwSession?.session.isStreaming) throw new Error("A BTW request is already running.");
+      await disposeBtwSession(false);
+      if (!isCurrent(expected)) return null;
+      const created = await createBtwSubSession(ctx, mode, settings);
+      if (!isCurrent(expected)) {
+        try { await created.session.abort(); } finally { created.session.dispose(); }
+        return null;
       }
+      activeBtwSession = created;
+      return created;
     })();
-
-    return ensureBtwSessionInFlight;
+    ensureBtwSessionInFlight = pending;
+    pendingCreations.add(pending);
+    try { return await pending; } finally {
+      pendingCreations.delete(pending);
+      if (ensureBtwSessionInFlight === pending) ensureBtwSessionInFlight = null;
+    }
   }
 
   async function ensureOverlay(ctx: ExtensionCommandContext | ExtensionContext): Promise<void> {
@@ -1037,18 +1056,21 @@ export default function (pi: ExtensionAPI) {
   }
 
   async function dispatchBtwCommand(name: string, args: string, ctx: ExtensionCommandContext): Promise<boolean> {
+    if (shuttingDown) return false;
+    let expected = generation;
     const trimmedArgs = args.trim();
 
     if (name === "btw") {
       const { question, save } = parseBtwArgs(trimmedArgs);
       if (!question) {
         await ensureBtwSession(ctx, pendingMode);
+        if (!isCurrent(expected)) return true;
         await ensureOverlay(ctx);
         return true;
       }
 
       if (pendingMode !== "contextual") {
-        await resetThread(ctx, true, "contextual");
+        if (!await resetThread(ctx, true, "contextual")) return true;
       }
 
       await runBtw(ctx, question, save, "contextual");
@@ -1058,11 +1080,13 @@ export default function (pi: ExtensionAPI) {
     if (name === "btw:tangent") {
       const { question, save } = parseBtwArgs(trimmedArgs);
       if (pendingMode !== "tangent") {
-        await resetThread(ctx, true, "tangent");
+        if (!await resetThread(ctx, true, "tangent")) return true;
+        expected = generation;
       }
 
       if (!question) {
         await ensureBtwSession(ctx, "tangent");
+        if (!isCurrent(expected)) return true;
         await ensureOverlay(ctx);
         return true;
       }
@@ -1072,12 +1096,14 @@ export default function (pi: ExtensionAPI) {
     }
 
     if (name === "btw:new") {
-      await resetThread(ctx, true, "contextual");
+      if (!await resetThread(ctx, true, "contextual")) return true;
+      expected = generation;
       const { question, save } = parseBtwArgs(trimmedArgs);
       if (question) {
         await runBtw(ctx, question, save, "contextual");
       } else {
         await ensureBtwSession(ctx, "contextual");
+        if (!isCurrent(expected)) return true;
         setOverlayStatus("Started a fresh BTW thread.", ctx);
         await ensureOverlay(ctx);
         notify(ctx, "Started a fresh BTW thread.", "info");
@@ -1086,7 +1112,7 @@ export default function (pi: ExtensionAPI) {
     }
 
     if (name === "btw:clear") {
-      await resetThread(ctx);
+      if (!await resetThread(ctx)) return true;
       dismissOverlay();
       notify(ctx, "Cleared BTW thread.", "info");
       return true;
@@ -1102,6 +1128,7 @@ export default function (pi: ExtensionAPI) {
 
       if (parsed.action === "show") {
         const settings = await resolveBtwSettings(ctx);
+        if (!isCurrent(expected)) return true;
         const message = describeResolvedModel(settings);
         setOverlayStatus(message, ctx);
         notify(ctx, message, settings.model ? "info" : "warning");
@@ -1134,6 +1161,7 @@ export default function (pi: ExtensionAPI) {
 
       if (parsed.action === "show") {
         const settings = await resolveBtwSettings(ctx);
+        if (!isCurrent(expected)) return true;
         const message = describeResolvedThinking(settings);
         setOverlayStatus(message, ctx);
         notify(ctx, message, "info");
@@ -1155,6 +1183,7 @@ export default function (pi: ExtensionAPI) {
 
       try {
         const { thread } = await getBtwHandoffThread(ctx);
+        if (!isCurrent(expected)) return true;
         const instructions = trimmedArgs;
         const content = instructions
           ? `Here is a side conversation I had. ${instructions}\n\n${formatBtwThread(thread)}`
@@ -1162,10 +1191,11 @@ export default function (pi: ExtensionAPI) {
 
         sendThreadToMain(ctx, content);
         const count = thread.length;
-        await resetThread(ctx);
+        if (!await resetThread(ctx)) return true;
         dismissOverlay();
         notify(ctx, `Injected BTW thread (${count} exchange${count === 1 ? "" : "s"}).`, "info");
       } catch (error) {
+        if (!isCurrent(expected)) return true;
         setOverlayStatus("Inject failed. Thread preserved for retry or summarize.", ctx);
         notify(ctx, error instanceof Error ? error.message : String(error), "error");
       }
@@ -1183,7 +1213,9 @@ export default function (pi: ExtensionAPI) {
 
       try {
         const { thread } = await getBtwHandoffThread(ctx);
+        if (!isCurrent(expected)) return true;
         const summary = await summarizeThread(ctx, thread);
+        if (!isCurrent(expected)) return true;
         const instructions = trimmedArgs;
         const content = instructions
           ? `Here is a summary of a side conversation I had. ${instructions}\n\n${summary}`
@@ -1191,10 +1223,11 @@ export default function (pi: ExtensionAPI) {
 
         sendThreadToMain(ctx, content);
         const count = thread.length;
-        await resetThread(ctx);
+        if (!await resetThread(ctx)) return true;
         dismissOverlay();
         notify(ctx, `Injected BTW summary (${count} exchange${count === 1 ? "" : "s"}).`, "info");
       } catch (error) {
+        if (!isCurrent(expected)) return true;
         setOverlayStatus("Summarize failed. Thread preserved for retry or injection.", ctx);
         notify(ctx, error instanceof Error ? error.message : String(error), "error");
       }
@@ -1235,8 +1268,11 @@ export default function (pi: ExtensionAPI) {
     ctx: ExtensionContext | ExtensionCommandContext,
     persist = true,
     mode: BtwThreadMode = "contextual",
-  ): Promise<void> {
-    await disposeBtwSession();
+  ): Promise<boolean> {
+    const disposal = disposeBtwSession();
+    const expected = generation;
+    await disposal;
+    if (!isCurrent(expected)) return false;
     pendingThread = [];
     pendingMode = mode;
     transcriptState = createEmptyBtwTranscriptState();
@@ -1247,10 +1283,14 @@ export default function (pi: ExtensionAPI) {
       pi.appendEntry(BTW_RESET_TYPE, details);
     }
     syncUi(ctx);
+    return true;
   }
 
   async function restoreThread(ctx: ExtensionContext): Promise<void> {
-    await disposeBtwSession();
+    const disposal = disposeBtwSession();
+    const expected = generation;
+    await disposal;
+    if (!isCurrent(expected)) return;
     pendingThread = [];
     pendingMode = "contextual";
     btwModelOverride = null;
@@ -1286,58 +1326,44 @@ export default function (pi: ExtensionAPI) {
     saveRequested: boolean,
     mode: BtwThreadMode,
   ): Promise<void> {
-    lastUiContext = ctx;
-    const settings = await resolveBtwSettings(ctx);
-    const model = settings.model;
-    if (!model) {
-      const message = settings.fallbackReason || "No active model selected.";
-      setOverlayStatus(message, ctx);
-      notify(ctx, message, "error");
+    const expected = generation;
+    if (!isCurrent(expected)) return;
+    if (runningGeneration === expected) {
+      notify(ctx, "A BTW request is already running.", "warning");
       return;
     }
-
-    const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
-    const authFailure = getBtwAuthFailureMessage(model, auth);
-    if (authFailure) {
-      const message = authFailure;
-      setOverlayStatus(message, ctx);
-      notify(ctx, message, "error");
-      await ensureOverlay(ctx);
-      return;
-    }
-
-    const sessionRuntime = await ensureBtwSession(ctx, mode);
-    if (!sessionRuntime) {
-      setOverlayStatus("No active model selected.", ctx);
-      notify(ctx, "No active model selected.", "error");
-      return;
-    }
-
-    const session = sessionRuntime.session;
-    const wasBusy = !ctx.isIdle();
-    pendingMode = mode;
-    const thinkingLevel = settings.thinkingLevel;
-
-    setOverlayStatus("⏳ streaming...", ctx);
-    await ensureOverlay(ctx);
-
-    // Capture the turn ID actually allocated for this prompt invocation by
-    // listening for the first turn_start event. applyBtwTranscriptEvent calls
-    // ensureBtwTranscriptTurn on turn_start, which sets transcriptState.currentTurnId.
-    // Snapshotting nextTurnId before the call is unreliable: if abort fires after
-    // finishTranscriptTurn nullifies currentTurnId and a concurrent caller has
-    // since advanced nextTurnId, the snapshot refers to the wrong turn ID.
-    let promptTurnId: number | null = null;
-    const captureTurnId = session.subscribe((event) => {
-      if (promptTurnId === null && event.type === "turn_start") {
-        promptTurnId = transcriptState.currentTurnId;
-        // Defer unsubscribe to avoid mutating the listener array mid-iteration.
-        void Promise.resolve().then(() => captureTurnId());
-      }
-    });
-
+    runningGeneration = expected;
+    let captureTurnId = () => {};
     try {
+      lastUiContext = ctx;
+      const settings = await resolveBtwSettings(ctx);
+      if (!isCurrent(expected)) return;
+      const model = settings.model;
+      if (!model) throw new Error(settings.fallbackReason || "No active model selected.");
+      const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+      if (!isCurrent(expected)) return;
+      const authFailure = getBtwAuthFailureMessage(model, auth);
+      if (authFailure) throw new Error(authFailure);
+      const sessionRuntime = await ensureBtwSession(ctx, mode, settings);
+      if (!isCurrent(expected)) return;
+      if (!sessionRuntime) throw new Error("No active model selected.");
+      const session = sessionRuntime.session;
+      const wasBusy = !ctx.isIdle();
+      pendingMode = mode;
+      const thinkingLevel = settings.thinkingLevel;
+      setOverlayStatus("Streaming...", ctx);
+      await ensureOverlay(ctx);
+      if (!isCurrent(expected) || activeBtwSession !== sessionRuntime) return;
+      let promptTurnId: number | null = null;
+      captureTurnId = session.subscribe((event) => {
+        if (isCurrent(expected) && promptTurnId === null && event.type === "turn_start") {
+          promptTurnId = transcriptState.currentTurnId;
+          // Do not mutate the listener array during event dispatch.
+          void Promise.resolve().then(() => captureTurnId());
+        }
+      });
       await session.prompt(question, { source: "extension" });
+      if (!isCurrent(expected) || activeBtwSession !== sessionRuntime) return;
 
       const response = getLastAssistantMessage(session.state.messages) as AssistantMessage | null;
       if (!response) {
@@ -1380,14 +1406,16 @@ export default function (pi: ExtensionAPI) {
         setOverlayStatus("Ready for a follow-up. Hidden BTW thread updated.", ctx);
       }
     } catch (error) {
+      if (!isCurrent(expected)) return;
       const errorMessage = error instanceof Error ? error.message : String(error);
       setBtwTranscriptFailure(transcriptState, errorMessage);
       setOverlayStatus("Request failed. Thread preserved for retry or follow-up.", ctx);
       notify(ctx, errorMessage, "error");
       await disposeBtwSession();
     } finally {
-      captureTurnId(); // ensure unsubscribe even if turn_start never fired
-      syncUi(ctx);
+      captureTurnId();
+      if (runningGeneration === expected) runningGeneration = null;
+      if (isCurrent(expected)) syncUi(ctx);
     }
   }
 
@@ -1412,29 +1440,45 @@ export default function (pi: ExtensionAPI) {
   }
 
   async function summarizeThread(ctx: ExtensionCommandContext, thread: BtwHandoffExchange[]): Promise<string> {
+    const pending = generateSummary(ctx, thread);
+    pendingSummaries.add(pending);
+    try { return await pending; } finally { pendingSummaries.delete(pending); }
+  }
+
+  async function generateSummary(ctx: ExtensionCommandContext, thread: BtwHandoffExchange[]): Promise<string> {
+    const expected = generation;
     const settings = await resolveBtwSettings(ctx, true);
+    assertCurrent(expected);
     const model = settings.model;
     if (!model) {
       throw new Error(settings.fallbackReason || "No active model selected.");
     }
 
     const auth = await ctx.modelRegistry.getApiKeyAndHeaders(model);
+    assertCurrent(expected);
     const authFailure = getBtwAuthFailureMessage(model, auth);
     if (authFailure) {
       throw new Error(authFailure);
     }
 
-    const { session } = await createAgentSession({
-      sessionManager: SessionManager.inMemory(),
+    const cwd = ctx.cwd;
+    const resourceLoader = createBtwResourceLoader(ctx, [BTW_SUMMARIZE_SYSTEM_PROMPT]);
+    const modelRuntime = await dependencies.createBtwModelRuntime(ctx);
+    assertCurrent(expected);
+    const { session } = await dependencies.createAgentSession({
+      cwd,
+      sessionManager: SessionManager.inMemory(cwd),
       model,
-      modelRuntime: await createBtwModelRuntime(ctx),
+      modelRuntime,
       thinkingLevel: "off",
       tools: [],
-      resourceLoader: createBtwResourceLoader(ctx, [BTW_SUMMARIZE_SYSTEM_PROMPT]),
+      resourceLoader,
     });
-
+    summarySessions.add(session);
     try {
+      assertCurrent(expected);
       await session.prompt(formatBtwThread(thread), { source: "extension" });
+      assertCurrent(expected);
 
       const response = getLastAssistantMessage(session.state.messages) as AssistantMessage | null;
       if (!response) {
@@ -1454,6 +1498,7 @@ export default function (pi: ExtensionAPI) {
       } catch {
         // Ignore abort errors during summarize session shutdown.
       }
+      summarySessions.delete(session);
       session.dispose();
     }
   }
@@ -1509,7 +1554,9 @@ export default function (pi: ExtensionAPI) {
   });
 
   pi.on("session_shutdown", async () => {
+    shuttingDown = true;
     await disposeBtwSession();
+    await Promise.allSettled([...pendingCreations, ...pendingSummaries]);
     dismissOverlay();
   });
 
@@ -1577,4 +1624,8 @@ export default function (pi: ExtensionAPI) {
       await dispatchBtwCommand("btw:thinking", args, ctx);
     },
   });
+}
+
+export default function btwExtension(pi: ExtensionAPI): void {
+  registerBtwExtension(pi);
 }

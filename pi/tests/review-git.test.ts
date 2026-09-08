@@ -71,6 +71,21 @@ test("getPrInfo and checkoutPr wrap gh output", async () => {
   });
 });
 
+test("PR URLs retain their identity and cannot check out a same-number PR in another repository", async () => {
+  const reference = { number: 42, repository: "acme/project", url: "https://github.com/acme/project/pull/42" };
+  const mismatch = fakeHost(() => ({ stdout: JSON.stringify({ nameWithOwner: "other/repo" }), code: 0 }));
+  await assert.rejects(getPrInfo(mismatch, reference), /current GitHub repository/);
+  assert.equal((await checkoutPr(mismatch, reference)).success, false);
+  assert.ok(mismatch.calls.every((call) => call.args[0] === "repo"));
+  const match = fakeHost((_command, args) => ({ code: 0, stdout: JSON.stringify(args[0] === "repo"
+    ? { nameWithOwner: "acme/project" }
+    : { baseRefName: "main", title: "fixture", headRefName: "topic" }) }));
+  await getPrInfo(match, reference);
+  await checkoutPr(match, reference);
+  assert.equal(match.calls[1].args[2], reference.url);
+  assert.equal(match.calls[3].args[2], reference.url);
+});
+
 test("getDefaultBranch prefers origin HEAD then main/master fallback", async () => {
   assert.equal(
     await getDefaultBranch(fakeHost((_cmd, args) => {

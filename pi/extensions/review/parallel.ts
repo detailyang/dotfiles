@@ -4,9 +4,9 @@ import { Container, type SelectItem, Text, Spacer } from "@earendil-works/pi-tui
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { matchesKey, Key, truncateToWidth, visibleWidth, wrapTextWithAnsi } from "@earendil-works/pi-tui";
-import { extractMessageText } from "../shared/transcript.js";
-import { runReviewAgentProcess, type ParallelReviewOptions } from "./agent-run.js";
-import { parseReviewStreamLine } from "./stream.js";
+import { extractMessageText } from "../shared/transcript.ts";
+import { runReviewAgentProcess, type ParallelReviewOptions } from "./agent-run.ts";
+import { parseReviewStreamLine } from "./stream.ts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -238,10 +238,11 @@ class MultiSelectList {
 
 // ─── TUI: Review dashboard ────────────────────────────────────────────────────
 
-class ReviewDashboard {
+export class ReviewDashboard {
   private panes: ReviewPane[];
   private abortController = new AbortController();
   private cancelled = false;
+  private finished = false;
   private scrollFromBottom = 0;
   private cachedLines?: string[];
   private cachedWidth?: number;
@@ -249,7 +250,10 @@ class ReviewDashboard {
   private cachedScroll?: number;
   private handle?: { requestRender(): void; close(): void };
 
-  constructor(models: string[]) {
+  private runAgent: typeof runReviewAgentProcess;
+
+  constructor(models: string[], runAgent = runReviewAgentProcess) {
+    this.runAgent = runAgent;
     this.panes = models.map((m) => ({
       model: m,
       lines: [],
@@ -268,7 +272,7 @@ class ReviewDashboard {
     await Promise.allSettled(
       this.panes.map(async (pane) => {
         try {
-          await runReviewAgentProcess(
+          await this.runAgent(
             pane.model,
             prompt,
             options,
@@ -299,6 +303,8 @@ class ReviewDashboard {
         this.handle?.requestRender();
       })
     );
+    this.finished = true;
+    this.invalidate();
     this.handle?.close();
   }
 
@@ -328,13 +334,12 @@ class ReviewDashboard {
   }
 
   get allDone(): boolean {
-    return this.panes.every((p) => p.done || p.error);
+    return this.finished;
   }
 
   handleInput(data: string) {
     if (matchesKey(data, Key.escape) || matchesKey(data, "q")) {
       this.abort();
-      this.handle?.close();
       return;
     }
 
@@ -371,10 +376,15 @@ class ReviewDashboard {
       return this.cachedLines;
     }
 
-    const allDone = this.panes.every((p) => p.done || p.error);
-    const status = allDone
-      ? "\x1b[32m✓ All reviews complete\x1b[0m"
-      : "\x1b[33m⟳ Reviewing…\x1b[0m";
+    const errors = this.panes.filter((pane) => pane.error).length;
+    let status = "\x1b[33mReviewing...\x1b[0m";
+    if (this.cancelled) {
+      status = `\x1b[33m${this.finished ? "Reviews cancelled" : "Cancelling reviews..."}\x1b[0m`;
+    } else if (this.finished) {
+      status = errors === 0
+        ? "\x1b[32mAll reviews complete\x1b[0m"
+        : `\x1b[31m${errors === paneCount ? "All reviews failed" : "Reviews finished with errors"}\x1b[0m`;
+    }
 
     const lines: string[] = [
       truncateToWidth(
@@ -534,50 +544,82 @@ export async function runParallelReviewDashboard(
   options: ParallelReviewOptions = {}
 ): Promise<ParallelReviewResult[]> {
   const dashboard = new ReviewDashboard(models);
+  let run: Promise<void> | undefined;
   let closed = false;
+  const onAbort = () => dashboard.abort();
+  options.signal?.addEventListener("abort", onAbort, { once: true });
+  if (options.signal?.aborted) {
+    options.signal.removeEventListener("abort", onAbort);
+    dashboard.abort();
+    return dashboard.getResults();
+  }
 
-  await ctx.ui.custom<void>(
-    (tui, _theme, _kb, done) => {
-      dashboard.setHandle({
-        requestRender: () => tui.requestRender(),
-        close: () => {
-          if (closed) return;
-          closed = true;
-          done(undefined);
-        },
-      });
-      dashboard.run(prompt, options).catch((err) => {
-        console.error("Parallel review dashboard error:", err);
-        if (!closed) {
-          closed = true;
-          done(undefined);
-        }
-      });
+  try {
+    await ctx.ui.custom<void>(
+      (tui, _theme, _kb, done) => {
+        dashboard.setHandle({
+          requestRender: () => tui.requestRender(),
+          close: () => {
+            if (closed) return;
+            closed = true;
+            done(undefined);
+          },
+        });
+        run = dashboard.run(prompt, options).catch((err) => {
+          console.error("Parallel review dashboard error:", err);
+          if (!closed) {
+            closed = true;
+            done(undefined);
+          }
+        });
 
-      return {
-        render: (w: number) => dashboard.render(w),
-        invalidate: () => dashboard.invalidate(),
-        handleInput: (data: string) => {
-          dashboard.handleInput(data);
-          tui.requestRender();
-        },
-      };
-    },
-    {
-      overlay: true,
-      overlayOptions: {
-        width: "100%",
-        maxHeight: "100%",
-        anchor: "top-left",
-        margin: 0,
+        return {
+          render: (w: number) => dashboard.render(w),
+          invalidate: () => dashboard.invalidate(),
+          handleInput: (data: string) => {
+            dashboard.handleInput(data);
+            tui.requestRender();
+          },
+        };
       },
-    }
-  );
+      {
+        overlay: true,
+        overlayOptions: {
+          width: "100%",
+          maxHeight: "100%",
+          anchor: "top-left",
+          margin: 0,
+        },
+      }
+    );
+  } finally {
+    if (!dashboard.allDone) dashboard.abort();
+    await run;
+    options.signal?.removeEventListener("abort", onAbort);
+  }
 
   return dashboard.getResults();
 }
 
-export async function runPlanReview(pi: ExtensionAPI, ctx: ExtensionCommandContext): Promise<boolean> {
+export function createReviewRunner(pi: ExtensionAPI) {
+  const controller = new AbortController();
+  const runs = new Set<Promise<ParallelReviewResult[]>>();
+  pi.on("session_shutdown", async () => {
+    controller.abort();
+    await Promise.allSettled([...runs]);
+  });
+  return {
+    signal: controller.signal,
+    async run(ctx: ExtensionCommandContext, models: string[], prompt: string, options: ParallelReviewOptions = {}) {
+      const signal = AbortSignal.any([controller.signal, ...[ctx.signal, options.signal].filter((s): s is AbortSignal => !!s)]);
+      const run = runParallelReviewDashboard(ctx, models, prompt, { ...options, signal });
+      runs.add(run);
+      try { return await run; } finally { runs.delete(run); }
+    },
+  };
+}
+
+export async function runPlanReview(pi: ExtensionAPI, ctx: ExtensionCommandContext, runner: ReturnType<typeof createReviewRunner>): Promise<boolean> {
       if (ctx.mode !== "tui") {
         ctx.ui.notify("Plan review requires interactive TUI mode", "error");
         return false;
@@ -585,6 +627,7 @@ export async function runPlanReview(pi: ExtensionAPI, ctx: ExtensionCommandConte
 
       const chosenModels = await selectReviewerModels(ctx, "Plan Review — Select reviewer models", "plan-review");
 
+      if (runner.signal.aborted) return false;
       if (!chosenModels || chosenModels.length === 0) {
         ctx.ui.notify("Plan review cancelled", "info");
         return false;
@@ -604,7 +647,7 @@ export async function runPlanReview(pi: ExtensionAPI, ctx: ExtensionCommandConte
         return false;
       }
 
-      const results = await runParallelReviewDashboard(ctx, chosenModels, reviewPrompt, {
+      const results = await runner.run(ctx, chosenModels, reviewPrompt, {
         stdin: conversationContext,
         noTools: true,
         noSkills: true,
@@ -618,7 +661,8 @@ export async function runPlanReview(pi: ExtensionAPI, ctx: ExtensionCommandConte
       //                        model reflects on the criticism and produces a
       //                        revised answer without waiting for user input.
 
-      const aborted = results.every((r) => r.text === "" && r.error);
+      if (runner.signal.aborted) return false;
+      const aborted = results.every((r) => r.error);
 
       if (!aborted) {
         const sections = formatParallelReviewResults(results);

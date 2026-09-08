@@ -9,6 +9,22 @@ export type LoopStateData = {
 	loopCount?: number;
 };
 
+export function parseStoredLoopState(value: unknown): LoopStateData {
+	if (!value || typeof value !== "object" || !("active" in value) || value.active !== true) return { active: false };
+	const state = value as Partial<LoopStateData>;
+	if (!state.mode || !["tests", "self", "custom"].includes(state.mode) ||
+		(state.mode === "custom" && (typeof state.condition !== "string" || !state.condition.trim())) ||
+		(state.loopCount !== undefined && (!Number.isSafeInteger(state.loopCount) || state.loopCount < 0)) ||
+		(state.summary !== undefined && typeof state.summary !== "string")) return { active: false };
+	return {
+		active: true, mode: state.mode,
+		...(state.mode === "custom" ? { condition: state.condition!.trim() } : {}),
+		prompt: buildLoopPrompt(state.mode, state.condition),
+		summary: state.summary ?? summarizeLoopCondition(state.mode, state.condition),
+		loopCount: state.loopCount ?? 0,
+	};
+}
+
 export function buildLoopPrompt(mode: LoopMode, condition?: string): string {
 	switch (mode) {
 		case "tests":

@@ -1,5 +1,6 @@
 import { spawnSync } from "node:child_process";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import { parseCommandArguments } from "../shared/arguments.ts";
 
 function signalExitCode(signal: NodeJS.Signals): number {
   const codes: Record<string, number> = {
@@ -35,8 +36,14 @@ export default function (pi: ExtensionAPI) {
         return;
       }
 
-      const parts = args?.trim().split(/\s+/) || [];
-      if (parts.length === 0) {
+      let parts: string[];
+      try {
+        parts = parseCommandArguments(args ?? "");
+      } catch (error) {
+        ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
+        return;
+      }
+      if (!parts[0]) {
         ctx.ui.notify("Usage: /t <command> [args...]", "error");
         return;
       }
@@ -57,10 +64,10 @@ export default function (pi: ExtensionAPI) {
         } finally {
           process.removeAllListeners('SIGINT');
           originalHandlers.forEach(h => process.on('SIGINT', h as NodeJS.SignalsListener));
+          tui.start();
+          tui.requestRender(true);
         }
 
-        tui.start();
-        tui.requestRender(true);
         done(code);
 
         return {

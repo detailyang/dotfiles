@@ -1,6 +1,5 @@
-import { withFileMutationQueue } from "@earendil-works/pi-coding-agent";
+import { createWriteTool, type AgentToolResult } from "@earendil-works/pi-coding-agent";
 import { lstat, mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, isAbsolute, resolve } from "node:path";
 
 export const MAX_COMPARABLE_WRITE_BYTES = 512_000;
 export const MAX_WRITE_METADATA_ENTRIES = 100;
@@ -80,32 +79,24 @@ export async function executeWriteWithMetadata(
 	params: { path: string; content: string },
 	signal: AbortSignal | undefined,
 	cwd: string,
-): Promise<{ content: Array<{ type: "text"; text: string }>; details: undefined }> {
-	const absolutePath = isAbsolute(params.path) ? params.path : resolve(cwd, params.path);
+): Promise<AgentToolResult<undefined>> {
 	store.delete(toolCallId);
-	try {
-		return await withFileMutationQueue(absolutePath, async () => {
-			const throwIfAborted = () => {
+	let metadata: WriteExecutionMeta | undefined;
+	const nativeWrite = createWriteTool(cwd, {
+		operations: {
+			mkdir: async (dir) => { await mkdir(dir, { recursive: true }); },
+			async writeFile(absolutePath, content) {
+				// Native execution owns path normalization, the mutation queue, and abort checks.
+				metadata = await capturePreviousContent(absolutePath);
 				if (signal?.aborted) throw new Error("Operation aborted");
-			};
-			throwIfAborted();
-			const metadata = await capturePreviousContent(absolutePath);
-			throwIfAborted();
-			await mkdir(dirname(absolutePath), { recursive: true });
-			throwIfAborted();
-			await writeFile(absolutePath, params.content, "utf8");
-			throwIfAborted();
-			store.set(toolCallId, metadata);
-			return {
-				content: [
-					{
-						type: "text",
-						text: `Successfully wrote ${params.content.length} bytes to ${params.path}`,
-					},
-				],
-				details: undefined,
-			};
-		});
+				await writeFile(absolutePath, content, "utf8");
+			},
+		},
+	});
+	try {
+		const result = await nativeWrite.execute(toolCallId, params, signal);
+		if (metadata) store.set(toolCallId, metadata);
+		return result;
 	} catch (error) {
 		store.delete(toolCallId);
 		throw error;

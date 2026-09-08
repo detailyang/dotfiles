@@ -26,10 +26,10 @@ class FakeChild extends EventEmitter implements ReviewAgentChild {
   stdout = new EventEmitter();
   stderr = new EventEmitter();
   stdin = new FakeWritable();
-  killedWith: string | null = null;
+  killedWith: string | number | null = null;
 
-  kill(signal: string): void {
-    this.killedWith = signal;
+  kill(signal?: NodeJS.Signals | number): void {
+    this.killedWith = signal ?? "SIGTERM";
   }
 }
 
@@ -67,19 +67,20 @@ test("runReviewAgentProcess streams complete lines, flushes tail on close, and w
   );
 
   child.stdout.emit("data", Buffer.from("first\nsec"));
-  child.stdout.emit("data", Buffer.from("ond\nlast"));
+  child.stdout.emit("data", Buffer.from('ond\nlast\n{"type":"message_end","message":{"role":"assistant","stopReason":"stop","content":[{"type":"text","text":"done"}]}}'));
   child.emit("close", 0);
 
   await promise;
 
-  assert.deepEqual(events, ["status:FIRST", "status:SECOND", "status:LAST"]);
+  assert.deepEqual(events.slice(0, 3), ["status:FIRST", "status:SECOND", "status:LAST"]);
+  assert.match(events[3], /MESSAGE_END/);
   assert.deepEqual(child.stdin.writes, ["context"]);
   assert.equal(child.stdin.ended, true);
   assert.deepEqual(spawnCalls, [
     {
       cmd: "pi",
       args: buildReviewAgentArgs("gpt-5", "review", {}),
-      options: { cwd: "/repo" },
+      options: { cwd: "/repo", detached: process.platform !== "win32" },
     },
   ]);
 });

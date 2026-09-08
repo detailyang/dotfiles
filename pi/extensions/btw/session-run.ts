@@ -47,13 +47,8 @@ export function getLastAssistantMessage<TMessage extends MessageWithRole>(messag
 }
 
 export function getBtwAuthFailureMessage(model: BtwRunModel, auth: BtwAuthResult): string | null {
-  if (auth.ok && auth.apiKey) {
-    return null;
-  }
-
-  return auth.ok
-    ? `No credentials available for ${model.provider}/${model.id}.`
-    : (auth.error ?? `Authentication failed for ${model.provider}/${model.id}.`);
+  if (auth.ok) return null;
+  return auth.error ?? `Authentication failed for ${model.provider}/${model.id}.`;
 }
 
 export function buildBtwDetailsFromResponse<TResponse extends AssistantResponseLike>({

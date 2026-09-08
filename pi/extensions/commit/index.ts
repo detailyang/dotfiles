@@ -16,7 +16,8 @@ import { spawn } from "node:child_process";
 import * as fs from "node:fs";
 import * as os from "node:os";
 import * as path from "node:path";
-import { type Component, type TUI, visibleWidth } from "@earendil-works/pi-tui";
+import { type Component, type TUI, matchesKey, visibleWidth } from "@earendil-works/pi-tui";
+import { runAgentProcess } from "../shared/agent-process.ts";
 
 const SPINNER_FRAMES = ["|", "/", "-", "\\"];
 const SPINNER_INTERVAL_MS = 100;
@@ -85,12 +86,6 @@ interface CommitOutcome {
   message: string;
 }
 
-function truncate(text: string, max = 160): string {
-  const value = text.replace(/\s+/g, " ").trim();
-  if (value.length <= max) return value;
-  return `${value.slice(0, max - 3)}...`;
-}
-
 export function getModelArgument(model: CommitModelReference | undefined): string | undefined {
   if (!model || typeof model.provider !== "string" || typeof model.id !== "string") return undefined;
   if (!model.provider || !model.id) return undefined;
@@ -117,7 +112,10 @@ export function buildCommitAgentArgs(options: CommitAgentArgsOptions): string[] 
 
 export function getCommitOutcome(input: CommitOutcomeInput): CommitOutcome {
   if (input.exitCode !== 0) {
-    return { type: "error", message: input.failureMessage || "Commit failed" };
+    const changed = input.afterHead && input.beforeHead !== input.afterHead
+      ? ` HEAD changed to ${input.afterHead.slice(0, 12)}; inspect the commit and index before retrying.`
+      : " Inspect the index before retrying; staging may already have changed.";
+    return { type: "error", message: (input.failureMessage || "Commit failed") + changed };
   }
 
   if (!input.afterHead || input.beforeHead === input.afterHead) {
@@ -138,34 +136,6 @@ export function getCommitOutcome(input: CommitOutcomeInput): CommitOutcome {
   return { type: "info", message };
 }
 
-function extractText(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (!Array.isArray(content)) return "";
-
-  const parts: string[] = [];
-  for (const part of content) {
-    if (part && typeof part === "object" && "type" in part && "text" in part && (part as { type?: string }).type === "text") {
-      const text = (part as { text?: unknown }).text;
-      if (typeof text === "string") parts.push(text);
-    }
-  }
-  return parts.join("");
-}
-
-function summarizeEvent(event: any): string | null {
-  switch (event?.type) {
-    case "error":
-      return truncate(typeof event.error === "string" ? event.error : JSON.stringify(event.error), 200) || "subagent error";
-    case "message_end":
-      if (event.message?.role === "assistant" && event.message.stopReason === "error") {
-        return `assistant error: ${truncate(event.message.errorMessage || "unknown error", 200)}`;
-      }
-      return null;
-    default:
-      return null;
-  }
-}
-
 function getPiInvocation(args: string[]): { command: string; args: string[] } {
   const script = process.argv[1];
   if (script && !script.startsWith("/$bunfs/root/") && fs.existsSync(script)) {
@@ -182,6 +152,7 @@ async function getGitHead(cwd: string): Promise<string | undefined> {
     let stdout = "";
     const proc = spawn("git", ["rev-parse", "--verify", "HEAD"], {
       cwd,
+      timeout: 10_000,
       shell: false,
       stdio: ["ignore", "pipe", "ignore"],
     });
@@ -214,13 +185,17 @@ function reportCommitOutcome(
   }
 }
 
-class CommitProgressComponent implements Component {
+export class CommitProgressComponent implements Component {
   private frameIndex = 0;
   private timer: NodeJS.Timeout;
   private readonly tui: TUI;
   private readonly theme: Theme;
 
-  constructor(tui: TUI, theme: Theme) {
+  private cancelled = false;
+  private readonly cancel: () => void;
+
+  constructor(tui: TUI, theme: Theme, cancel: () => void) {
+    this.cancel = cancel;
     this.tui = tui;
     this.theme = theme;
     this.timer = setInterval(() => {
@@ -229,8 +204,12 @@ class CommitProgressComponent implements Component {
     }, SPINNER_INTERVAL_MS);
   }
 
-  handleInput(_data: string): void {
-    // Swallow input while the isolated commit agent is running.
+  handleInput(data: string): void {
+    if (!this.cancelled && (matchesKey(data, "escape") || matchesKey(data, "ctrl+c"))) {
+      this.cancelled = true;
+      this.cancel();
+      this.tui.requestRender();
+    }
   }
 
   invalidate(): void {
@@ -243,110 +222,98 @@ class CommitProgressComponent implements Component {
 
   render(width: number): string[] {
     const frame = SPINNER_FRAMES[this.frameIndex] ?? SPINNER_FRAMES[0];
-    const text = this.theme.fg("accent", `thinking ${frame}`);
+    const text = this.theme.fg("accent", this.cancelled ? `Cancelling ${frame}` : `thinking ${frame}`);
     const padding = Math.max(0, Math.floor((width - visibleWidth(text)) / 2));
     return ["", `${" ".repeat(padding)}${text}`, ""];
   }
 }
 
-export default function (pi: ExtensionAPI) {
+export function registerCommitExtension(
+  pi: ExtensionAPI,
+  dependencies = { runAgentProcess, getGitHead },
+): void {
+  let inFlight: Promise<void> | undefined;
+  let controller: AbortController | undefined;
+  let shuttingDown = false;
+  pi.on("session_shutdown", async () => {
+    shuttingDown = true;
+    controller?.abort();
+    await inFlight;
+  });
+
   pi.registerCommand("commit", {
     description: "Create a git commit in an isolated context (no context pollution)",
     handler: async (args, ctx) => {
-      let failureMessage = "";
-
-      const tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "pi-commit-"));
-      const promptFile = path.join(tmpDir, "prompt.md");
-      await fs.promises.writeFile(promptFile, COMMIT_SYSTEM_PROMPT, { encoding: "utf-8", mode: 0o600 });
-
-      const task = args?.trim()
-        ? `Create a git commit. Additional guidance: ${args}`
-        : "Create a git commit for the current changes.";
-
-      const beforeHead = await getGitHead(ctx.cwd);
-      const piArgs = buildCommitAgentArgs({
-        promptFile,
-        task,
-        model: ctx.model,
-        thinkingLevel: pi.getThinkingLevel(),
-        approveProject: ctx.isProjectTrusted(),
-      });
-      let closeProgress: (() => void) | undefined;
-      const progressPromise = ctx.mode === "tui"
-        ? ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
-            closeProgress = done;
-            return new CommitProgressComponent(tui, theme);
-          })
-        : Promise.resolve();
-
-      try {
-        const invocation = getPiInvocation(piArgs);
+      if (inFlight || !ctx.isIdle()) {
+        ctx.ui.notify("Wait for the current operation before starting a commit.", "warning");
+        return;
+      }
+      if (shuttingDown) return;
+      controller = new AbortController();
+      const signal = ctx.signal ? AbortSignal.any([controller.signal, ctx.signal]) : controller.signal;
+      const run = async () => {
+        let tmpDir: string | undefined;
+        let closeProgress: (() => void) | undefined;
+        let progressFinished = false;
+        let progressPromise = Promise.resolve();
+        let beforeHead: string | undefined;
         let finalText = "";
-        let buffer = "";
-        let stderrText = "";
-
-        const exitCode = await new Promise<number>((resolve) => {
-          const proc = spawn(invocation.command, invocation.args, {
-            cwd: ctx.cwd,
-            shell: false,
-            stdio: ["ignore", "pipe", "pipe"],
+        let failureMessage = "";
+        try {
+          tmpDir = await fs.promises.mkdtemp(path.join(os.tmpdir(), "pi-commit-"));
+          const promptFile = path.join(tmpDir, "prompt.md");
+          await fs.promises.writeFile(promptFile, COMMIT_SYSTEM_PROMPT, { encoding: "utf-8", mode: 0o600 });
+          beforeHead = await dependencies.getGitHead(ctx.cwd);
+          const task = args?.trim()
+            ? `Create a git commit. Additional guidance: ${args}`
+            : "Create a git commit for the current changes.";
+          const invocation = getPiInvocation(buildCommitAgentArgs({
+            promptFile, task, model: ctx.model, thinkingLevel: pi.getThinkingLevel(),
+            approveProject: ctx.isProjectTrusted(),
+          }));
+          if (signal.aborted) throw new Error("Aborted");
+          if (ctx.mode === "tui") {
+            progressPromise = ctx.ui.custom<void>((tui, theme, _keybindings, done) => {
+              closeProgress = done;
+              const component = new CommitProgressComponent(tui, theme, () => controller?.abort());
+              if (progressFinished) done(undefined);
+              return component;
+            }).catch((error) => {
+              failureMessage = String(error);
+              controller?.abort();
+            });
+          }
+          const result = await dependencies.runAgentProcess({
+            ...invocation, cwd: ctx.cwd, signal,
           });
-
-          proc.stdout.on("data", (data: Buffer) => {
-            buffer += data.toString();
-            const lines = buffer.split("\n");
-            buffer = lines.pop() ?? "";
-            for (const line of lines) {
-              if (!line.trim()) continue;
-              try {
-                const event = JSON.parse(line);
-                const summary = summarizeEvent(event);
-                if (summary) failureMessage = summary;
-                if (event.type === "message_end" && event.message?.role === "assistant") {
-                  finalText = extractText(event.message.content);
-                }
-              } catch {}
-            }
-          });
-
-          proc.stderr.on("data", (data: Buffer) => {
-            const text = data.toString();
-            stderrText += text;
-          });
-
-          proc.on("close", (code: number | null) => {
-            const trailingStdout = buffer.trim();
-            if (trailingStdout) {
-              try {
-                const event = JSON.parse(trailingStdout);
-                const summary = summarizeEvent(event);
-                if (summary) failureMessage = summary;
-                if (event.type === "message_end" && event.message?.role === "assistant") {
-                  finalText = extractText(event.message.content);
-                }
-              } catch {}
-            }
-
-            const trailingStderr = stderrText.trim();
-            if (trailingStderr) {
-              const stderrTail = trailingStderr.split("\n").filter((line) => line.trim()).slice(-8).join("\n");
-              failureMessage = `stderr: ${stderrTail}`;
-            }
-
-            resolve(code ?? 0);
-          });
-          proc.on("error", () => resolve(1));
-        });
-
-        const afterHead = exitCode === 0 ? await getGitHead(ctx.cwd) : beforeHead;
-        const outcome = getCommitOutcome({ exitCode, beforeHead, afterHead, finalText, failureMessage });
-        reportCommitOutcome(ctx, outcome);
+          finalText = result.finalText;
+        } catch (error) {
+          failureMessage ||= error instanceof Error ? error.message : String(error);
+        } finally {
+          progressFinished = true;
+          closeProgress?.();
+          await progressPromise;
+          if (tmpDir) await fs.promises.rm(tmpDir, { recursive: true, force: true });
+        }
+        if (!shuttingDown) {
+          const afterHead = await dependencies.getGitHead(ctx.cwd);
+          if (shuttingDown) return;
+          reportCommitOutcome(ctx, getCommitOutcome({
+            exitCode: failureMessage ? 1 : 0, beforeHead, afterHead, finalText, failureMessage,
+          }));
+        }
+      };
+      inFlight = run();
+      try {
+        await inFlight;
       } finally {
-        closeProgress?.();
-        await progressPromise;
-        try { fs.unlinkSync(promptFile); } catch {}
-        try { fs.rmdirSync(tmpDir); } catch {}
+        inFlight = undefined;
+        controller = undefined;
       }
     },
   });
+}
+
+export default function commitExtension(pi: ExtensionAPI): void {
+  registerCommitExtension(pi);
 }

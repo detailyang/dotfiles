@@ -12,10 +12,12 @@ import {
 } from "../extensions/review/target.ts";
 
 test("parsePrReference accepts numbers and GitHub PR URLs", () => {
-  assert.equal(parsePrReference("123"), 123);
-  assert.equal(parsePrReference("https://github.com/acme/project/pull/456"), 456);
-  assert.equal(parsePrReference("github.com/acme/project/pull/789"), 789);
-  assert.equal(parsePrReference("not-a-pr"), null);
+  assert.deepEqual(parsePrReference("123"), { number: 123 });
+  assert.deepEqual(parsePrReference("https://github.com/acme/project/pull/456"), { number: 456, repository: "acme/project", url: "https://github.com/acme/project/pull/456" });
+  assert.deepEqual(parsePrReference("github.com/acme/project/pull/789"), { number: 789, repository: "acme/project", url: "https://github.com/acme/project/pull/789" });
+  for (const invalid of ["not-a-pr", "123junk", "1.5", "0", "9007199254740992", "https://fakegithub.com/acme/project/pull/1", "https://example.com/github.com/acme/project/pull/1"]) {
+    assert.equal(parsePrReference(invalid), null, invalid);
+  }
 });
 
 test("parseReviewInvocation separates review kind from code args", () => {
@@ -52,6 +54,15 @@ test("parseReviewArgs parses supported direct review targets", () => {
     target: { type: "pr", ref: "https://github.com/acme/project/pull/5" },
     extraInstruction: undefined,
   });
+});
+
+test("quoted review paths and extra instructions survive both parsing stages", () => {
+  const invocation = parseReviewInvocation('code folder "dir with spaces" --extra "focus on errors"');
+  assert.deepEqual(parseReviewArgs(invocation.codeArgs), {
+    target: { type: "folder", paths: ["dir with spaces"] }, extraInstruction: "focus on errors",
+  });
+  assert.deepEqual(parseReviewPaths('"dir with spaces"\nother'), ["dir with spaces", "other"]);
+  assert.match(parseReviewArgs('folder "unterminated').error!, /Unterminated/);
 });
 
 test("parseReviewArgs reports missing extra instruction values", () => {

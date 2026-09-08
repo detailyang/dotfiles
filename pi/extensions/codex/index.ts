@@ -18,7 +18,7 @@ import { Container, type SelectItem, SelectList, Text } from "@earendil-works/pi
 import { readFileSync, readdirSync, statSync, existsSync } from "node:fs";
 import { join, basename } from "node:path";
 import { homedir } from "node:os";
-import { parseCodexJsonlMetadata, parseCodexJsonlTranscript, type ParsedCodexTranscript } from "../shared/transcript.js";
+import { parseCodexJsonlMetadata, parseCodexJsonlTranscript, type ParsedCodexTranscript } from "../shared/transcript.ts";
 
 // ── Types ──────────────────────────────────────────────────────────────
 
@@ -203,6 +203,29 @@ async function selectSession(ctx: ExtensionCommandContext, sessions: SessionInfo
 
 // ── Extension ──────────────────────────────────────────────────────────
 
+export async function resumeCodexSession(ctx: ExtensionCommandContext, parsed: ParsedCodexTranscript): Promise<void> {
+  const result = await ctx.newSession({
+    parentSession: ctx.sessionManager.getSessionFile(),
+    setup: async (sm) => {
+      const cwdInfo = parsed.cwd ? `\nWorking directory: ${parsed.cwd}` : "";
+      sm.appendMessage({
+        role: "user",
+        content: [{
+          type: "text",
+          text: `I'm resuming a Codex session (id: ${parsed.sessionId}${cwdInfo}). Here is the full conversation context:\n\n${parsed.fullText}`,
+        }],
+        timestamp: Date.now(),
+      });
+      sm.appendSessionInfo(`Codex: ${parsed.sessionId.slice(0, 12)}...`);
+    },
+    withSession: async (next) => {
+      next.ui.setEditorText("Continue from where the previous Codex conversation left off.");
+      next.ui.notify(`Resumed Codex session (${parsed.turns.length} turns). Submit to continue.`, "info");
+    },
+  });
+  if (result.cancelled) ctx.ui.notify("New session cancelled", "info");
+}
+
 export default function (pi: ExtensionAPI) {
   pi.registerCommand("codex", {
     description: "Resume a Codex session in pi",
@@ -259,37 +282,7 @@ export default function (pi: ExtensionAPI) {
       ctx.ui.notify(`Parsed ${parsed.entryCount} entries (${parsed.turns.length} turns)`, "info");
 
       // ── Step 4: Create new pi session with full context ────────────
-      const currentSessionFile = ctx.sessionManager.getSessionFile();
-
-      const newSessionResult = await ctx.newSession({
-        parentSession: currentSessionFile,
-        setup: async (sm) => {
-          // Inject full conversation as a single user message
-          // This preserves all context without lossy summarization
-          const cwdInfo = parsed.cwd ? `\nWorking directory: ${parsed.cwd}` : "";
-          sm.appendMessage({
-            role: "user",
-            content: [{
-              type: "text",
-              text: `I'm resuming a Codex session (id: ${parsed.sessionId}${cwdInfo}). Here is the full conversation context:\n\n${parsed.fullText}`,
-            }],
-            timestamp: Date.now(),
-          });
-        },
-      });
-
-      if (newSessionResult.cancelled) {
-        ctx.ui.notify("New session cancelled", "info");
-        return;
-      }
-
-      // ── Step 5: Set session name and continuation prompt ───────────
-      pi.setSessionName(`Codex: ${parsed.sessionId.slice(0, 12)}...`);
-      ctx.ui.setEditorText("Continue from where the previous Codex conversation left off.");
-      ctx.ui.notify(
-        `Resumed Codex session (${parsed.turns.length} turns). Submit to continue.`,
-        "info",
-      );
+      await resumeCodexSession(ctx, parsed);
     },
   });
 }

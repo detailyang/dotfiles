@@ -106,7 +106,7 @@ function createHarness(options: HarnessOptions) {
   return {
     calls,
     notifications,
-    run: (args: string) => command.handler(args, ctx),
+    run: (args: string) => command!.handler(args, ctx),
   };
 }
 

@@ -1,3 +1,5 @@
+import type { PrReference } from "./target.ts";
+
 export type ReviewExecResult = {
 	stdout: string;
 	stderr?: string;
@@ -71,9 +73,24 @@ export async function hasPendingChanges(host: ReviewExecHost): Promise<boolean> 
 	return trackedChanges.length > 0;
 }
 
-export async function getPrInfo(host: ReviewExecHost, prNumber: number): Promise<{ baseBranch: string; title: string; headBranch: string } | null> {
+async function checkedPrArgument(host: ReviewExecHost, reference: number | PrReference): Promise<string> {
+	const parsed = typeof reference === "number" ? { number: reference } : reference;
+	if (!Number.isSafeInteger(parsed.number) || parsed.number < 1) throw new Error("Invalid PR number");
+	if (parsed.repository) {
+		const result = await host.exec("gh", ["repo", "view", "--json", "nameWithOwner"]);
+		let repository: unknown;
+		try { repository = JSON.parse(result.stdout).nameWithOwner; } catch { /* Report unresolved identity below. */ }
+		if (result.code !== 0 || typeof repository !== "string" || repository.toLowerCase() !== parsed.repository.toLowerCase()) {
+			throw new Error("PR URL must belong to the current GitHub repository; no checkout was attempted.");
+		}
+	}
+	return parsed.url ?? String(parsed.number);
+}
+
+export async function getPrInfo(host: ReviewExecHost, reference: number | PrReference): Promise<{ baseBranch: string; title: string; headBranch: string } | null> {
+	const argument = await checkedPrArgument(host, reference);
 	const { stdout, code } = await host.exec("gh", [
-		"pr", "view", String(prNumber),
+		"pr", "view", argument,
 		"--json", "baseRefName,title,headRefName",
 	]);
 
@@ -81,6 +98,7 @@ export async function getPrInfo(host: ReviewExecHost, prNumber: number): Promise
 
 	try {
 		const data = JSON.parse(stdout);
+		if (!data || ![data.baseRefName, data.title, data.headRefName].every((value) => typeof value === "string")) return null;
 		return {
 			baseBranch: data.baseRefName,
 			title: data.title,
@@ -91,8 +109,12 @@ export async function getPrInfo(host: ReviewExecHost, prNumber: number): Promise
 	}
 }
 
-export async function checkoutPr(host: ReviewExecHost, prNumber: number): Promise<{ success: boolean; error?: string }> {
-	const { stdout, stderr, code } = await host.exec("gh", ["pr", "checkout", String(prNumber)]);
+export async function checkoutPr(host: ReviewExecHost, reference: number | PrReference): Promise<{ success: boolean; error?: string }> {
+	let argument: string;
+	try { argument = await checkedPrArgument(host, reference); } catch (error) {
+		return { success: false, error: error instanceof Error ? error.message : String(error) };
+	}
+	const { stdout, stderr, code } = await host.exec("gh", ["pr", "checkout", argument]);
 
 	if (code !== 0) {
 		return { success: false, error: stderr || stdout || "Failed to checkout PR" };

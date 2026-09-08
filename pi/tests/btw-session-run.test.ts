@@ -19,10 +19,8 @@ test("getLastAssistantMessage returns the last assistant message", () => {
 
 test("getBtwAuthFailureMessage preserves BTW auth error text", () => {
   assert.equal(getBtwAuthFailureMessage(model, { ok: true, apiKey: "key" }), null);
-  assert.equal(
-    getBtwAuthFailureMessage(model, { ok: true }),
-    "No credentials available for openai/gpt-5.",
-  );
+  assert.equal(getBtwAuthFailureMessage(model, { ok: true }), null);
+  assert.equal(getBtwAuthFailureMessage(model, { ok: true, apiKey: "" }), null);
   assert.equal(
     getBtwAuthFailureMessage(model, { ok: false, error: "bad auth" }),
     "bad auth",

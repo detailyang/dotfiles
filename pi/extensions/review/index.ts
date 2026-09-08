@@ -45,7 +45,7 @@ import { promises as fs } from "node:fs";
 import {
 	type ParallelReviewResult,
 	formatParallelReviewResults,
-	runParallelReviewDashboard,
+	createReviewRunner,
 	runPlanReview,
 	selectReviewerModels,
 } from "./parallel.js";
@@ -71,7 +71,7 @@ import {
 	renderReviewTargetPrompt,
 	type ReviewTarget,
 } from "./target.js";
-import { hasBlockingReviewFindings } from "./findings.js";
+import { getReviewDecision } from "./findings.ts";
 
 // State to track fresh session review (where we branched from).
 // Module-level state means only one review can be active at a time.
@@ -447,6 +447,7 @@ type ReviewPresetValue =
 	| typeof TOGGLE_CUSTOM_INSTRUCTIONS_VALUE;
 
 export default function reviewExtension(pi: ExtensionAPI) {
+	const reviewRunner = createReviewRunner(pi);
 	function persistReviewSettings() {
 		pi.appendEntry(REVIEW_SETTINGS_TYPE, {
 			loopFixingEnabled: reviewLoopFixingEnabled,
@@ -918,10 +919,13 @@ export default function reviewExtension(pi: ExtensionAPI) {
 		);
 
 		if (!result?.trim()) return null;
-		const paths = parseReviewPaths(result);
-		if (paths.length === 0) return null;
-
-		return { type: "folder", paths };
+		try {
+			const paths = parseReviewPaths(result);
+			return paths.length ? { type: "folder", paths } : null;
+		} catch (error) {
+			ctx.ui.notify(error instanceof Error ? error.message : String(error), "error");
+			return null;
+		}
 	}
 
 	/**
@@ -942,44 +946,7 @@ export default function reviewExtension(pi: ExtensionAPI) {
 
 		if (!prRef?.trim()) return null;
 
-		const prNumber = parsePrReference(prRef);
-		if (!prNumber) {
-			ctx.ui.notify("Invalid PR reference. Enter a number or GitHub PR URL.", "error");
-			return null;
-		}
-
-		// Get PR info from GitHub
-		ctx.ui.notify(`Fetching PR #${prNumber} info...`, "info");
-		const prInfo = await getPrInfo(pi, prNumber);
-
-		if (!prInfo) {
-			ctx.ui.notify(`Could not find PR #${prNumber}. Make sure gh is authenticated and the PR exists.`, "error");
-			return null;
-		}
-
-		// Check again for pending changes (in case something changed)
-		if (await hasPendingChanges(pi)) {
-			ctx.ui.notify("Cannot checkout PR: you have uncommitted changes. Please commit or stash them first.", "error");
-			return null;
-		}
-
-		// Checkout the PR
-		ctx.ui.notify(`Checking out PR #${prNumber}...`, "info");
-		const checkoutResult = await checkoutPr(pi, prNumber);
-
-		if (!checkoutResult.success) {
-			ctx.ui.notify(`Failed to checkout PR: ${checkoutResult.error}`, "error");
-			return null;
-		}
-
-		ctx.ui.notify(`Checked out PR #${prNumber} (${prInfo.headBranch})`, "info");
-
-		return {
-			type: "pullRequest",
-			prNumber,
-			baseBranch: prInfo.baseBranch,
-			title: prInfo.title,
-		};
+		return handlePrCheckout(ctx, prRef);
 	}
 
 	async function startReviewBranch(
@@ -1130,24 +1097,29 @@ export default function reviewExtension(pi: ExtensionAPI) {
 			return null;
 		}
 
-		const prNumber = parsePrReference(ref);
-		if (!prNumber) {
+		const reference = parsePrReference(ref);
+		if (!reference) {
 			ctx.ui.notify("Invalid PR reference. Enter a number or GitHub PR URL.", "error");
 			return null;
 		}
 
+		const prNumber = reference.number;
 		// Get PR info
 		ctx.ui.notify(`Fetching PR #${prNumber} info...`, "info");
-		const prInfo = await getPrInfo(pi, prNumber);
+		const prInfo = await getPrInfo(pi, reference);
 
 		if (!prInfo) {
 			ctx.ui.notify(`Could not find PR #${prNumber}. Make sure gh is authenticated and the PR exists.`, "error");
 			return null;
 		}
 
+		if (await hasPendingChanges(pi)) {
+			ctx.ui.notify("Cannot checkout PR: working-tree changes appeared during lookup.", "error");
+			return null;
+		}
 		// Checkout the PR
 		ctx.ui.notify(`Checking out PR #${prNumber}...`, "info");
-		const checkoutResult = await checkoutPr(pi, prNumber);
+		const checkoutResult = await checkoutPr(pi, reference);
 
 		if (!checkoutResult.success) {
 			ctx.ui.notify(`Failed to checkout PR: ${checkoutResult.error}`, "error");
@@ -1200,12 +1172,13 @@ export default function reviewExtension(pi: ExtensionAPI) {
 			"info",
 		);
 
-		const results = await runParallelReviewDashboard(ctx, models, fullPrompt, {
+		const results = await reviewRunner.run(ctx, models, fullPrompt, {
 			cwd: ctx.cwd,
 			noSkills: true,
 		});
 
-		const aborted = results.every((result) => result.text === "" && result.error);
+		if (reviewRunner.signal.aborted) return false;
+		const aborted = results.every((result) => result.error);
 		if (aborted) {
 			ctx.ui.notify("Code review cancelled - no results to inject", "info");
 			return false;
@@ -1281,7 +1254,12 @@ export default function reviewExtension(pi: ExtensionAPI) {
 					return;
 				}
 
-				if (!hasBlockingReviewFindings(reviewSnapshot.text)) {
+				const decision = getReviewDecision(reviewSnapshot.text);
+				if (decision === "invalid") {
+					ctx.ui.notify("Loop fixing stopped: review did not produce a valid review-json verdict.", "error");
+					return;
+				}
+				if (decision === "correct") {
 					const finalized = await executeEndReviewAction(ctx, "returnAndSummarize", {
 						showSummaryLoader: true,
 						notifySuccess: false,
@@ -1377,7 +1355,7 @@ export default function reviewExtension(pi: ExtensionAPI) {
 				}
 				try {
 					const baselineAssistantId = getLastAssistantSnapshot(ctx)?.id;
-					const completed = await runPlanReview(pi, ctx);
+					const completed = await runPlanReview(pi, ctx, reviewRunner);
 					if (!completed) {
 						clearReviewState(ctx);
 						return;

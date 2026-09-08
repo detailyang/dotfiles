@@ -1,4 +1,4 @@
-export type GoalStatus = "active" | "paused" | "budget_limited" | "complete";
+export type GoalStatus = "active" | "paused" | "blocked" | "budget_limited" | "complete";
 
 export type GoalState = {
 	version: 1;
@@ -10,34 +10,57 @@ export type GoalState = {
 	timeUsedSeconds: number;
 	createdAt: number;
 	updatedAt: number;
+	reason?: string;
 };
 
-export type GoalEventKind = "active" | "continuation" | "paused" | "resumed" | "cleared" | "budget_limited" | "complete";
+export type GoalEventKind = "active" | "continuation" | "paused" | "blocked" | "resumed" | "cleared" | "budget_limited" | "complete";
 
 export function parseTokenBudget(input: string): { objective: string; tokenBudget: number | null; error?: string } {
-	const match = input.match(/(?:^|\s)--tokens(?:=|\s+)(\S+\s*[kKmM]?)(?:\s|$)/);
-	if (!match) return { objective: input.trim(), tokenBudget: null };
+	const flags = [...input.matchAll(/(?:^|\s)--tokens(?==|\s|$)/g)];
+	if (flags.length === 0) return { objective: input.trim(), tokenBudget: null };
+	const invalid = (error: string) => ({ objective: input.trim(), tokenBudget: null, error });
+	if (flags.length > 1) return invalid("Specify --tokens only once.");
 
-	const raw = match[1].replace(/\s+/g, "");
-	const suffix = raw.slice(-1).toLowerCase();
-	const numeric = suffix === "k" || suffix === "m" ? raw.slice(0, -1) : raw;
-	const value = Number(numeric);
-	if (!Number.isFinite(value) || value <= 0) {
-		return { objective: input.trim(), tokenBudget: null, error: "Token budget must be positive." };
-	}
+	const flag = flags[0];
+	const start = flag.index! + flag[0].indexOf("--tokens");
+	const valueStart = start + "--tokens".length;
+	const match = input.slice(valueStart).match(/^(?:=|\s+)(\S+)(?:\s+([kKmM])(?=\s|$))?/);
+	if (!match) return invalid("--tokens requires a positive token budget.");
+	const raw = match[1] + (match[2] ?? "");
+	const number = raw.match(/^(\+?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?)([kKmM]?)$/);
+	if (!number) return invalid("Invalid token budget. Use a number with an optional k or m suffix.");
+	const suffix = number[2].toLowerCase();
 	const multiplier = suffix === "m" ? 1_000_000 : suffix === "k" ? 1_000 : 1;
-	const tokenBudget = Math.round(value * multiplier);
-	const objective = (input.slice(0, match.index) + " " + input.slice((match.index ?? 0) + match[0].length)).trim();
-	return { objective, tokenBudget };
+	const parsed = normalizeTokenBudget(Number(number[1]) * multiplier);
+	if (parsed.error) return invalid(parsed.error);
+	const objective = (input.slice(0, start).trimEnd() + " " + input.slice(valueStart + match[0].length).trimStart()).trim();
+	return { objective, tokenBudget: parsed.tokenBudget };
 }
 
 export function normalizeTokenBudget(value: unknown): { tokenBudget: number | null; error?: string } {
 	if (value == null) return { tokenBudget: null };
-	const tokenBudget = Math.round(Number(value));
-	if (!Number.isFinite(tokenBudget) || tokenBudget <= 0) {
-		return { tokenBudget: null, error: "tokenBudget must be a positive number when provided." };
+	const tokenBudget = typeof value === "number" ? Math.round(value) : NaN;
+	if (!Number.isSafeInteger(tokenBudget) || tokenBudget <= 0) {
+		return { tokenBudget: null, error: "Token budget must round to a positive safe integer." };
 	}
 	return { tokenBudget };
+}
+
+export function isGoalState(value: unknown): value is GoalState {
+	if (!value || typeof value !== "object") return false;
+	const state = value as GoalState;
+	return state.version === 1
+		&& typeof state.id === "string" && state.id.length > 0
+		&& typeof state.objective === "string" && state.objective.trim().length > 0
+		&& ["active", "paused", "blocked", "budget_limited", "complete"].includes(state.status)
+		&& (state.tokenBudget === null || (Number.isSafeInteger(state.tokenBudget) && state.tokenBudget > 0))
+		&& [state.tokensUsed, state.timeUsedSeconds, state.createdAt, state.updatedAt]
+			.every((number) => Number.isSafeInteger(number) && number >= 0)
+		&& (state.reason === undefined || typeof state.reason === "string");
+}
+
+export function goalBudgetReached(state: GoalState): boolean {
+	return state.tokenBudget !== null && state.tokensUsed >= state.tokenBudget;
 }
 
 export function formatTokens(value: number): string {
@@ -60,6 +83,7 @@ export function statusLine(state: GoalState | null): string | undefined {
 	const budget = state.tokenBudget ? ` (${formatTokens(state.tokensUsed)} / ${formatTokens(state.tokenBudget)})` : ` (${formatElapsed(state.timeUsedSeconds)})`;
 	if (state.status === "active") return `Pursuing goal${budget}`;
 	if (state.status === "paused") return "Goal paused (/goal resume)";
+	if (state.status === "blocked") return "Goal blocked (/goal resume)";
 	if (state.status === "budget_limited") return state.tokenBudget ? `Goal unmet${budget}` : "Goal abandoned";
 	return `Goal achieved${budget}`;
 }
@@ -71,7 +95,7 @@ export function goalUsage(state: GoalState): string {
 
 export function truncateObjective(objective: string, max = 96): string {
 	const singleLine = objective.replace(/\s+/g, " ").trim();
-	return singleLine.length > max ? `${singleLine.slice(0, max - 1)}...` : singleLine;
+	return singleLine.length > max ? `${singleLine.slice(0, Math.max(0, max - 3))}...`.slice(0, max) : singleLine;
 }
 
 export function goalEventStatus(kind: GoalEventKind): string {
@@ -79,6 +103,7 @@ export function goalEventStatus(kind: GoalEventKind): string {
 		active: "active",
 		continuation: "continuing",
 		paused: "paused",
+		blocked: "blocked",
 		resumed: "resumed",
 		cleared: "cleared",
 		budget_limited: "budget reached",
@@ -102,13 +127,15 @@ export function createGoalState(objective: string, tokenBudget: number | null, n
 }
 
 export function accountGoalTurn(state: GoalState, tokenDelta: number, elapsedSeconds: number, now = Date.now()): GoalState {
+	const addUsage = (used: number, delta: number) => Math.min(Number.MAX_SAFE_INTEGER,
+		used + (Number.isFinite(delta) ? Math.max(0, Math.round(delta)) : 0));
 	let next: GoalState = {
 		...state,
-		tokensUsed: state.tokensUsed + Math.max(0, tokenDelta),
-		timeUsedSeconds: state.timeUsedSeconds + Math.max(0, elapsedSeconds),
+		tokensUsed: addUsage(state.tokensUsed, tokenDelta),
+		timeUsedSeconds: addUsage(state.timeUsedSeconds, elapsedSeconds),
 		updatedAt: now,
 	};
-	if (next.status === "active" && next.tokenBudget != null && next.tokensUsed >= next.tokenBudget) {
+	if (next.status === "active" && goalBudgetReached(next)) {
 		next = { ...next, status: "budget_limited" };
 	}
 	return next;
