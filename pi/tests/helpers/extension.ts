@@ -4,6 +4,7 @@ export function createExtensionHarness(factory: ExtensionFactory) {
   const handlers = new Map<string, Array<(event: any, ctx: ExtensionContext) => any>>();
   const commands = new Map<string, any>();
   const tools = new Map<string, any>();
+  const renderers = new Map<string, any>();
   const entries: any[] = [];
   const sent: any[] = [];
   const notices: string[] = [];
@@ -22,13 +23,13 @@ export function createExtensionHarness(factory: ExtensionFactory) {
     on(name: string, handler: any) { handlers.set(name, [...(handlers.get(name) ?? []), handler]); },
     registerCommand: (name: string, command: any) => commands.set(name, command),
     registerTool: (tool: any) => tools.set(tool.name, tool),
-    registerShortcut() {}, registerMessageRenderer() {}, getThinkingLevel: () => "off",
+    registerShortcut() {}, registerMessageRenderer: (name: string, renderer: any) => renderers.set(name, renderer), getThinkingLevel: () => "off",
     appendEntry: (customType: string, data: unknown) => entries.push({ type: "custom", customType, data }),
     sendMessage: (message: any, options: any) => sent.push({ message, options }),
     sendUserMessage: (message: any, options: any) => sent.push({ message, options }),
   } as unknown as ExtensionAPI;
   factory(pi);
-  return { pi, ctx, entries, sent, notices, tools,
+  return { pi, ctx, entries, sent, notices, tools, renderers,
     setBranch: (next: any[]) => { branch = next; },
     emit: (name: string, event: any = {}) => Promise.all((handlers.get(name) ?? []).map((handler) => handler({ type: name, ...event }, ctx))),
     command: (name: string, args = "") => commands.get(name).handler(args, ctx),
