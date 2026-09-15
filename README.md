@@ -26,6 +26,8 @@ pi install "$(pwd)/pi"
 ```
 
 `/help` lists commands; `/diff-view` configures diff display.
+[Domain proxy](pi/extensions/domain-proxy/README.md) routes configured hostnames
+through `127.0.0.1:7890`; `/domain-proxy` shows its file-based settings.
 `bootstrap.sh --pi` installs external extensions, not this local package.
 
 ## Check
