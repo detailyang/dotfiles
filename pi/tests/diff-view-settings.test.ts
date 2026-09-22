@@ -36,8 +36,9 @@ test("missing settings use independent defaults without creating a file", () => 
   try {
     const config = loadDiffViewConfig(f.path);
     assert.deepEqual(config, DEFAULT_TOOL_DISPLAY_CONFIG);
-    config.showEditCall = true;
-    assert.equal(loadDiffViewConfig(f.path).showEditCall, false);
+    assert.equal(config.showEditCall, true);
+    config.showEditCall = false;
+    assert.equal(loadDiffViewConfig(f.path).showEditCall, true);
     assert.deepEqual(readdirSync(f.root), []);
   } finally { f.cleanup(); }
 });
@@ -46,15 +47,17 @@ test("settings round-trip all options and accept partial settings", () => {
   const f = fixture();
   try {
     const config = {
-      showEditCall: true, diffViewMode: "unified" as const, diffIndicatorMode: "none" as const,
+      showEditCall: false, diffViewMode: "unified" as const, diffIndicatorMode: "none" as const,
       diffWordWrap: false, editDiffCollapsedLines: 12, writeDiffCollapsedLines: 6,
       expandedPreviewMaxLines: 0, diffSplitMinWidth: 160,
     };
     saveDiffViewConfig(f.path, config);
     assert.deepEqual(loadDiffViewConfig(f.path), config);
     assert.deepEqual(readdirSync(f.root), ["diff-view.json"]);
-    writeFileSync(f.path, JSON.stringify({ showEditCall: true, unknown: "ignored" }));
-    assert.deepEqual(loadDiffViewConfig(f.path), { ...DEFAULT_TOOL_DISPLAY_CONFIG, showEditCall: true });
+    writeFileSync(f.path, JSON.stringify({ unknown: "ignored" }));
+    assert.equal(loadDiffViewConfig(f.path).showEditCall, true);
+    writeFileSync(f.path, JSON.stringify({ showEditCall: false, unknown: "ignored" }));
+    assert.deepEqual(loadDiffViewConfig(f.path), { ...DEFAULT_TOOL_DISPLAY_CONFIG, showEditCall: false });
   } finally { f.cleanup(); }
 });
 
@@ -96,7 +99,7 @@ test("menu exposes every setting in English and cancellation never writes", asyn
     assert.equal(options.length, Object.keys(DEFAULT_TOOL_DISPLAY_CONFIG).length + 1);
     assert.equal(title, "Diff view (changes auto-save; Esc to close)");
     assert.deepEqual(options, [
-      "Native edit call: Hidden (diff only)",
+      "Native edit call: Visible",
       "Diff layout: Auto",
       "Change markers: Bars",
       "Word wrap: On",
@@ -115,14 +118,17 @@ test("menu exposes every setting in English and cancellation never writes", asyn
 test("native edit visibility is configurable and the menu reflects the new value", async () => {
   let step = 0;
   const m = menu((_title, options) => {
-    if (step++ === 0) return options[0];
-    if (step === 2) return "Visible";
-    assert.match(options[0], /: Visible$/);
+    if (step++ === 0) {
+      assert.equal(options[0], "Native edit call: Visible");
+      return options[0];
+    }
+    if (step === 2) return "Hidden (diff only)";
+    assert.equal(options[0], "Native edit call: Hidden (diff only)");
     return undefined;
   });
   await openDiffViewSettings(m.ctx, m.get, m.save);
   assert.equal(m.saved.length, 1);
-  assert.equal(m.get().showEditCall, true);
+  assert.equal(m.get().showEditCall, false);
 });
 
 test("every enumerated option maps its label to the stored value", async () => {
@@ -191,7 +197,7 @@ test("confirmed reset restores all defaults", async () => {
     assert.equal(message, "Reset all diff-view display settings to their defaults?");
     return true;
   };
-  m.save({ ...DEFAULT_TOOL_DISPLAY_CONFIG, showEditCall: true, diffWordWrap: false });
+  m.save({ ...DEFAULT_TOOL_DISPLAY_CONFIG, showEditCall: false, diffWordWrap: false });
   await openDiffViewSettings(m.ctx, m.get, m.save);
   assert.deepEqual(m.get(), DEFAULT_TOOL_DISPLAY_CONFIG);
   assert.equal(m.saved.length, 2);
@@ -199,9 +205,9 @@ test("confirmed reset restores all defaults", async () => {
 
 test("save failure is visible and does not update the active config", async () => {
   let step = 0;
-  const m = menu((_title, options) => step++ === 0 ? options[0] : step === 2 ? "Visible" : undefined);
+  const m = menu((_title, options) => step++ === 0 ? options[0] : step === 2 ? "Hidden (diff only)" : undefined);
   await openDiffViewSettings(m.ctx, m.get, () => { throw new Error("read-only filesystem"); });
-  assert.equal(m.get().showEditCall, false);
+  assert.equal(m.get().showEditCall, true);
   assert.equal(m.notices[0].level, "error");
   assert.equal(m.notices[0].message, "Could not save settings; previous settings are unchanged: read-only filesystem");
 });

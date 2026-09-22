@@ -26,8 +26,8 @@ function tools(editSource = "builtin", config: () => ToolDisplayConfig = () => D
   return registered;
 }
 
-test("edit call slot is empty before, during, and after execution", () => {
-  const edit = tools().find((tool) => tool.name === "edit");
+test("hidden edit call slot is empty before, during, and after execution", () => {
+  const edit = tools("builtin", () => ({ ...DEFAULT_TOOL_DISPLAY_CONFIG, showEditCall: false })).find((tool) => tool.name === "edit");
   for (const args of [{}, { path: "sample.ts", oldText: "old", newText: "new" }]) {
     for (const context of [
       { argsComplete: false, executionStarted: false },
@@ -47,7 +47,7 @@ test("edit call slot is empty before, during, and after execution", () => {
 });
 
 test("hidden edit call retains the rich diff and visible error results", () => {
-  const edit = tools().find((tool) => tool.name === "edit");
+  const edit = tools("builtin", () => ({ ...DEFAULT_TOOL_DISPLAY_CONFIG, showEditCall: false })).find((tool) => tool.name === "edit");
   const context = { args: { path: "sample.ts" }, state: {} };
   const rich = edit.renderResult(
     { details: { diff: "@@ -1 +1 @@\n-1|old\n+1|new" }, content: [] },
@@ -94,12 +94,12 @@ test("native edit visibility changes on the same component without re-registerin
   const component = edit.renderCall(args, theme, {
     args, state: {}, cwd: process.cwd(), argsComplete: false, executionStarted: false,
   });
-  assert.deepEqual(component.render(80), []);
-  config = { ...config, showEditCall: true };
   assert.match(component.render(80).join("\n"), /edit.*sample\.ts/);
   config = { ...config, showEditCall: false };
   component.invalidate();
   assert.deepEqual(component.render(80), []);
+  config = { ...config, showEditCall: true };
+  assert.match(component.render(80).join("\n"), /edit.*sample\.ts/);
 });
 
 test("registered edit and write results share the live display configuration", () => {
@@ -128,7 +128,7 @@ test("registered edit and write results share the live display configuration", (
 });
 
 test("an error previously displayed in a hidden native preview remains visible and sanitized", () => {
-  const edit = tools().find((tool) => tool.name === "edit");
+  const edit = tools("builtin", () => ({ ...DEFAULT_TOOL_DISPLAY_CONFIG, showEditCall: false })).find((tool) => tool.name === "edit");
   const result = edit.renderResult(
     { content: [{ type: "text", text: "edit failed\x1b]52;c;SECRET\x07" }] },
     {}, theme,
