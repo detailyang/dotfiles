@@ -76,6 +76,10 @@ ybw::macos::apply_defaults() {
         ybw::result::warn "Could not make $HOME/Library visible"
     fi
 
+    if ! ybw::macos::configure_timezone; then
+        ybw::result::warn "Continuing without changing the system timezone"
+    fi
+
     ybw::result::require "Showing hidden Finder files" \
         defaults write com.apple.finder AppleShowAllFiles YES || return 1
     ybw::result::require "Showing the Finder path bar" \
@@ -111,6 +115,27 @@ ybw::macos::apply_defaults() {
 
     killall Finder 2>/dev/null || true
     ybw::log::success "macOS defaults configured"
+}
+
+readonly YBW_MACOS_TIMEZONE="Asia/Taipei"
+
+ybw::macos::configure_timezone() {
+    local current
+
+    current="$(readlink /etc/localtime 2>/dev/null || true)"
+    if [[ "$current" == *"/$YBW_MACOS_TIMEZONE" ]]; then
+        ybw::log::success "Timezone already set to $YBW_MACOS_TIMEZONE"
+        return 0
+    fi
+
+    ybw::log::info "Setting timezone to $YBW_MACOS_TIMEZONE (requires administrator privileges)..."
+    if sudo systemsetup -settimezone "$YBW_MACOS_TIMEZONE"; then
+        ybw::log::success "Timezone set to $YBW_MACOS_TIMEZONE"
+        return 0
+    fi
+
+    ybw::log::warn "Failed to set timezone to $YBW_MACOS_TIMEZONE"
+    return 1
 }
 
 ybw::macos::find_fish() {
