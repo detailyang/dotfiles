@@ -2,8 +2,8 @@
  * Loop Extension
  *
  * Provides a /loop command that starts a follow-up loop with a breakout condition.
- * The loop keeps sending a prompt on turn end until the agent calls the
- * signal_loop_success tool.
+ * The loop keeps sending a prompt after successful runs until the agent signals
+ * verified success or a blocker requiring user input, or the user stops it.
  */
 
 import { Type } from "typebox";
@@ -102,6 +102,10 @@ async function summarizeBreakoutCondition(
 
 function updateStatus(ctx: ExtensionContext, state: LoopStateData): void {
 	if (!ctx.hasUI) return;
+	if (!state.active && state.blockedReason) {
+		ctx.ui.setWidget("loop", [ctx.ui.theme.fg("warning", `Loop blocked: ${state.blockedReason}`)]);
+		return;
+	}
 	if (!state.active || !state.mode) {
 		ctx.ui.setWidget("loop", undefined);
 		return;
@@ -272,6 +276,7 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		label: "Signal Loop Success",
 		description: "Stop the active loop when the breakout condition is satisfied. Only call this tool when explicitly instructed to do so by the user, tool or system prompt.",
 		parameters: Type.Object({}),
+		executionMode: "sequential",
 		async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
 			if (!loopState.active) {
 				return {
@@ -289,8 +294,37 @@ export default function loopExtension(pi: ExtensionAPI): void {
 		},
 	});
 
+	pi.registerTool({
+		name: "signal_loop_blocked",
+		label: "Signal Loop Blocked",
+		description: "Stop an active loop without claiming success when progress requires user input, permissions, manual action, or no defensible autonomous path remains. Use when the loop instructions request a blocked handoff; do not weaken its completion condition.",
+		parameters: Type.Object({
+			reason: Type.String({ minLength: 1, description: "Evidence gathered, attempted paths, the remaining blocker, and the next input or action needed." }),
+		}, { additionalProperties: false }),
+		executionMode: "sequential",
+		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
+			if (!loopState.active) {
+				return { content: [{ type: "text", text: "No active loop is running." }], details: loopState };
+			}
+			const reason = typeof params.reason === "string" ? params.reason.trim() : "";
+			if (!reason) {
+				return {
+					content: [{ type: "text", text: "A blocked loop requires a reason with evidence, attempted paths, the blocker, and the next input or action needed." }],
+					details: loopState,
+					isError: true,
+				};
+			}
+			setLoopState({ ...loopState, active: false, blockedReason: reason }, ctx);
+			ctx.ui.notify(`Loop blocked: ${reason}`, "warning");
+			return {
+				content: [{ type: "text", text: `Loop stopped without success. The original completion condition remains unmet. Provide a final handoff and wait for explicit user instructions before restarting.\n\nReason: ${reason}` }],
+				details: loopState,
+			};
+		},
+	});
+
 	pi.registerCommand("loop", {
-		description: "Start a follow-up loop until a breakout condition is met",
+		description: "Start a follow-up loop until its condition is met, it is blocked, or /loop stop is used",
 		handler: async (args, ctx) => {
 			const expected = generation;
 			if (args.trim() === "stop") {

@@ -26,6 +26,7 @@ function createHarness(initial: GoalState | null = null) {
   const commands = new Map<string, any>();
   const sent: Array<{ message: any; options: any }> = [];
   const notifications: string[] = [];
+  const toolUpdates: string[][] = [];
   const status = new Map<string, string>();
   let branch: any[] = initial ? [stateEntry(initial)] : [];
   let activeTools = ["read", "create_goal", "get_goal", "update_goal"];
@@ -51,7 +52,7 @@ function createHarness(initial: GoalState | null = null) {
     registerCommand: (name: string, command: any) => commands.set(name, command),
     on: (name: string, handler: any) => handlers.set(name, handler),
     getActiveTools: () => activeTools,
-    setActiveTools: (names: string[]) => { activeTools = names; },
+    setActiveTools: (names: string[]) => { activeTools = names; toolUpdates.push(names); },
     appendEntry: (customType: string, data: unknown) => branch.push({ type: "custom", customType, data }),
     sendMessage: (message: any, options?: any) => { sent.push({ message, options }); },
   };
@@ -64,7 +65,7 @@ function createHarness(initial: GoalState | null = null) {
     return tool.execute(name, params, ctx.signal, undefined, ctx as unknown as ExtensionContext);
   }
   return {
-    pi, ctx, tools, sent, notifications, status, emit, execute,
+    pi, ctx, tools, sent, notifications, toolUpdates, status, emit, execute,
     start: (reason = "startup") => emit("session_start", { reason }),
     command: (args: string) => commands.get("goal").handler(args, ctx),
     state: async () => ((await execute("get_goal")).details as { goal: GoalState | null }).goal,
@@ -93,6 +94,54 @@ test("extension instances isolate goals, counters, and settings", async () => {
   assert.notEqual(b.status.get("pi-goal"), "");
   await a.command("clear");
   assert.equal((await b.state())?.objective, "B");
+});
+
+test("goal mutations run sequentially without serializing read-only lookups", () => {
+  const h = createHarness();
+  assert.equal(h.tools.get("create_goal")?.executionMode, "sequential");
+  assert.equal(h.tools.get("update_goal")?.executionMode, "sequential");
+  assert.equal(h.tools.get("get_goal")?.executionMode, undefined);
+});
+
+test("usage accounting only refreshes tools when availability changes", async () => {
+  const h = createHarness(createGoalState("audit", 100));
+  h.start();
+  assert.equal(h.toolUpdates.length, 0, "Restoring the current tool set is a no-op");
+  for (const tokens of [20, 30, 50]) {
+    h.emit("turn_start");
+    h.emit("turn_end", { message: assistant(tokens) });
+  }
+  assert.equal((await h.state())?.status, "budget_limited");
+  assert.equal(h.toolUpdates.length, 0, "Active and budget-limited goals expose the same tools");
+  await h.execute("update_goal", { status: "complete" });
+  assert.equal(h.toolUpdates.length, 1);
+  assert.deepEqual(h.pi.getActiveTools(), ["read", "create_goal", "get_goal"]);
+  h.emit("turn_start");
+  h.emit("turn_end", { message: assistant(10) });
+  assert.equal(h.toolUpdates.length, 1, "Final summary accounting preserves the tool set");
+  assert.equal((await h.state())?.tokensUsed, 110);
+  await h.command("clear");
+  assert.equal(h.toolUpdates.length, 2);
+  assert.deepEqual(h.pi.getActiveTools(), ["read", "create_goal"]);
+});
+
+test("tool synchronization preserves external tools and repairs goal tool availability", async () => {
+  const h = createHarness(createGoalState("audit", null));
+  h.start();
+  h.pi.setActiveTools(["search", "read"]);
+  h.toolUpdates.length = 0;
+  h.emit("turn_start");
+  h.emit("turn_end", { message: assistant() });
+  assert.deepEqual(h.pi.getActiveTools(), ["search", "read", "create_goal", "get_goal", "update_goal"]);
+  assert.equal(h.toolUpdates.length, 1);
+  await h.command("pause");
+  assert.deepEqual(h.pi.getActiveTools(), ["search", "read", "create_goal", "get_goal"]);
+  assert.equal(h.toolUpdates.length, 2);
+  await h.command("pause");
+  assert.equal(h.toolUpdates.length, 2, "An unchanged paused tool set is a no-op");
+  await h.command("resume");
+  assert.deepEqual(h.pi.getActiveTools(), ["search", "read", "create_goal", "get_goal", "update_goal"]);
+  assert.equal(h.toolUpdates.length, 3);
 });
 
 test("tree navigation restores the target branch, including empty and corrupt state", async () => {
@@ -483,6 +532,39 @@ for (const stopReason of ["aborted", "error"] as const) {
     assert.equal(result.agent.hasQueuedMessages(), false);
   });
 }
+
+for (const status of ["complete", "blocked"] as const) {
+  test(`a real Agent stops work in the same tool batch and later turns after ${status}`, async () => {
+    const result = await runOffline([
+      assistant(20, "toolUse", [
+        { ...toolCall("read"), id: "before-stop" },
+        toolCall("update_goal", { status, ...(status === "blocked" ? { reason: "Checked config; login failed; need credentials." } : {}) }),
+        { ...toolCall("read"), id: "after-stop" },
+      ]),
+      assistant(10, "toolUse", [toolCall("read")]),
+      assistant(5, "stop", [{ type: "text", text: "Final summary." }]),
+    ]);
+    assert.equal(result.workCalls, 1, "Only work before the terminal update executes");
+    assert.equal((await result.h.state())?.status, status);
+    assert.equal((await result.h.state())?.tokensUsed, 35);
+    assert.equal(result.trace.length, 3);
+    assert.equal(result.h.emit("tool_call", { toolName: "read" }), undefined, "Later unrelated prompts are not gated");
+  });
+}
+
+test("an Agent repeatedly calling tools after completion has bounded wrap-up", async () => {
+  const result = await runOffline([
+    assistant(20, "toolUse", [toolCall("update_goal", { status: "complete" })]),
+    assistant(10, "toolUse", [toolCall("read")]),
+    assistant(5, "toolUse", [toolCall("create_goal", { objective: "Unrequested replacement" })]),
+  ], null);
+  assert.equal(result.workCalls, 0);
+  assert.equal((await result.h.state())?.status, "complete");
+  assert.equal((await result.h.state())?.objective, "Offline verification");
+  assert.equal((await result.h.state())?.tokensUsed, 35);
+  assert.ok(result.h.notifications.some((message) => message.includes("wrap-up limit")));
+  assert.ok(result.trace.length <= 4);
+});
 
 test("a real Agent reports a blocker and stops without new work", async () => {
   const result = await runOffline([
