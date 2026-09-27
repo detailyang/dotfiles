@@ -57,7 +57,7 @@ function goalContentForLLM(kind: GoalEventKind, state: GoalState): string {
 		case "cleared":
 			return `The active goal has been cleared by the user. Stop pursuing it.\n\nObjective was: ${state.objective}`;
 		case "complete":
-			return `The goal has been marked complete.\n\nObjective: ${state.objective}\nUsage: ${goalUsage(state)}`;
+			return `The goal has been marked complete. Provide a final summary without starting new work.\n\nObjective: ${state.objective}\nUsage: ${goalUsage(state)}`;
 	}
 }
 
@@ -182,13 +182,18 @@ export default function goalExtension(pi: ExtensionAPI) {
 	}
 
 	function syncGoalTools(pi: ExtensionAPI) {
-		const active = new Set(pi.getActiveTools());
+		const current = pi.getActiveTools();
+		const active = new Set(current);
 		active.add("create_goal");
 		if (goal) active.add("get_goal");
 		else active.delete("get_goal");
 		if (goal?.status === "active" || goal?.status === "budget_limited") active.add("update_goal");
 		else active.delete("update_goal");
-		pi.setActiveTools(Array.from(active));
+		const next = Array.from(active);
+		// Pi rebuilds the system prompt on every setActiveTools call.
+		if (next.length !== current.length || next.some((name, index) => name !== current[index])) {
+			pi.setActiveTools(next);
+		}
 	}
 
 	function persist(pi: ExtensionAPI, ctx: ExtensionContext, next: GoalState | null) {
@@ -301,6 +306,7 @@ export default function goalExtension(pi: ExtensionAPI) {
 			"Set tokenBudget only when the user explicitly requested a token budget.",
 		],
 		parameters: CREATE_GOAL_PARAMETERS,
+		executionMode: "sequential",
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			const objective = typeof params.objective === "string" ? params.objective.trim() : "";
 			if (!objective) {
@@ -330,6 +336,7 @@ export default function goalExtension(pi: ExtensionAPI) {
 			"Do not mark blocked work complete or restart a blocked goal without user instructions.",
 		],
 		parameters: UPDATE_GOAL_PARAMETERS,
+		executionMode: "sequential",
 		async execute(_toolCallId, params, _signal, _onUpdate, ctx) {
 			if (params.status !== "complete" && params.status !== "blocked") {
 				return { content: [{ type: "text", text: "update_goal only accepts complete or blocked." }], details: { goal }, isError: true };
@@ -345,7 +352,7 @@ export default function goalExtension(pi: ExtensionAPI) {
 			if (activeTurnStartedAt !== null) {
 				runGoalId = goal.id;
 				activeGoalThisTurnId = goal.id;
-				if (params.status === "blocked" || goal.status === "budget_limited") wrapUpTurnsRemaining ??= WRAP_UP_TURNS;
+				wrapUpTurnsRemaining ??= WRAP_UP_TURNS;
 			}
 			persist(pi, ctx, next);
 			emitGoalEvent(pi, params.status, next, { triggerTurn: false });

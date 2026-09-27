@@ -14,7 +14,11 @@ extension instance and restored from the current session branch, including
   if retries finish without success, the goal pauses with the failure reason.
 - `update_goal` accepts `complete` after an evidence-based completion audit, or
   `blocked` with a reason describing evidence, attempts, the blocker, and the
-  next input needed. Blocked goals do not automatically continue.
+  next input needed. Both statuses stop new work, including later work calls in
+  the same tool batch. At most two additional wrap-up turns may read goal state
+  and provide a final summary; their usage is still charged. Goal mutations run
+  sequentially with other calls in their batch; ordinary work-only batches keep
+  Pi's configured execution mode. Neither status automatically continues.
 - `/goal resume` resumes a paused or blocked goal with budget remaining, or
   starts an idle active goal restored from a session. It cannot reopen a completed
   goal or replenish an exhausted budget. Continuing
