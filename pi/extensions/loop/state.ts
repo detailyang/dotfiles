@@ -7,17 +7,23 @@ export type LoopStateData = {
 	prompt?: string;
 	summary?: string;
 	loopCount?: number;
+	blockedReason?: string;
 };
 
+const BLOCKED_INSTRUCTIONS = "Complete any remaining actionable work first. If satisfying the condition requires user input, permissions, manual action, or no defensible autonomous path remains, call signal_loop_blocked with a reason containing the evidence gathered, attempted paths, the blocker, and the next input or action needed. Then hand off and wait for the user instead of repeating the same request. Do not call signal_loop_success or weaken the condition just to stop: blocked is not completed. Restart only on explicit user instructions.";
+
 export function parseStoredLoopState(value: unknown): LoopStateData {
-	if (!value || typeof value !== "object" || !("active" in value) || value.active !== true) return { active: false };
+	if (!value || typeof value !== "object") return { active: false };
 	const state = value as Partial<LoopStateData>;
+	const blockedReason = typeof state.blockedReason === "string" ? state.blockedReason.trim() : "";
+	if (state.active !== true && !(state.active === false && blockedReason)) return { active: false };
 	if (!state.mode || !["tests", "self", "custom"].includes(state.mode) ||
 		(state.mode === "custom" && (typeof state.condition !== "string" || !state.condition.trim())) ||
 		(state.loopCount !== undefined && (!Number.isSafeInteger(state.loopCount) || state.loopCount < 0)) ||
 		(state.summary !== undefined && typeof state.summary !== "string")) return { active: false };
 	return {
-		active: true, mode: state.mode,
+		active: state.active === true, mode: state.mode,
+		...(state.active === false ? { blockedReason } : {}),
 		...(state.mode === "custom" ? { condition: state.condition!.trim() } : {}),
 		prompt: buildLoopPrompt(state.mode, state.condition),
 		summary: state.summary ?? summarizeLoopCondition(state.mode, state.condition),
@@ -26,22 +32,25 @@ export function parseStoredLoopState(value: unknown): LoopStateData {
 }
 
 export function buildLoopPrompt(mode: LoopMode, condition?: string): string {
+	let prompt: string;
 	switch (mode) {
 		case "tests":
-			return (
+			prompt =
 				"Run all tests. If they are passing, call the signal_loop_success tool. " +
-				"Otherwise continue until the tests pass."
-			);
+				"Otherwise continue until the tests pass.";
+			break;
 		case "custom": {
 			const customCondition = condition?.trim() || "the custom condition is satisfied";
-			return (
+			prompt =
 				`Continue until the following condition is satisfied: ${customCondition}. ` +
-				"When it is satisfied, call the signal_loop_success tool."
-			);
+				"When it is satisfied, call the signal_loop_success tool.";
+			break;
 		}
 		case "self":
-			return "Continue until you are done. When finished, call the signal_loop_success tool.";
+			prompt = "Continue until you are done. When finished, call the signal_loop_success tool.";
+			break;
 	}
+	return `${prompt}\n\n${BLOCKED_INSTRUCTIONS}`;
 }
 
 export function summarizeLoopCondition(mode: LoopMode, condition?: string): string {
@@ -70,7 +79,7 @@ export function getLoopConditionText(mode: LoopMode, condition?: string): string
 
 export function buildLoopCompactionInstructions(mode: LoopMode, condition?: string): string {
 	const conditionText = getLoopConditionText(mode, condition);
-	return `Loop active. Breakout condition: ${conditionText}. Preserve this loop state and breakout condition in the summary.`;
+	return `Loop active. Breakout condition: ${conditionText}. Preserve this loop state and breakout condition in the summary.\n\n${BLOCKED_INSTRUCTIONS}`;
 }
 
 export function parseLoopArgs(args: string | undefined): LoopStateData | null {
