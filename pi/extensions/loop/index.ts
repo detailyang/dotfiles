@@ -31,6 +31,7 @@ const LOOP_PRESETS = [
 ] as const;
 
 const LOOP_STATE_ENTRY = "loop-state";
+const MAX_STATUS_LENGTH = 64;
 
 const HAIKU_MODEL_ID = "claude-haiku-4-5";
 
@@ -103,7 +104,9 @@ async function summarizeBreakoutCondition(
 function updateStatus(ctx: ExtensionContext, state: LoopStateData): void {
 	if (!ctx.hasUI) return;
 	if (!state.active && state.blockedReason) {
-		ctx.ui.setWidget("loop", [ctx.ui.theme.fg("warning", `Loop blocked: ${state.blockedReason}`)]);
+		const text = `Loop blocked: ${state.blockedReason}`;
+		const limitedText = text.length > MAX_STATUS_LENGTH ? `${text.slice(0, MAX_STATUS_LENGTH - 3)}...` : text;
+		ctx.ui.setWidget("loop", [ctx.ui.theme.fg("warning", limitedText)]);
 		return;
 	}
 	if (!state.active || !state.mode) {

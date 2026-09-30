@@ -72,8 +72,10 @@ test("blocked state survives branch restoration until the user explicitly restar
     await h.emit(event);
     await h.emit("agent_end", ending("stop"));
     assert.equal(h.sent.length, 0);
-    assert.match(JSON.stringify(widgets.at(-1)), /Loop blocked/);
-    assert.match(JSON.stringify(widgets.at(-1)), /MR thread/);
+    const widget = widgets.at(-1) as [string];
+    assert.equal(widget[0].length, 64);
+    assert.equal(widget[0], `Loop blocked: ${blocker.slice(0, 47)}...`);
+    assert.equal(h.entries.at(-1).data.blockedReason, blocker);
   }
   await h.command("loop", "self");
   assert.equal(h.entries.at(-1).data.active, true);
