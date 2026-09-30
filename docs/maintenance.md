@@ -18,7 +18,7 @@
 | Unix installer | `bootstrap.sh` → `installer/*.sh`; deploys tracked `home/` paths, backs up replaced user files; optional package and host configuration | Active; Bash tests and non-mutating preview. macOS/WSL behavior needs those platforms. |
 | Windows installer | `bootstrap.ps1`; narrower Windows application configuration deployment | Supported entry; runtime unverified on Linux. |
 | Shell and application configs | Bash/Zsh/Fish startup, `home/bin`, terminal/editor configs; user-invoked functions and dynamically sourced modules | Active/configuration; startup, syntax and integration tests. No absence-of-use inference for personal commands. |
-| Toolchain | Home Manager flake/lock owns CLI packages, platform/role modules; Mise owns runtimes; Homebrew supplies optional macOS casks | Active; static checks available. Activation/builds are separate from validation and not authorized here. |
+| Toolchain | Home Manager flake/lock owns CLI packages, platform/role modules; Mise owns runtimes; Homebrew supplies optional macOS casks | Active; all 13 Nix files parse and native Linux derivation evaluates offline. No closure build or activation performed. |
 | Agent material | Shared instructions plus three skill roots; `tests/validate-agent-skills.py` owns inventory | Active; Python metadata/link/budget tests. Domain skills include external tool/device requirements. |
 | Pi package | `pi/package.json` registers extensions, skills, prompts and themes; TypeScript/Node checks; local install distinct from installer external extensions | Active; peer Pi APIs, local session/config persistence, network and subprocess boundaries. Fresh dependency setup required. |
 | ADR support | Pi ADR extension distributes toolkit and guide into repositories; local `docs/adr` is a consumer | Active tooling; no accepted decisions currently indexed. Confirm copy lifecycle before deleting any duplicates. |
@@ -57,7 +57,7 @@ Focused call-rendering, settings and marker suites: 41/41 passed; diff check pas
 
 | Location / problem | Evidence and expected benefit | Risk / dependency / acceptance | Status |
 | --- | --- | --- | --- |
-| `tests/validate.sh`: false-green invocation, hidden failures and skips | Wrong cwd/missing group returned success; check-level `exit` aborted aggregation. Anchor cwd, preflight groups, isolate checks and retain diagnostics/count skips. | Low; five regressions failed before repair and passed after; all 94 real checks passed with 0 skipped. | Completed: `fix(validation): reject incomplete runs and preserve diagnostics` |
+| `tests/validate.sh`: false-green invocation, hidden failures and skips | Wrong cwd/missing group returned success; check-level `exit` aborted aggregation. Anchor cwd, preflight groups, isolate checks and retain diagnostics/count skips. | Low; original five regressions and a self-review syntax-error regression reproduced before repair. All six now pass; 92 current dotfiles checks pass with 0 skipped. Group-loading failures also count toward the failing exit status. | Completed: `fix(validation): reject incomplete runs and preserve diagnostics` |
 | Shell validation: host-dependent startup and proxy checks | Replace host login/HOME probes with existing isolated Python harness; four adapter probes become two shared contract tests. | Runtime unchanged; ten harness tests and 28 shell/integration checks pass, including all proxy spellings, WSL mode, failed-output non-evaluation and Fish loader order. | Completed: `test(shell): validate checkout adapters without host dotfiles` |
 | ADR toolkit copies | `initializeAdrFiles` distributes eleven bundled resources plus generated guide to standalone consumers. Local toolkit copies are byte-identical. | Required distribution boundary, not dead code. Preserve scripts, licenses and legacy-marker migration for external consumers. | Retained; source: `pi/extensions/adr`, generated consumer: `docs/adr` |
 | Pi inventory duplicates resource roots and assumes cwd | Script passed from the wrong directory and ignored missing registrations. Remove hardcoded roots; use `package.json` relative to script location, validate every registered resource. | Five regression tests cover wrong cwd, missing/moved resources, direct files, malformed declarations and extension factories; type checks pass. | Completed: `fix(pi): derive inventory checks from package resources` |
@@ -71,7 +71,6 @@ above do not claim those hooks executed or that an interactive Pi session was te
 
 ## Resume
 
-Baseline, dispatcher, shell isolation, manifest inventory and dependency locking
-are complete. Remove proven no-op layout wrappers, then run clean-checkout combined
-verification, inspect the full diff and create the review PR. Record final commits, PR, remaining evidence gaps
-and combined verification here before delivery.
+Implementation and focused checks are complete. Run combined verification in a
+second clean worktree, review the complete diff, then push and create the PR.
+Record the PR and remaining platform/evidence gaps here before delivery.

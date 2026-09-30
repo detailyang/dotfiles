@@ -59,7 +59,10 @@ for validation_group in "$@"; do
     fi
 done
 for validation_group in "$@"; do
-    source "tests/validate/$validation_group.sh"
+    if ! source "tests/validate/$validation_group.sh"; then
+        echo "Failed to load validation group: $validation_group" >&2
+        ((FAILED+=1))
+    fi
 done
 unset validation_group
 

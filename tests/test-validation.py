@@ -69,6 +69,16 @@ check "required fixture" "true"
                 self.assertEqual(result.returncode, 2, result.stdout + result.stderr)
                 self.assertNotIn("must not run", result.stdout)
 
+    def test_group_syntax_failure_is_counted_and_other_groups_still_run(self):
+        (self.groups / "installer.sh").write_text(
+            'check "remaining group" "true"\n', encoding="utf-8")
+        result = self.run_group("if then\n", "shell", "installer")
+        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
+        self.assertIn("syntax error", result.stderr)
+        self.assertIn("Failed to load validation group: shell", result.stderr)
+        self.assertIn("Passed: 1", result.stdout)
+        self.assertIn("Failed: 1", result.stdout)
+
     def test_default_runs_every_group_without_losing_failure_status(self):
         for group in ("installer", "toolchain", "integrations", "agents"):
             (self.groups / (group + ".sh")).write_text(
