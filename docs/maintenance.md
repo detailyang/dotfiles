@@ -57,13 +57,13 @@ Focused call-rendering, settings and marker suites: 41/41 passed; diff check pas
 
 | Location / problem | Evidence and expected benefit | Risk / dependency / acceptance | Status |
 | --- | --- | --- | --- |
-| `tests/validate.sh`: hidden failure output and optional-tool skips absent from totals | All check output discarded; final summary can only show pass/fail. Preserve actionable diagnostics and explicit skipped counts. | Low; characterize dispatcher behavior before editing; all validation groups must retain coverage. | Investigating |
+| `tests/validate.sh`: false-green invocation, hidden failures and skips | Wrong cwd/missing group returned success; check-level `exit` aborted aggregation. Anchor cwd, preflight groups, isolate checks and retain diagnostics/count skips. | Low; five regressions failed before repair and passed after; all 94 real checks passed with 0 skipped. | Completed: `fix(validation): reject incomplete runs and preserve diagnostics` |
 | Shell validation: host-dependent startup and proxy checks | Some checks invoke login shells or keep real HOME; green result can exercise deployed files instead of checkout. | Medium; inspect adapters and existing isolated harness first; prove failures without host fallbacks. | Investigating |
 | ADR toolkit copies | Two tracked toolkit trees; lifecycle may require generated consumer copy. | Medium; trace init command, distribution and tests before choosing cleanup. | Investigating |
 | Pi reproducibility and inventory | No tracked npm lockfile; install resolves version ranges. Existing Undici PR constrains overlap. | Inspect package/distribution contract and fresh tests; no opportunistic upgrades. | Investigating |
 
 ## Resume
 
-Pi baseline failures are repaired. Complete focused source tracing, then implement
-and commit the validation isolation and diagnostics theme. Record final commits, PR, remaining evidence gaps
+Pi baseline and validation dispatcher repairs are complete. Next remove host
+dotfile dependencies from shell validation, then finish ADR/Pi ownership tracing. Record final commits, PR, remaining evidence gaps
 and combined verification here before delivery.

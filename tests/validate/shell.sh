@@ -1,4 +1,5 @@
 check "bash scripts parse before shell startup" "(for file in bootstrap.sh home/.bash_profile home/.bashrc home/bash/*.sh home/bin/proxy-env installer/*.sh tests/*.sh tests/validate/*.sh; do bash -n \"\$file\" || exit 1; done)"
+check "validation dispatcher reports failures and skips from any directory" "python3 -B tests/test-validation.py"
 check "removed Codex wrapper has no stale artifacts" "! test -e home/bin/codex && ! test -e tests/test-codex-wrapper.sh"
 check "Bash login shells delegate to the managed bashrc" "grep -Fq 'source \"\$HOME/.bashrc\"' home/.bash_profile"
 check "managed shell startup is isolated and rejects legacy initialization" "python3 -B tests/test-shell-startup.py"
