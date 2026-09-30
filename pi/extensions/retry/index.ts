@@ -8,8 +8,9 @@ export const DEFAULT_RETRY_ERROR_CODES = [
 ] as const;
 
 // pi-ai's native classifier already retries messages containing "server error".
-// Conceal the compatibility hint in terminals so the provider error remains readable.
-const NATIVE_RETRY_HINT = "\u001b[8mserver error\u001b[28m";
+// Erase the compatibility hint after the terminal consumes it, so it does not
+// appear in the final error while still reaching pi-ai's classifier.
+const NATIVE_RETRY_HINT = "server error\u001b[12D\u001b[K";
 
 export function hasRetryableErrorCode(
   errorMessage: string | undefined,

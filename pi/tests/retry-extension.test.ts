@@ -18,9 +18,9 @@ test("reclassifies configured upstream errors for Pi's native retry policy", asy
   assert.ok(result?.message);
   assert.equal(result.message.role, "assistant");
   const originalError = "Error: basispoints_protocol_error: basispoints tool transport correction changed an operation; no tool was executed";
-  assert.match(result.message.errorMessage ?? "", /\u001b\[8mserver error\u001b\[28m$/);
+  assert.match(result.message.errorMessage ?? "", /server error\u001b\[12D\u001b\[K$/);
   assert.equal(
-    result.message.errorMessage?.replace(/\u001b\[8mserver error\u001b\[28m$/, ""),
+    result.message.errorMessage?.replace(/server error\u001b\[12D\u001b\[K$/, ""),
     originalError,
   );
   assert.equal(isRetryableAssistantError(result.message), true);
