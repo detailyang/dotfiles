@@ -21,7 +21,7 @@ Windows: `.\bootstrap.ps1 -NoPull -Verbose`.
 Requires Pi and the Node.js version specified in [pi/package.json](pi/package.json).
 
 ```bash
-npm --prefix pi install --no-package-lock
+npm --prefix pi ci
 pi install "$(pwd)/pi"
 ```
 
@@ -29,6 +29,7 @@ pi install "$(pwd)/pi"
 [Domain proxy](pi/extensions/domain-proxy/README.md) routes configured hostnames
 through `127.0.0.1:7890`; `/domain-proxy` shows its file-based settings.
 `bootstrap.sh --pi` installs external extensions, not this local package.
+For dependency changes, update `pi/package.json` and its lockfile together.
 
 ## Check
 

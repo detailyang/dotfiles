@@ -61,10 +61,16 @@ Focused call-rendering, settings and marker suites: 41/41 passed; diff check pas
 | Shell validation: host-dependent startup and proxy checks | Replace host login/HOME probes with existing isolated Python harness; four adapter probes become two shared contract tests. | Runtime unchanged; ten harness tests and 28 shell/integration checks pass, including all proxy spellings, WSL mode, failed-output non-evaluation and Fish loader order. | Completed: `test(shell): validate checkout adapters without host dotfiles` |
 | ADR toolkit copies | `initializeAdrFiles` distributes eleven bundled resources plus generated guide to standalone consumers. Local toolkit copies are byte-identical. | Required distribution boundary, not dead code. Preserve scripts, licenses and legacy-marker migration for external consumers. | Retained; source: `pi/extensions/adr`, generated consumer: `docs/adr` |
 | Pi inventory duplicates resource roots and assumes cwd | Script passed from the wrong directory and ignored missing registrations. Remove hardcoded roots; use `package.json` relative to script location, validate every registered resource. | Five regression tests cover wrong cwd, missing/moved resources, direct files, malformed declarations and extension factories; type checks pass. | Completed: `fix(pi): derive inventory checks from package resources` |
-| Pi reproducibility | No tracked npm lockfile; install resolves version ranges. Lock generated from existing tested dependencies: all 321 installed versions unchanged, plus nine optional platform variants. | No dependency/version changes; Undici stays 8.9.0, leaving PR #20's upgrade separate. Verify fresh `npm ci` and full suite before commit. | In progress |
+| Pi reproducibility | Track `pi/package-lock.json`; README uses `npm ci`. All 321 installed versions unchanged, plus nine optional platform variants locked. Registry URLs are public and credential-free. | Empty-cache `npm --prefix pi ci --cache <temporary-cache> --no-audit --no-fund`: exit 0; `make check-pi`: 285/285 passed, types/inventory passed. Undici stays 8.9.0; PR #20 must regenerate the new lockfile when rebased. | Completed: `build(pi): lock the verified dependency graph` |
+
+npm 12 reported blocking two dependency install hooks during the clean install:
+`@google/genai` (no-op preinstall) and `protobufjs` (version-scheme diagnostic).
+Their source was inspected; no allowlist or host policy was changed. The checks
+above do not claim those hooks executed or that an interactive Pi session was tested.
 
 ## Resume
 
-Pi baseline, dispatcher and shell isolation repairs are complete. Next address
-Pi dependency reproducibility and resource inventory false-green behavior. Record final commits, PR, remaining evidence gaps
+Baseline, dispatcher, shell isolation, manifest inventory and dependency locking
+are complete. Remove proven no-op layout wrappers, then run clean-checkout combined
+verification, inspect the full diff and create the review PR. Record final commits, PR, remaining evidence gaps
 and combined verification here before delivery.
