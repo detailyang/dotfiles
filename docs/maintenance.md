@@ -58,12 +58,12 @@ Focused call-rendering, settings and marker suites: 41/41 passed; diff check pas
 | Location / problem | Evidence and expected benefit | Risk / dependency / acceptance | Status |
 | --- | --- | --- | --- |
 | `tests/validate.sh`: false-green invocation, hidden failures and skips | Wrong cwd/missing group returned success; check-level `exit` aborted aggregation. Anchor cwd, preflight groups, isolate checks and retain diagnostics/count skips. | Low; five regressions failed before repair and passed after; all 94 real checks passed with 0 skipped. | Completed: `fix(validation): reject incomplete runs and preserve diagnostics` |
-| Shell validation: host-dependent startup and proxy checks | Some checks invoke login shells or keep real HOME; green result can exercise deployed files instead of checkout. | Medium; inspect adapters and existing isolated harness first; prove failures without host fallbacks. | Investigating |
-| ADR toolkit copies | Two tracked toolkit trees; lifecycle may require generated consumer copy. | Medium; trace init command, distribution and tests before choosing cleanup. | Investigating |
+| Shell validation: host-dependent startup and proxy checks | Replace host login/HOME probes with existing isolated Python harness; four adapter probes become two shared contract tests. | Runtime unchanged; ten harness tests and 28 shell/integration checks pass, including all proxy spellings, WSL mode, failed-output non-evaluation and Fish loader order. | Completed: `test(shell): validate checkout adapters without host dotfiles` |
+| ADR toolkit copies | `initializeAdrFiles` distributes eleven bundled resources plus generated guide to standalone consumers. Local toolkit copies are byte-identical. | Required distribution boundary, not dead code. Preserve scripts, licenses and legacy-marker migration for external consumers. | Retained; source: `pi/extensions/adr`, generated consumer: `docs/adr` |
 | Pi reproducibility and inventory | No tracked npm lockfile; install resolves version ranges. Existing Undici PR constrains overlap. | Inspect package/distribution contract and fresh tests; no opportunistic upgrades. | Investigating |
 
 ## Resume
 
-Pi baseline and validation dispatcher repairs are complete. Next remove host
-dotfile dependencies from shell validation, then finish ADR/Pi ownership tracing. Record final commits, PR, remaining evidence gaps
+Pi baseline, dispatcher and shell isolation repairs are complete. Next address
+Pi dependency reproducibility and resource inventory false-green behavior. Record final commits, PR, remaining evidence gaps
 and combined verification here before delivery.
