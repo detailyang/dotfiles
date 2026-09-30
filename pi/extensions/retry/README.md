@@ -5,6 +5,7 @@ Basis Points responses that `pi-ai` does not classify as retryable by default:
 
 - `basispoints_protocol_error`
 - `basispoints_upstream_error`
+- `server_is_overloaded`
 
 The extension only reclassifies assistant errors containing those exact error
 codes. It does not retry arbitrary `404` responses or resend user messages.

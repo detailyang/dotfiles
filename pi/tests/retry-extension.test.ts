@@ -30,7 +30,20 @@ test("includes both Basis Points transient error codes", () => {
   assert.deepEqual([...DEFAULT_RETRY_ERROR_CODES], [
     "basispoints_protocol_error",
     "basispoints_upstream_error",
+    "server_is_overloaded",
   ]);
+});
+
+test("handles the nested server_is_overloaded upstream error", async () => {
+  const harness = createExtensionHarness(retryExtension);
+  const errorMessage = "Error: sam-openai API error (503): {\"message\":\"auth_unavailable: no auth available (providers=codex, model=gpt-6-astra; last upstream error: server_is_overloaded: Our servers are currently overloaded. Please try again later.)\",\"type\":\"server_error\",\"code\":\"internal_server_error\"}";
+  const [result] = await harness.emit("message_end", {
+    message: { role: "assistant", stopReason: "error", errorMessage, content: [] },
+  });
+
+  assert.ok(result?.message);
+  assert.equal(result.message.errorMessage, errorMessage);
+  assert.equal(isRetryableAssistantError(result.message), true);
 });
 
 test("reclassifies the Excel BPS upstream response too", async () => {
