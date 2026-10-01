@@ -9,7 +9,13 @@ Basis Points responses that `pi-ai` does not classify as retryable by default:
 - `server_is_overloaded`
 
 The extension only reclassifies assistant errors containing those exact error
-codes. It does not retry arbitrary `404` responses or resend user messages.
+codes, including the Excel/BPS forms:
+
+- `basispoints_protocol_error: basispoints returned a tool outside the client's catalog`
+- `Excel BPS upstream failure: basispoints_upstream_error; request was not replayed`
+- `Retry failed after 3 attempts: Excel BPS upstream failure: basispoints_upstream_error; request was not replayed`
+
+It does not retry arbitrary `404` responses or resend user messages.
 
 To add another known-transient error code, edit `DEFAULT_RETRY_ERROR_CODES` in
 `index.ts`. Pi's retry settings control whether and how often the request is retried.

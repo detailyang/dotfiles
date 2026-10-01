@@ -26,6 +26,24 @@ test("reclassifies configured upstream errors for Pi's native retry policy", asy
   assert.equal(isRetryableAssistantError(result.message), true);
 });
 
+test("reclassifies the reported Excel/BPS retry failures", async () => {
+  const errorMessages = [
+    "Error: basispoints_protocol_error: basispoints returned a tool outside the client's catalog",
+    "Error: Excel BPS upstream failure: basispoints_upstream_error; request was not replayed",
+    "Error: Retry failed after 3 attempts: Excel BPS upstream failure: basispoints_upstream_error; request was not replayed",
+  ];
+
+  for (const errorMessage of errorMessages) {
+    const harness = createExtensionHarness(retryExtension);
+    const [result] = await harness.emit("message_end", {
+      message: { role: "assistant", stopReason: "error", errorMessage, content: [] },
+    });
+
+    assert.ok(result?.message, errorMessage);
+    assert.equal(isRetryableAssistantError(result.message), true, errorMessage);
+  }
+});
+
 test("includes Basis Points transient error codes", () => {
   assert.deepEqual([...DEFAULT_RETRY_ERROR_CODES], [
     "basispoints_protocol_error",

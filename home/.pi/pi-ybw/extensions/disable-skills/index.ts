@@ -8,7 +8,7 @@ interface Config {
 
 const DEFAULT_CONFIG: Config = { enable: true };
 const CONFIG_NAME = "disable-skills.json";
-const SKILLS_SECTION_RE = /\n\nThe following skills[\s\S]*?<\/available_skills>/;
+const SKILLS_SECTION_RE = /(?:^|\r?\n)The following skills[\s\S]*?<\/available_skills>/;
 
 function loadConfig(cwd: string): Config {
     const globalPath = join(getAgentDir(), "extensions", CONFIG_NAME);
