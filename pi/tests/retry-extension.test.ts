@@ -26,12 +26,24 @@ test("reclassifies configured upstream errors for Pi's native retry policy", asy
   assert.equal(isRetryableAssistantError(result.message), true);
 });
 
-test("includes both Basis Points transient error codes", () => {
+test("includes Basis Points transient error codes", () => {
   assert.deepEqual([...DEFAULT_RETRY_ERROR_CODES], [
     "basispoints_protocol_error",
     "basispoints_upstream_error",
+    "basispoints_stream_incomplete",
     "server_is_overloaded",
   ]);
+});
+
+test("reclassifies an incomplete Basis Points stream for retry", async () => {
+  const harness = createExtensionHarness(retryExtension);
+  const errorMessage = "Error: basispoints_stream_incomplete: Upstream stream ended before completion";
+  const [result] = await harness.emit("message_end", {
+    message: { role: "assistant", stopReason: "error", errorMessage, content: [] },
+  });
+
+  assert.ok(result?.message);
+  assert.equal(isRetryableAssistantError(result.message), true);
 });
 
 test("handles the nested server_is_overloaded upstream error", async () => {

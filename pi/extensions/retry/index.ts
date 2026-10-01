@@ -5,6 +5,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 export const DEFAULT_RETRY_ERROR_CODES = [
   "basispoints_protocol_error",
   "basispoints_upstream_error",
+  "basispoints_stream_incomplete",
   "server_is_overloaded",
 ] as const;
 
