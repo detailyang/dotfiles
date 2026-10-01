@@ -80,7 +80,7 @@ def validate(root: Path) -> list[str]:
     errors = []
     seen = set()
     workflow_root = root / "home/.agents/skills"
-    roots = (workflow_root, root / "home/skills", root / "pi/skills")
+    roots = (workflow_root, root / "home/skills", root / "home/.pi/pi-ybw/skills")
     actual = {p.name for p in workflow_root.iterdir() if p.is_dir()} if workflow_root.is_dir() else set()
     if actual != WORKFLOW_NAMES:
         errors.append(f"workflow inventory mismatch: missing={sorted(WORKFLOW_NAMES - actual)}, extra={sorted(actual - WORKFLOW_NAMES)}")
@@ -132,6 +132,6 @@ if __name__ == "__main__":
         print(problem, file=sys.stderr)
     if problems:
         sys.exit(1)
-    count = sum(1 for base in ("home/.agents/skills", "home/skills", "pi/skills")
+    count = sum(1 for base in ("home/.agents/skills", "home/skills", "home/.pi/pi-ybw/skills")
                 for _ in (repository / base).glob("*/SKILL.md"))
     print(f"Validated {count} skills: metadata, inventory, local links, resources, and entry budgets")

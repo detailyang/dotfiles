@@ -16,4 +16,4 @@ check-dotfiles:
 
 ## Run Pi type checks and tests
 check-pi:
-	npm --prefix pi run check
+	npm --prefix home/.pi/pi-ybw run check

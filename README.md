@@ -18,18 +18,18 @@ Windows: `.\bootstrap.ps1 -NoPull -Verbose`.
 
 ## Pi
 
-Requires Pi and the Node.js version specified in [pi/package.json](pi/package.json).
+Requires Pi and the Node.js version specified in [home/.pi/pi-ybw/package.json](home/.pi/pi-ybw/package.json).
 
 ```bash
-npm --prefix pi ci
-pi install "$(pwd)/pi"
+npm --prefix home/.pi/pi-ybw ci
+pi install "$(pwd)/home/.pi/pi-ybw"
 ```
 
 `/help` lists commands; `/diff-view` configures diff display.
 [Domain proxy](pi/extensions/domain-proxy/README.md) routes configured hostnames
 through `127.0.0.1:7890`; `/domain-proxy` shows its file-based settings.
 `bootstrap.sh --pi` installs external extensions, not this local package.
-For dependency changes, update `pi/package.json` and its lockfile together.
+For dependency changes, update `home/.pi/pi-ybw/package.json` and its lockfile together.
 
 ## Check
 

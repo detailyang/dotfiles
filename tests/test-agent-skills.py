@@ -24,7 +24,7 @@ class SkillValidationTests(unittest.TestCase):
         for name in validator.WORKFLOW_NAMES:
             self.put(f"home/.agents/skills/{name}/SKILL.md", skill(name))
         self.entry = self.put("home/skills/sample/SKILL.md", skill())
-        self.put("pi/skills/pi-sample/SKILL.md", skill("pi-sample"))
+        self.put("home/.pi/pi-ybw/skills/pi-sample/SKILL.md", skill("pi-sample"))
         self.put("home/.agents/AGENTS.md", "# Global rules\n")
         self.put("AGENTS.md", "# Repository rules\n")
 
@@ -63,8 +63,8 @@ class SkillValidationTests(unittest.TestCase):
         self.assertEqual(validator.manifest_errors(self.entry), [])
 
     def test_pi_manifest_is_checked(self):
-        self.put("pi/skills/pi-sample/SKILL.md", skill("wrong-name"))
-        self.assertTrue(any("pi/skills/pi-sample/SKILL.md" in e for e in validator.validate(self.root)))
+        self.put("home/.pi/pi-ybw/skills/pi-sample/SKILL.md", skill("wrong-name"))
+        self.assertTrue(any("home/.pi/pi-ybw/skills/pi-sample/SKILL.md" in e for e in validator.validate(self.root)))
 
     def test_missing_script(self):
         self.entry.write_text(skill() + "Use `scripts/missing.py`.\n", encoding="utf-8")

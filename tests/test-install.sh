@@ -84,7 +84,7 @@ test_deploy_is_scoped_and_backed_up() {
     [[ ! -e "$home_dir/.codex/.env" ]] || status=1
     [[ ! -e "$home_dir/greptimedb_data" ]] || status=1
     [[ ! -e "$home_dir/scripts" ]] || status=1
-    [[ -d "$home_dir/pi" && ! -L "$home_dir/pi" ]] || status=1
+    [[ -d "$home_dir/.pi/pi-ybw" && ! -L "$home_dir/.pi/pi-ybw" ]] || status=1
     [[ ! -e "$home_dir/home" ]] || status=1
     [[ -f "$home_dir/.bashrc" ]] || status=1
     [[ -f "$home_dir/.config/fish/config.fish" ]] || status=1
@@ -117,19 +117,19 @@ test_deploy_syncs_local_pi_package() {
     local target_file
 
     home_dir="$(mktemp -d)"
-    source_file="$PWD/pi/CONTEXT.md"
-    target_file="$home_dir/pi/CONTEXT.md"
+    source_file="$PWD/home/.pi/pi-ybw/CONTEXT.md"
+    target_file="$home_dir/.pi/pi-ybw/CONTEXT.md"
     (
         HOME="$home_dir"
         export HOME
         source "$PWD/bootstrap.sh"
         ybw::deploy::run true > /dev/null || exit 1
-        [[ ! -e "$home_dir/pi" ]] || exit 1
-        mkdir -p "$home_dir/pi"
-        ybw::deploy::run false > /dev/null || exit 1
-        [[ -d "$home_dir/pi" && ! -L "$home_dir/pi" ]] || exit 1
-        cmp "$source_file" "$target_file" || exit 1
         [[ ! -e "$home_dir/.pi/pi-ybw" ]] || exit 1
+        mkdir -p "$home_dir/.pi/pi-ybw"
+        ybw::deploy::run false > /dev/null || exit 1
+        [[ -d "$home_dir/.pi/pi-ybw" && ! -L "$home_dir/.pi/pi-ybw" ]] || exit 1
+        cmp "$source_file" "$target_file" || exit 1
+        [[ ! -e "$home_dir/pi" ]] || exit 1
         ybw::deploy::run false > /dev/null || exit 1
         cmp "$source_file" "$target_file" || exit 1
     ) || result=1

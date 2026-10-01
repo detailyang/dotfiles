@@ -95,10 +95,10 @@ ybw::deploy::sync_tree() {
 ybw::deploy::sync_pi_package() {
     local dry_run="$1"
     local backup_dir="$2"
-    local source="$YBW_INSTALL_ROOT/pi/"
-    local target="$HOME/pi/"
-    local target_path="$HOME/pi"
-    local backup_target="$backup_dir/pi"
+    local source="$YBW_INSTALL_ROOT/home/.pi/pi-ybw/"
+    local target="$HOME/.pi/pi-ybw/"
+    local target_path="$HOME/.pi/pi-ybw"
+    local backup_target="$backup_dir/.pi/pi-ybw"
     local -a rsync_args
 
     if [[ ! -d "$source" ]]; then
@@ -124,6 +124,10 @@ ybw::deploy::sync_pi_package() {
         fi
     fi
 
+    if ! mkdir -p "$(dirname "$target")" "$target"; then
+        ybw::log::error "Failed to create Pi package target: $target_path"
+        return 1
+    fi
     if ! mkdir -p "$backup_target"; then
         ybw::log::error "Failed to create Pi package backup directory: $backup_target"
         return 1

@@ -2,7 +2,7 @@
   "theme": "ybw-light",
   "defaultTools": ["+codemode"],
   "packages": [
-    "../../pi"
+    "../pi-ybw"
   ],
   "defaultThinkingLevel": "xhigh",
   "retry": {

@@ -9,4 +9,5 @@
 node_modules
 package-lock.json
 !/pi/package-lock.json
+!/home/.pi/pi-ybw/package-lock.json
 home/.codex/.env

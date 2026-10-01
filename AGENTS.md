@@ -47,9 +47,9 @@ Run from the repository root; choose checks for the changed surface.
 
 The dotfiles groups are `shell`, `installer`, `toolchain`, `integrations`, and
 `agents`; add regression checks to `tests/validate/`, not the dispatcher. Pi
-collects `tests/*.test.ts` through `npm --prefix pi test`; do not add per-suite
-npm aliases. See the README for dependency setup. For a focused Pi suite,
-run `node --test tests/<name>.test.ts` from `pi/`.
+collects `tests/*.test.ts` through `npm --prefix home/.pi/pi-ybw test`; do not add
+per-suite npm aliases. See the README for dependency setup. For a focused Pi suite,
+run `node --test tests/<name>.test.ts` from `home/.pi/pi-ybw/`.
 
 Always pair previews with `--no-pull`. Do not validate docs by installing packages,
 activating Home Manager, changing login shells, or mutating OS defaults. Static
@@ -58,7 +58,7 @@ baseline failures, and skipped checks separately from passes.
 
 ## Agent material
 
-Skill roots: `home/.agents/skills/`, `home/skills/`, and `pi/skills/`. Keep entries
+Skill roots: `home/.agents/skills/`, `home/skills/`, and `home/.pi/pi-ybw/skills/`. Keep entries
 short and references on demand. `name` and `description` are one-line plain YAML
 strings; names match directories and are unique across roots. Update the inventory
 in `tests/validate-agent-skills.py` when adding or removing workflow skills.

@@ -45,7 +45,7 @@ Git in the task's temporary directory.
 | --- | --- | --- |
 | `make check-dotfiles` | 0; 93 passed, 0 failed | Passed |
 | `make check-pi` before dependency setup | 2; `tsc: not found` | Environment prerequisite |
-| `npm --prefix pi install --no-package-lock --ignore-scripts --no-audit --no-fund` | 0; 321 packages installed | Setup; no dependency upgrades requested |
+| `npm --prefix home/.pi/pi-ybw install --no-package-lock --ignore-scripts --no-audit --no-fund` | 0; 321 packages installed | Setup; no dependency upgrades requested |
 | `make check-pi` after dependency setup | 2; types/inventory passed, 278/280 tests passed | Existing failures: two obsolete Bars-default assertions |
 | `timeout 45 bazel query //...` | 2; not a Bazel workspace | Not applicable; query was attempted, not a build pass |
 | `./bootstrap.sh --no-pull --dry-run` | 0; tracked-file preview only | Passed; does not prove installation |
@@ -68,10 +68,10 @@ Focused call-rendering, settings and marker suites: 41/41 passed; diff check pas
 | `tests/validate.sh`: false-green invocation, hidden failures and skips | Wrong cwd/missing group returned success; check-level `exit` aborted aggregation. Anchor cwd, preflight groups, isolate checks and retain diagnostics/count skips. | Low; original five regressions and a self-review syntax-error regression reproduced before repair. All six now pass; 92 current dotfiles checks pass with 0 skipped. Group-loading failures also count toward the failing exit status. | Completed: `dc5e2c3`, followed by `8fe0b54` (group-loading regression) |
 | Shell validation: host-dependent startup and proxy checks | Replace host login/HOME probes with existing isolated Python harness; four adapter probes become two shared contract tests. | Runtime unchanged; ten harness tests and 28 shell/integration checks pass, including all proxy spellings, WSL mode, failed-output non-evaluation and Fish loader order. | Completed: `2c81c43` |
 | Multi-skills design still marked Draft | Active command implements the recorded two-stage interaction, but the old document still gives creation steps. Mark historical and link the actual extension/manifest; preserve rationale. | Documentation only; links checked. Does not claim terminal/IME acceptance or change extension behavior. | Completed: `79da11a` |
-| ADR toolkit copies | `initializeAdrFiles` distributes eleven bundled resources plus generated guide to standalone consumers. Local toolkit copies are byte-identical. | Required distribution boundary, not dead code. Preserve scripts, licenses and legacy-marker migration for external consumers. | Retained; source: `pi/extensions/adr`, generated consumer: `docs/adr` |
+| ADR toolkit copies | `initializeAdrFiles` distributes eleven bundled resources plus generated guide to standalone consumers. Local toolkit copies are byte-identical. | Required distribution boundary, not dead code. Preserve scripts, licenses and legacy-marker migration for external consumers. | Retained; source: `home/.pi/pi-ybw/extensions/adr`, generated consumer: `docs/adr` |
 | Pi inventory duplicates resource roots and assumes cwd | Script passed from the wrong directory and ignored missing registrations. Remove hardcoded roots; use `package.json` relative to script location, validate every registered resource. | Five regression tests cover wrong cwd, missing/moved resources, direct files, malformed declarations and extension factories; type checks pass. | Completed: `206fdb6` |
 | Diff layout migration residue | Remove two private wrappers returning only their argument or zero, plus one compiler-reported unused import. All call sites preserve the same values. | 62 renderer/path tests passed before/after the no-op cleanup; unused-local/parameter compiler checks enabled over extensions and tests. No public API or rendering behavior changed. | Completed: `6d79ded` |
-| Pi reproducibility | Track `pi/package-lock.json`; README uses `npm ci`. All 321 installed versions unchanged, plus nine optional platform variants locked. Registry URLs are public and credential-free. | Empty-cache `npm --prefix pi ci --cache <temporary-cache> --no-audit --no-fund`: exit 0; `make check-pi`: 285/285 passed, types/inventory passed. Undici stays 8.9.0; PR #20 must regenerate the new lockfile when rebased. | Completed: `582df1d` |
+| Pi reproducibility | Track `home/.pi/pi-ybw/package-lock.json`; README uses `npm ci`. All 321 installed versions unchanged, plus nine optional platform variants locked. Registry URLs are public and credential-free. | Empty-cache `npm --prefix home/.pi/pi-ybw ci --cache <temporary-cache> --no-audit --no-fund`: exit 0; `make check-pi`: 285/285 passed, types/inventory passed. Undici stays 8.9.0; PR #20 must regenerate the new lockfile when rebased. | Completed: `582df1d` |
 
 npm 12 reported blocking two dependency install hooks during the clean install:
 `@google/genai` (no-op preinstall) and `protobufjs` (version-scheme diagnostic).
@@ -86,13 +86,13 @@ ledger. The original `master` checkout remains clean and unchanged.
 
 | Check | Result / classification |
 | --- | --- |
-| Fresh `npm --prefix pi ci` in clean worktree | Passed, exit 0; also independently tested with an initially empty npm cache |
+| Fresh `npm --prefix home/.pi/pi-ybw ci` in clean worktree | Passed, exit 0; also independently tested with an initially empty npm cache |
 | `make check` in clean worktree | Passed, exit 0; 92 dotfiles checks, 285 Pi tests, types and inventory; 0 failed, 0 skipped |
 | `./bootstrap.sh --no-pull --dry-run` | Passed, exit 0; preview only, not installation |
 | From `/tmp`: checkout's `tests/validate.sh shell integrations` and `pi/scripts/check-inventory.mjs` | Passed, exit 0; 28 checks plus resource inventory |
 | `nix-instantiate --parse` on every tracked `.nix` file | Passed, exit 0; 13 files |
 | `nix --extra-experimental-features 'nix-command flakes' eval --offline --impure --no-write-lock-file --raw './home/.config/home-manager#homeConfigurations.linux-x86_64.activationPackage.drvPath'` | Passed, exit 0, with 60-second/1.5-GiB bounds; derivation evaluation, no build or activation |
-| `npm pack --dry-run --json --ignore-scripts` in `pi/` | Passed, exit 0; 143 files, runtime resources and licenses present, no node_modules; no archive published |
+| `npm pack --dry-run --json --ignore-scripts` in `home/.pi/pi-ybw/` | Passed, exit 0; 143 files, runtime resources and licenses present, no node_modules; no archive published |
 | `git diff --check origin/master...HEAD` and focused document links | Passed; every task diff reviewed; generated lock graph compared with baseline |
 | Baseline failures / introduced failures | Two obsolete Pi assertions repaired; no remaining failure in executed repository checks |
 
