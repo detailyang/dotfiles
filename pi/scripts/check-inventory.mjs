@@ -1,14 +1,14 @@
 import { existsSync, readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
-const ROOT = process.cwd();
-const MARKDOWN_DIRS = ["skills", "prompts"];
-const EXTENSIONS_DIR = "extensions";
+const ROOT = fileURLToPath(new URL("../", import.meta.url));
+const resources = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")).pi;
 const MARKDOWN_LINK_RE = /!?\[[^\]]*\]\(([^)]+)\)/g;
 
 function listMarkdownFiles(dir) {
   const fullDir = path.join(ROOT, dir);
-  if (!existsSync(fullDir)) return [];
+  if (!statSync(fullDir).isDirectory()) return fullDir.endsWith(".md") ? [fullDir] : [];
 
   const files = [];
   for (const entry of readdirSync(fullDir)) {
@@ -46,8 +46,23 @@ function normalizeLinkTarget(rawTarget) {
 }
 
 const failures = [];
+const registered = { extensions: [], skills: [], prompts: [], themes: [] };
+for (const kind of Object.keys(registered)) {
+  const entries = resources[kind] === undefined ? [] : resources[kind];
+  if (!Array.isArray(entries)) {
+    failures.push(`package.json: pi.${kind} must be an array`);
+    continue;
+  }
+  for (const entry of entries) {
+    if (typeof entry !== "string" || !entry || !existsSync(path.resolve(ROOT, entry))) {
+      failures.push(`package.json: missing ${kind} resource ${String(entry)}`);
+    } else {
+      registered[kind].push(entry);
+    }
+  }
+}
 
-for (const file of MARKDOWN_DIRS.flatMap(listMarkdownFiles)) {
+for (const file of [...registered.skills, ...registered.prompts].flatMap(listMarkdownFiles)) {
   const text = readFileSync(file, "utf8");
   const relativeFile = path.relative(ROOT, file);
 
@@ -62,14 +77,14 @@ for (const file of MARKDOWN_DIRS.flatMap(listMarkdownFiles)) {
   }
 }
 
-const extensionsRoot = path.join(ROOT, EXTENSIONS_DIR);
-if (existsSync(extensionsRoot)) {
-  for (const entry of readdirSync(extensionsRoot)) {
-    const extensionDir = path.join(extensionsRoot, entry);
-    if (!statSync(extensionDir).isDirectory()) continue;
-
-    const indexFile = path.join(extensionDir, "index.ts");
-    if (!existsSync(indexFile)) continue;
+for (const resource of registered.extensions) {
+  const extensionsRoot = path.resolve(ROOT, resource);
+  const entries = statSync(extensionsRoot).isDirectory()
+    ? readdirSync(extensionsRoot).map((entry) => path.join(extensionsRoot, entry))
+    : [extensionsRoot];
+  for (const entry of entries) {
+    const indexFile = statSync(entry).isDirectory() ? path.join(entry, "index.ts") : entry;
+    if (!/\.[jt]s$/.test(indexFile) || !existsSync(indexFile)) continue;
 
     const text = readFileSync(indexFile, "utf8");
     if (!/\bexport\s+default\b/.test(text)) {

@@ -15,7 +15,6 @@ import {
 	getCompactLineRenderContent,
 	type DiffLineEntry,
 	type DiffLineKind,
-	type DiffMetaEntry,
 	type ParsedDiffEntry,
 } from "./diff-parse.ts";
 import { getCellLineNumber, type DiffSpan, type SplitDiffRow } from "./diff-inline.ts";
@@ -95,14 +94,6 @@ function renderChangeMarker(
 	return colorizeSegment(theme, "dim", glyph, rowBg);
 }
 
-function usesHashlineGutter(showHashlineAnchors: boolean): boolean {
-	return showHashlineAnchors;
-}
-
-function getHashlineGutterMarkerWidth(_indicatorMode: DiffIndicatorMode): number {
-	return 0;
-}
-
 function getLineDividerPlainWidth(indicatorMode: DiffIndicatorMode): number {
 	return indicatorMode === "classic" ? 1 : 2;
 }
@@ -145,7 +136,7 @@ function getLinePrefixPlainWidth(
 	hashlineGutter = false,
 ): number {
 	if (hashlineGutter) {
-		return getHashlineGutterMarkerWidth(indicatorMode) + lineNumberWidth;
+		return lineNumberWidth;
 	}
 	return indicatorMode === "bars"
 		? visibleWidth(`▌ ${" ".repeat(lineNumberWidth)} `)
@@ -396,7 +387,7 @@ export function renderUnified(
 				ctx.indicatorMode,
 			),
 			lineNumber,
-			usesHashlineGutter(ctx.showHashlineAnchors),
+			ctx.showHashlineAnchors,
 		);
 	});
 }
@@ -490,7 +481,7 @@ function renderSplitCell(
 	indicatorMode: DiffIndicatorMode,
 	showHashlineAnchors: boolean,
 ): string[] {
-	const hashlineGutter = usesHashlineGutter(showHashlineAnchors);
+	const hashlineGutter = showHashlineAnchors;
 	if (!line) {
 		return [
 			renderSplitBlankCell(columnWidth, lineNumberWidth, theme, indicatorMode, hashlineGutter),
@@ -572,11 +563,7 @@ function renderSplitHeaderCell(
 	indicatorMode: DiffIndicatorMode,
 	hashlineGutter = false,
 ): string {
-	const markerPad = hashlineGutter
-		? " ".repeat(getHashlineGutterMarkerWidth(indicatorMode))
-		: indicatorMode === "bars"
-			? "  "
-			: "";
+	const markerPad = !hashlineGutter && indicatorMode === "bars" ? "  " : "";
 	const lineNumberLabel = fitToWidth(label, lineNumberWidth);
 	const lineNumberSpacer = hashlineGutter ? "" : " ";
 	const divider = indicatorMode !== "classic" ? "│ " : "│";
@@ -618,7 +605,7 @@ export function renderSplit(
 	const leftWidth = Math.max(MIN_SPLIT_COLUMN_WIDTH, Math.floor((width - separatorWidth) / 2));
 	const rightWidth = Math.max(MIN_SPLIT_COLUMN_WIDTH, width - separatorWidth - leftWidth);
 	const splitLineNumberWidth = Math.max(3, lineNumberWidth);
-	const hashlineGutter = usesHashlineGutter(showHashlineAnchors);
+	const hashlineGutter = showHashlineAnchors;
 	const separator = renderSplitDivider(theme, containerBgAnsi);
 	const topSeparator = renderSplitDivider(theme, containerBgAnsi, "─┬─");
 	const output: RenderedRow[] = [];

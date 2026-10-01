@@ -2,21 +2,29 @@
 
 set -uo pipefail
 
+cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 2
+
 PASSED=0
 FAILED=0
+SKIPPED=0
 
 function check() {
     local name="$1"
     local command="$2"
+    local output status
 
     echo -n "Checking $name... "
-    if eval "$command" > /dev/null 2>&1; then
+    # A check may change directories or exit; neither may stop other checks.
+    if output=$(eval "$command" 2>&1); then
         echo "✓ PASSED"
-        ((PASSED++))
+        ((PASSED+=1))
     else
-        echo "✗ FAILED"
-        ((FAILED++))
+        status=$?
+        echo "✗ FAILED (exit $status)"
+        printf '%s\n' "$output"
+        ((FAILED+=1))
     fi
+    return 0
 }
 
 function check_if_available() {
@@ -28,6 +36,7 @@ function check_if_available() {
         check "$name" "$command"
     else
         echo "Skipping $name ($tool not available)"
+        ((SKIPPED+=1))
     fi
 }
 
@@ -44,9 +53,16 @@ for validation_group in "$@"; do
         shell|installer|toolchain|integrations|agents) ;;
         *) echo "Unknown validation group: $validation_group" >&2; exit 2 ;;
     esac
+    if [[ ! -r "tests/validate/$validation_group.sh" ]]; then
+        echo "Missing validation group: $validation_group" >&2
+        exit 2
+    fi
 done
 for validation_group in "$@"; do
-    source "tests/validate/$validation_group.sh"
+    if ! source "tests/validate/$validation_group.sh"; then
+        echo "Failed to load validation group: $validation_group" >&2
+        ((FAILED+=1))
+    fi
 done
 unset validation_group
 
@@ -54,10 +70,13 @@ echo ""
 echo "=== Results ==="
 echo "Passed: $PASSED"
 echo "Failed: $FAILED"
+echo "Skipped: $SKIPPED"
 
 if [[ $FAILED -gt 0 ]]; then
     echo "Validation failed!"
     exit 1
+elif [[ $SKIPPED -gt 0 ]]; then
+    echo "Available checks passed; skipped checks remain unverified."
 else
     echo "All checks passed!"
 fi

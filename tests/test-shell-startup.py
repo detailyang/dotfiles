@@ -9,6 +9,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 BASH = shutil.which("bash")
+FISH = shutil.which("fish")
 
 
 @unittest.skipUnless(BASH, "Bash is not installed")
@@ -128,6 +129,89 @@ class ShellStartupTests(unittest.TestCase):
         self.put("home/.bashrc", "if then\n")
         result = self.bash(command, cwd=self.home)
         self.assertNotEqual(result.returncode, 0, "syntax error after bootstrap.sh was ignored")
+
+
+@unittest.skipUnless(FISH, "Fish is not installed")
+class FishStartupTests(unittest.TestCase):
+    def test_login_loads_checkout_config_without_host_dotfiles(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            modules = home / "fish"
+            modules.mkdir()
+            (modules / "a.fish").write_text("set -gx MODULE_ORDER a\n", encoding="utf-8")
+            (modules / "z.fish").write_text("set -gx MODULE_ORDER $MODULE_ORDER z\n", encoding="utf-8")
+            result = subprocess.run(
+                [FISH, "--no-config", "-lc",
+                 'source $argv[1]; or exit; printf \"%s\\n\" $MODULE_ORDER',
+                 str(ROOT / "home/.config/fish/config.fish")],
+                cwd=home, env={"HOME": directory, "PATH": "/nonexistent", "LC_ALL": "C"},
+                text=True, capture_output=True, timeout=5,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, "a\nz\n")
+            self.assertEqual(result.stderr, "")
+
+
+@unittest.skipUnless(BASH, "Bash is not installed")
+class ProxyAdapterTests(unittest.TestCase):
+    def check_adapter(self, shell, arguments, extension):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            binary = home / "bin"
+            binary.mkdir()
+            # Only declared executable dependencies are visible; no deployed tools.
+            for tool in ("bash", "dirname", "seq"):
+                (binary / tool).symlink_to(shutil.which(tool))
+            executable = binary / "proxy-env"
+            shutil.copy2(ROOT / "home/bin/proxy-env", executable)
+            adapter = ROOT / f"home/{extension}/proxy.{extension if extension == 'fish' else 'sh'}"
+            env = {"HOME": directory, "PATH": str(binary), "LC_ALL": "C", "TERM": "dumb"}
+
+            def run(command):
+                return subprocess.run(
+                    [shell, *arguments, command], cwd=home, env=env,
+                    text=True, capture_output=True, timeout=5,
+                )
+
+            source = f'source \"{adapter}\"; '
+            for mode, host in (("proxy", "192.168.33.1"), ("wslproxy", "127.0.0.1")):
+                result = run(source + mode + ' >/dev/null; ' +
+                             'printf \"%s\\n\" \"$HTTP_PROXY\" \"$http_proxy\" \"$NO_PROXY\"')
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(result.stderr, "")
+                lines = result.stdout.splitlines()
+                self.assertEqual(lines[:2], [f"http://{host}:7890"] * 2)
+                self.assertTrue(lines[2].startswith("127.0.0.1,localhost,192.168.44.0"))
+
+            names = "HTTP_PROXY HTTPS_PROXY ALL_PROXY SOCKS_PROXY NO_PROXY".split()
+            names += [name.lower() for name in names] + ["GOPROXY"]
+            env.update({name: "sentinel" for name in names})
+            if extension == "bash":
+                checks = '; '.join(f'[[ -z \"${{{name}+present}}\" ]] || exit 1' for name in names)
+            else:
+                checks = '; '.join(f'set -q {name}; and exit 1' for name in names) + '; true'
+            result = run(source + "unproxy >/dev/null; " + checks)
+            self.assertEqual(result.returncode, 0, result.stderr)
+
+            # Failed generators must not eval partial output or mutate the environment.
+            executable.write_text(
+                "#!/bin/sh\nprintf '%s\\n' 'echo PARTIAL_OUTPUT_EVALUATED'\nexit 7\n", encoding="utf-8")
+            if extension == "bash":
+                command = 'proxy; code=$?; printf \"%s:%s\" \"$code\" \"$HTTP_PROXY\"'
+                expected = "1:sentinel"
+            else:
+                command = 'proxy; set code $status; printf \"%s:%s\" $code $HTTP_PROXY'
+                expected = "7:sentinel"
+            result = run(source + command)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout, expected)
+
+    def test_bash(self):
+        self.check_adapter(BASH, ["--noprofile", "--norc", "-c"], "bash")
+
+    @unittest.skipUnless(FISH, "Fish is not installed")
+    def test_fish(self):
+        self.check_adapter(FISH, ["--no-config", "-c"], "fish")
 
 
 if __name__ == "__main__":

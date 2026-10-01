@@ -103,7 +103,7 @@ test("native edit visibility changes on the same component without re-registerin
 });
 
 test("registered edit and write results share the live display configuration", () => {
-  let config: ToolDisplayConfig = { ...DEFAULT_TOOL_DISPLAY_CONFIG, diffViewMode: "unified", writeDiffCollapsedLines: 4 };
+  let config: ToolDisplayConfig = { ...DEFAULT_TOOL_DISPLAY_CONFIG, diffViewMode: "unified", diffIndicatorMode: "bars", writeDiffCollapsedLines: 4 };
   const store = new WriteExecutionMetadataStore();
   store.set("write", { fileExistedBeforeWrite: false });
   const registered = tools("builtin", () => config, store);

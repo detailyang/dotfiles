@@ -101,7 +101,7 @@ test("menu exposes every setting in English and cancellation never writes", asyn
     assert.deepEqual(options, [
       "Native edit call: Visible",
       "Diff layout: Auto",
-      "Change markers: Bars",
+      "Change markers: + / -",
       "Word wrap: On",
       "Edit collapsed lines: 24",
       "Write collapsed lines (0 = summary only): 0",
