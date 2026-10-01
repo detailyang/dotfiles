@@ -36,6 +36,11 @@
     "mermaid": "^11.17.2",
     "undici": "8.10.2"
   },
+  "overrides": {
+    "@earendil-works/pi-coding-agent": {
+      "undici": "8.10.2"
+    }
+  },
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "^0.84.0",
     "@earendil-works/pi-ai": "^0.84.0",

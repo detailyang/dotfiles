@@ -1,0 +1,23 @@
+{
+  "theme": "ybw-light",
+  "defaultTools": ["+codemode"],
+  "packages": [
+    "../../pi"
+  ],
+  "defaultThinkingLevel": "xhigh",
+  "retry": {
+    "enabled": true,
+    "maxRetries": 10,
+    "baseDelayMs": 10000,
+    "maxAgentDelayMs": 60000
+  },
+  "images": {
+    "blockImages": false
+  },
+  "showHardwareCursor": true,
+  "terminal": {
+    "showTerminalProgress": true
+  },
+  "enableInstallTelemetry": true,
+  "hideThinkingBlock": false
+}

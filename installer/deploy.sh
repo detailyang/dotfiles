@@ -92,6 +92,50 @@ ybw::deploy::sync_tree() {
     return "$rsync_status"
 }
 
+ybw::deploy::sync_pi_package() {
+    local dry_run="$1"
+    local backup_dir="$2"
+    local source="$YBW_INSTALL_ROOT/pi/"
+    local target="$HOME/pi/"
+    local target_path="$HOME/pi"
+    local backup_target="$backup_dir/pi"
+    local -a rsync_args
+
+    if [[ ! -d "$source" ]]; then
+        ybw::log::error "Pi package source not found: ${source%/}"
+        return 1
+    fi
+
+    rsync_args=(
+        -avh
+        --backup
+        --backup-dir="$backup_target"
+    )
+
+    if [[ "$dry_run" == true ]]; then
+        ybw::log::info "Would sync Pi package with rsync: $source -> $target"
+        return 0
+    fi
+
+    if [[ -e "$target_path" || -L "$target_path" ]] && [[ -L "$target_path" || ! -d "$target_path" ]]; then
+        if ! mkdir -p "$(dirname "$backup_target")" || ! mv "$target_path" "$backup_target"; then
+            ybw::log::error "Failed to back up existing $target_path"
+            return 1
+        fi
+    fi
+
+    if ! mkdir -p "$backup_target"; then
+        ybw::log::error "Failed to create Pi package backup directory: $backup_target"
+        return 1
+    fi
+    if ! rsync "${rsync_args[@]}" "$source" "$target"; then
+        ybw::log::error "Failed to sync Pi package to $target_path"
+        return 1
+    fi
+
+    ybw::log::success "Pi package synced: $target_path <- ${source%/}"
+}
+
 ybw::deploy::link_agent_instructions() {
     local link_path="$HOME/.config/opencode/AGENTS.md"
 
@@ -110,6 +154,7 @@ ybw::deploy::run() {
     local backup_dir="$HOME/.dotfiles-backup-$(date +%Y%m%d_%H%M%S)-$$"
     local home_list
     local rsync_status=0
+    local pi_rsync_status=0
 
     ybw::log::step "Phase 2: Deploying Configuration Files"
 
@@ -140,9 +185,17 @@ ybw::deploy::run() {
 
     rm -f "$home_list"
 
+    if [[ $rsync_status -eq 0 ]]; then
+        ybw::deploy::sync_pi_package "$dry_run" "$backup_dir" || pi_rsync_status=$?
+    fi
+
     if [[ $rsync_status -ne 0 ]]; then
         ybw::log::error "rsync failed with exit code $rsync_status"
         ybw::log::error "Please check permissions and disk space"
+        return 1
+    fi
+    if [[ $pi_rsync_status -ne 0 ]]; then
+        ybw::log::error "Pi package rsync failed with exit code $pi_rsync_status"
         return 1
     fi
 

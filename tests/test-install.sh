@@ -48,6 +48,7 @@ test_installer_can_be_sourced() {
 
 test_deploy_is_scoped_and_backed_up() {
     local backup_dir
+    local candidate
     local home_dir
     local status=0
     local untracked_path="$PWD/home/install-test-untracked-$$"
@@ -71,13 +72,19 @@ test_deploy_is_scoped_and_backed_up() {
         ybw::deploy::run false > /dev/null
     ) || status=1
 
-    backup_dir="$(find "$home_dir" -maxdepth 1 -type d -name '.dotfiles-backup-*' -print -quit)"
+    backup_dir=""
+    for candidate in "$home_dir"/.dotfiles-backup-*; do
+        if [[ -f "$candidate/.config/fish/config.fish" ]]; then
+            backup_dir="$candidate"
+            break
+        fi
+    done
     [[ ! -e "$home_dir/$(basename "$untracked_path")" ]] || status=1
     [[ ! -e "$home_dir/.config/$(basename "$untracked_nested_path")" ]] || status=1
     [[ ! -e "$home_dir/.codex/.env" ]] || status=1
     [[ ! -e "$home_dir/greptimedb_data" ]] || status=1
     [[ ! -e "$home_dir/scripts" ]] || status=1
-    [[ ! -e "$home_dir/pi" ]] || status=1
+    [[ -d "$home_dir/pi" && ! -L "$home_dir/pi" ]] || status=1
     [[ ! -e "$home_dir/home" ]] || status=1
     [[ -f "$home_dir/.bashrc" ]] || status=1
     [[ -f "$home_dir/.config/fish/config.fish" ]] || status=1
@@ -101,6 +108,34 @@ test_deploy_is_scoped_and_backed_up() {
     rm -f "$untracked_path" "$untracked_nested_path"
     rm -rf "$home_dir"
     return "$status"
+}
+
+test_deploy_syncs_local_pi_package() {
+    local home_dir
+    local result=0
+    local source_file
+    local target_file
+
+    home_dir="$(mktemp -d)"
+    source_file="$PWD/pi/CONTEXT.md"
+    target_file="$home_dir/pi/CONTEXT.md"
+    (
+        HOME="$home_dir"
+        export HOME
+        source "$PWD/bootstrap.sh"
+        ybw::deploy::run true > /dev/null || exit 1
+        [[ ! -e "$home_dir/pi" ]] || exit 1
+        mkdir -p "$home_dir/pi"
+        ybw::deploy::run false > /dev/null || exit 1
+        [[ -d "$home_dir/pi" && ! -L "$home_dir/pi" ]] || exit 1
+        cmp "$source_file" "$target_file" || exit 1
+        [[ ! -e "$home_dir/.pi/pi-ybw" ]] || exit 1
+        ybw::deploy::run false > /dev/null || exit 1
+        cmp "$source_file" "$target_file" || exit 1
+    ) || result=1
+    rm -rf "$home_dir"
+
+    return "$result"
 }
 
 test_linux_rejects_mac_apps_before_deploy() {
@@ -345,6 +380,7 @@ test_macos_postinstall_uses_only_configured_integrations() {
 check "installer exposes a namespaced module boundary" test_installer_has_namespaced_module_boundary
 check "installer can be sourced without execution or cwd changes" test_installer_can_be_sourced
 check "deployment is scoped to tracked files and preserves replaced paths" test_deploy_is_scoped_and_backed_up
+check "deployment syncs the local Pi package with rsync" test_deploy_syncs_local_pi_package
 check "the home mirror defines the deployment file list" test_home_mirror_defines_the_deployment_file_list
 check "agent skills live in the home mirror" test_agent_skills_live_in_the_home_mirror
 check "Linux rejects macOS app selection before deployment" test_linux_rejects_mac_apps_before_deploy
