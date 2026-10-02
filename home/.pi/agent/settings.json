@@ -1,13 +1,15 @@
 {
   "theme": "ybw-light",
-  "defaultTools": ["+codemode"],
+  "defaultTools": [
+    "+codemode"
+  ],
   "packages": [
     "../pi-ybw"
   ],
   "defaultThinkingLevel": "xhigh",
   "retry": {
     "enabled": true,
-    "maxRetries": 10,
+    "maxRetries": 12,
     "baseDelayMs": 10000,
     "maxAgentDelayMs": 60000
   },
@@ -18,6 +20,9 @@
   "terminal": {
     "showTerminalProgress": true
   },
-  "enableInstallTelemetry": true,
-  "hideThinkingBlock": false
+  "enableInstallTelemetry": false,
+  "hideThinkingBlock": false,
+  "lastChangelogVersion": "1.0.0",
+  "quietStartup": true,
+  "tuiMode": "regular"
 }
