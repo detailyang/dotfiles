@@ -11,8 +11,8 @@ Personal configs for macOS, Linux, WSL, and Windows.
 ```
 
 Only tracked `home/` files deploy to `$HOME`; replacements are backed up under
-`~/.dotfiles-backup-*`. Installation can change the login shell and macOS defaults.
-More options: `./bootstrap.sh --help`.
+`~/.dotfiles-backup-*`. Installation can change the login shell, system timezone,
+and macOS defaults. More options: `./bootstrap.sh --help`.
 
 Windows: `.\bootstrap.ps1 -NoPull -Verbose`.
 

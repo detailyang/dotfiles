@@ -58,7 +58,9 @@ ybw::platform::configure() {
     if ybw::platform::is_macos; then
         ybw::macos::apply_defaults
     elif ybw::platform::is_linux; then
-        ybw::log::info "Linux-specific setup not yet implemented"
+        if ! ybw::linux::configure_timezone; then
+            ybw::result::warn "Continuing without changing the system timezone"
+        fi
     else
         ybw::log::info "No platform-specific setup for $(ybw::platform::name)"
     fi
@@ -117,24 +119,56 @@ ybw::macos::apply_defaults() {
     ybw::log::success "macOS defaults configured"
 }
 
-readonly YBW_MACOS_TIMEZONE="Asia/Taipei"
+readonly YBW_TIMEZONE="Asia/Taipei"
 
 ybw::macos::configure_timezone() {
     local current
 
     current="$(readlink /etc/localtime 2>/dev/null || true)"
-    if [[ "$current" == *"/$YBW_MACOS_TIMEZONE" ]]; then
-        ybw::log::success "Timezone already set to $YBW_MACOS_TIMEZONE"
+    if [[ "$current" == *"/$YBW_TIMEZONE" ]]; then
+        ybw::log::success "Timezone already set to $YBW_TIMEZONE"
         return 0
     fi
 
-    ybw::log::info "Setting timezone to $YBW_MACOS_TIMEZONE (requires administrator privileges)..."
-    if sudo systemsetup -settimezone "$YBW_MACOS_TIMEZONE"; then
-        ybw::log::success "Timezone set to $YBW_MACOS_TIMEZONE"
+    ybw::log::info "Setting timezone to $YBW_TIMEZONE (requires administrator privileges)..."
+    if sudo systemsetup -settimezone "$YBW_TIMEZONE"; then
+        ybw::log::success "Timezone set to $YBW_TIMEZONE"
         return 0
     fi
 
-    ybw::log::warn "Failed to set timezone to $YBW_MACOS_TIMEZONE"
+    ybw::log::warn "Failed to set timezone to $YBW_TIMEZONE"
+    return 1
+}
+
+ybw::linux::configure_timezone() {
+    local current
+    local timezone_file="/usr/share/zoneinfo/$YBW_TIMEZONE"
+
+    if [[ ! -f "$timezone_file" ]]; then
+        ybw::log::warn "Timezone data is unavailable at $timezone_file"
+        return 1
+    fi
+
+    current="$(readlink /etc/localtime 2>/dev/null || true)"
+    if [[ "$current" == *"/$YBW_TIMEZONE" ]]; then
+        ybw::log::success "Timezone already set to $YBW_TIMEZONE"
+        return 0
+    fi
+
+    ybw::log::info "Setting timezone to $YBW_TIMEZONE (requires administrator privileges)..."
+    if ybw::command::exists timedatectl && \
+        ybw::command::as_root timedatectl set-timezone "$YBW_TIMEZONE"; then
+        ybw::log::success "Timezone set to $YBW_TIMEZONE"
+        return 0
+    fi
+
+    ybw::log::info "Falling back to linking /etc/localtime directly..."
+    if ybw::command::as_root ln -sfn "$timezone_file" /etc/localtime; then
+        ybw::log::success "Timezone set to $YBW_TIMEZONE"
+        return 0
+    fi
+
+    ybw::log::warn "Failed to set timezone to $YBW_TIMEZONE"
     return 1
 }
 

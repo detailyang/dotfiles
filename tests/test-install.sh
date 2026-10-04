@@ -238,6 +238,55 @@ test_macos_prefers_home_manager_fish() {
     [[ "$output" == "$fish_path" ]]
 }
 
+test_linux_timezone_uses_timedatectl() {
+    local fake_bin
+    local output
+    local result=0
+    local timezone_args
+
+    fake_bin="$(mktemp -d)"
+    timezone_args="$fake_bin/timedatectl.args"
+    printf '#!/bin/sh\nprintf "%%s\\n" "$*" > "%s"\n' "$timezone_args" > "$fake_bin/timedatectl"
+    printf '#!/bin/sh\nprintf "/usr/share/zoneinfo/UTC\\n"\n' > "$fake_bin/readlink"
+    chmod +x "$fake_bin/timedatectl" "$fake_bin/readlink"
+
+    output="$(PATH="$fake_bin:$PATH" bash -c '
+        source "$1"
+        ybw::command::as_root() { "$@"; }
+        ybw::linux::configure_timezone
+    ' _ "$PWD/bootstrap.sh" 2>&1)" || result=1
+    [[ "$output" == *"Timezone set to Asia/Taipei"* ]] || result=1
+    [[ "$(< "$timezone_args")" == "set-timezone Asia/Taipei" ]] || result=1
+
+    rm -rf "$fake_bin"
+    return "$result"
+}
+
+test_linux_timezone_falls_back_without_systemd() {
+    local fake_bin
+    local output
+    local result=0
+    local timezone_args
+
+    fake_bin="$(mktemp -d)"
+    timezone_args="$fake_bin/ln.args"
+    printf '#!/bin/sh\nexit 1\n' > "$fake_bin/timedatectl"
+    printf '#!/bin/sh\nprintf "/usr/share/zoneinfo/UTC\\n"\n' > "$fake_bin/readlink"
+    printf '#!/bin/sh\nprintf "%%s\\n" "$*" > "%s"\n' "$timezone_args" > "$fake_bin/ln"
+    chmod +x "$fake_bin/timedatectl" "$fake_bin/readlink" "$fake_bin/ln"
+
+    output="$(PATH="$fake_bin:$PATH" bash -c '
+        source "$1"
+        ybw::command::as_root() { "$@"; }
+        ybw::linux::configure_timezone
+    ' _ "$PWD/bootstrap.sh" 2>&1)" || result=1
+    [[ "$output" == *"Falling back to linking /etc/localtime directly"* ]] || result=1
+    [[ "$(< "$timezone_args")" == "-sfn /usr/share/zoneinfo/Asia/Taipei /etc/localtime" ]] || result=1
+
+    rm -rf "$fake_bin"
+    return "$result"
+}
+
 test_requested_npx_failure_is_reported() {
     local fake_bin
     local output
@@ -388,7 +437,10 @@ check "Home Manager profile selection is not a silent no-op" test_profile_requir
 check "missing rsync fails during plan validation" test_missing_rsync_fails_during_plan_validation
 check "standard macOS plans do not require Homebrew" test_macos_standard_plan_does_not_require_homebrew
 check "macOS prefers Home Manager Fish over PATH fallbacks" test_macos_prefers_home_manager_fish
+check "Linux timezone configuration uses timedatectl" test_linux_timezone_uses_timedatectl
+check "Linux timezone configuration falls back without systemd" test_linux_timezone_falls_back_without_systemd
 check "requested npx failures produce a failed result" test_requested_npx_failure_is_reported
+
 check "requested PI failures produce a failed result" test_requested_pi_failure_is_reported
 check "optional post-install failures are counted" test_optional_postinstall_failure_is_counted
 check "macOS post-install runs only configured integrations" test_macos_postinstall_uses_only_configured_integrations

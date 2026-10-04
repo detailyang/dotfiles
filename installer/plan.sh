@@ -139,20 +139,23 @@ ybw::plan::validate() {
         if [[ "$YBW_INSTALL_PLAN_MAC_APPS" == true ]]; then
             ybw::command::require brew "Visit https://brew.sh" || return 1
         fi
-    elif ! ybw::linux::find_fish > /dev/null; then
-        package_manager=""
-        for package_manager in apt-get dnf yum pacman zypper apk; do
-            if ybw::command::exists "$package_manager"; then
-                break
-            fi
-            package_manager=""
-        done
-        if [[ -z "$package_manager" ]]; then
-            ybw::log::error "No supported package manager is available to install Fish"
-            return 1
-        fi
+    elif ybw::platform::is_linux; then
         if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
             ybw::command::require sudo "Install sudo or run as root" || return 1
+        fi
+
+        if ! ybw::linux::find_fish > /dev/null; then
+            package_manager=""
+            for package_manager in apt-get dnf yum pacman zypper apk; do
+                if ybw::command::exists "$package_manager"; then
+                    break
+                fi
+                package_manager=""
+            done
+            if [[ -z "$package_manager" ]]; then
+                ybw::log::error "No supported package manager is available to install Fish"
+                return 1
+            fi
         fi
     fi
 
