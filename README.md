@@ -44,6 +44,7 @@ make check  # both
 - [home/](home/): shell, application, Home Manager, and Mise configuration.
 - [home/.agents/](home/.agents/): global instructions and workflow skills; `.agents` links here.
 - [home/skills/](home/skills/): domain skills.
+- [knowledge/](knowledge/README.md): curated learning links and notes; start with [GPU optimization](knowledge/gpu/README.md).
 - [pi/](pi/): extensions, skills, prompts, and themes.
 
 Repository rules: [AGENTS.md](AGENTS.md).

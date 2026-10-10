@@ -4,6 +4,9 @@ Read [global instructions](home/.agents/AGENTS.md), then only task-relevant skil
 Use [README.md](README.md) for layout, installation, and Pi usage; keep this file
 focused on repository-specific constraints rather than duplicating global policy.
 
+For curated learning references, read [knowledge/README.md](knowledge/README.md)
+and only the relevant topic or card. Keep reading material separate from skills.
+
 ## Boundaries
 
 - Unix deployment copies only Git-tracked `home/` files to the same paths under
