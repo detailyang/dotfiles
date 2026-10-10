@@ -9,9 +9,16 @@ export const DEFAULT_RETRY_ERROR_CODES = [
   "server_is_overloaded",
 ] as const;
 
-// pi-ai's native classifier already retries messages containing "overloaded" or
-// "server error". Keep the compatibility hint only for codes it does not know.
-const NATIVE_RETRYABLE_ERROR = /\boverloaded\b|server.?error/i;
+/** Transient transport failures reported as plain text, without an error code. */
+export const DEFAULT_RETRY_ERROR_MESSAGE_PATTERNS: readonly RegExp[] = [
+  /\bupstream http\/?2 stream failed\b/i,
+  /\bconnection error\b/i,
+];
+
+// pi-ai's native classifier already retries messages containing "overloaded",
+// "server error", or "connection error". Keep the compatibility hint only for
+// errors it does not know.
+const NATIVE_RETRYABLE_ERROR = /\boverloaded\b|server.?error|connection.?error/i;
 // Erase the compatibility hint after the terminal consumes it, so it does not
 // appear in the final error while still reaching pi-ai's classifier.
 const NATIVE_RETRY_HINT = "server error\u001b[12D\u001b[K";
@@ -27,9 +34,19 @@ export function hasRetryableErrorCode(
   });
 }
 
+export function hasRetryableErrorMessage(
+  errorMessage: string | undefined,
+  patterns: readonly RegExp[] = DEFAULT_RETRY_ERROR_MESSAGE_PATTERNS,
+): boolean {
+  if (!errorMessage) return false;
+  return patterns.some((pattern) => pattern.test(errorMessage));
+}
+
 export function markForNativeRetry(message: AgentMessage): AgentMessage | undefined {
   if (message.role !== "assistant" || message.stopReason !== "error") return undefined;
-  if (!hasRetryableErrorCode(message.errorMessage)) return undefined;
+  if (!hasRetryableErrorCode(message.errorMessage) && !hasRetryableErrorMessage(message.errorMessage)) {
+    return undefined;
+  }
   if (NATIVE_RETRYABLE_ERROR.test(message.errorMessage ?? "")) return { ...message };
 
   return {

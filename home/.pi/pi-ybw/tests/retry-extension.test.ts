@@ -91,6 +91,35 @@ test("reclassifies the Excel BPS upstream response too", async () => {
   assert.equal(isRetryableAssistantError(result.message), true);
 });
 
+test("reclassifies upstream HTTP/2 stream and connection failures for retry", async () => {
+  const errorMessages = [
+    "Error: Upstream HTTP/2 stream failed",
+    "Upstream HTTP/2 stream failed",
+    "Error: Connection error.",
+    "Error: Retry failed after 3 attempts: Connection error.",
+  ];
+
+  for (const errorMessage of errorMessages) {
+    const harness = createExtensionHarness(retryExtension);
+    const [result] = await harness.emit("message_end", {
+      message: { role: "assistant", stopReason: "error", errorMessage, content: [] },
+    });
+
+    assert.ok(result?.message, errorMessage);
+    assert.equal(isRetryableAssistantError(result.message), true, errorMessage);
+  }
+});
+
+test("does not alter messages that Pi already retries natively", async () => {
+  const harness = createExtensionHarness(retryExtension);
+  const errorMessage = "Error: Connection error.";
+  const [result] = await harness.emit("message_end", {
+    message: { role: "assistant", stopReason: "error", errorMessage, content: [] },
+  });
+
+  assert.equal(result?.message?.errorMessage, errorMessage);
+});
+
 test("does not reclassify unrelated errors", async () => {
   const harness = createExtensionHarness(retryExtension);
   const [result] = await harness.emit("message_end", {

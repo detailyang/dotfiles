@@ -8,8 +8,13 @@ Basis Points responses that `pi-ai` does not classify as retryable by default:
 - `basispoints_stream_incomplete`
 - `server_is_overloaded`
 
+It also retries these plain-text transport failures, which carry no error code:
+
+- `Error: Upstream HTTP/2 stream failed`
+- `Error: Connection error.`
+
 The extension only reclassifies assistant errors containing those exact error
-codes, including the Excel/BPS forms:
+codes or messages, including the Excel/BPS forms:
 
 - `basispoints_protocol_error: basispoints returned a tool outside the client's catalog`
 - `Excel BPS upstream failure: basispoints_upstream_error; request was not replayed`
@@ -18,7 +23,7 @@ codes, including the Excel/BPS forms:
 It does not retry arbitrary `404` responses or resend user messages.
 
 To add another known-transient error code, edit `DEFAULT_RETRY_ERROR_CODES` in
-`index.ts`. Pi's retry settings control whether and how often the request is retried.
+`index.ts`; for a code-less message, edit `DEFAULT_RETRY_ERROR_MESSAGE_PATTERNS`. Pi's retry settings control whether and how often the request is retried.
 The recommended defaults for this extension are:
 
 ```json
