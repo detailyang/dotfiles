@@ -26,6 +26,8 @@ pi install "$(pwd)/home/.pi/pi-ybw"
 ```
 
 `/help` lists commands; `/diff-view` configures diff display.
+[`/continue 2h`](home/.pi/pi-ybw/extensions/continue/README.md) sends `continue`
+after two hours; `/continue` sends it now.
 [Domain proxy](pi/extensions/domain-proxy/README.md) routes configured hostnames
 through `127.0.0.1:7890`; `/domain-proxy` shows its file-based settings.
 `bootstrap.sh --pi` installs external extensions, not this local package.
