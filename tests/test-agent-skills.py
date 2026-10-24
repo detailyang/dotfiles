@@ -106,10 +106,10 @@ class SkillValidationTests(unittest.TestCase):
         missing.parent.rmdir()
         self.assertTrue(any("workflow inventory mismatch" in e for e in validator.validate(self.root)))
 
-    def test_global_budget_and_link(self):
+    def test_global_size_is_unrestricted_and_links_are_checked(self):
         self.put("home/.agents/AGENTS.md", "[Guide](references/missing.md)\n" + "测" * 1400)
         errors = validator.validate(self.root)
-        self.assertTrue(any("global AGENTS.md exceeds" in e for e in errors))
+        self.assertFalse(any("global AGENTS.md exceeds" in e for e in errors))
         self.assertTrue(any("missing local link target" in e for e in errors))
 
 

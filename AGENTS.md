@@ -67,9 +67,8 @@ strings; names match directories and are unique across roots. Update the invento
 in `tests/validate-agent-skills.py` when adding or removing workflow skills.
 
 The Python 3.9+ standard-library validator checks metadata, inventory, local links,
-and entry budgets: 4 KiB for global AGENTS.md and 8 KiB per SKILL.md. These are
-repository budgets, not client token limits; checks do not verify external URLs
-or model behavior.
+and skill entry budgets: 8 KiB per SKILL.md. This is a repository budget, not a
+client token limit; checks do not verify external URLs or model behavior.
 
 ## Delivery
 

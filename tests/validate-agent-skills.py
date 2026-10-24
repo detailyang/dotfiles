@@ -3,7 +3,7 @@
 
 No third-party parser is needed: name and description deliberately use one-line,
 plain YAML scalars in this repository. This is a repository contract check, not a
-complete YAML or Markdown parser. Reference prose has no entry-point size limit.
+complete YAML or Markdown parser. Reference prose has no entry-point size limit; skill manifests have an entry size limit.
 """
 
 from pathlib import Path
@@ -20,7 +20,6 @@ NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 RESOURCE = re.compile(r"(?:references|scripts|assets)/[\w./-]+\.[\w-]+")
 LINK = re.compile(r"\[[^\]\n]*\]\(([^\s)]+)\)")
 ENTRY_LIMIT = 8192
-GLOBAL_LIMIT = 4096
 
 
 def manifest_errors(path: Path) -> list[str]:
@@ -116,8 +115,6 @@ def validate(root: Path) -> list[str]:
     global_entry = root / "home/.agents/AGENTS.md"
     if not global_entry.is_file():
         errors.append("missing global AGENTS.md")
-    elif global_entry.stat().st_size > GLOBAL_LIMIT:
-        errors.append(f"global AGENTS.md exceeds {GLOBAL_LIMIT} bytes")
     for document in [root / "AGENTS.md", global_entry, root / "home/.codex/AGENTS.md"]:
         if document.is_file():
             errors.extend(f"{document.relative_to(root)}: {message}"
@@ -134,4 +131,4 @@ if __name__ == "__main__":
         sys.exit(1)
     count = sum(1 for base in ("home/.agents/skills", "home/skills", "home/.pi/pi-ybw/skills")
                 for _ in (repository / base).glob("*/SKILL.md"))
-    print(f"Validated {count} skills: metadata, inventory, local links, resources, and entry budgets")
+    print(f"Validated {count} skills: metadata, inventory, local links, resources, and skill entry budgets")
