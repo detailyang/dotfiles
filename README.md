@@ -26,6 +26,8 @@ pi install "$(pwd)/home/.pi/pi-ybw"
 ```
 
 `/help` lists commands; `/diff-view` configures diff display.
+[`/gsc`](home/.pi/pi-ybw/extensions/gsc/README.md)
+guides you through GSC data and business context, then prioritizes SEO content work.
 [`/continue 2h`](home/.pi/pi-ybw/extensions/continue/README.md) sends `continue`
 after two hours; `/continue` sends it now.
 [Domain proxy](pi/extensions/domain-proxy/README.md) routes configured hostnames
