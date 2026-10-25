@@ -1,6 +1,6 @@
 # Repository Guidelines
 
-Read [global instructions](home/.agents/AGENTS.md), then only task-relevant skills.
+Read [global instructions](home/.agents/AGENTS.md) first.
 Use [README.md](README.md) for layout, installation, and Pi usage; keep this file
 focused on repository-specific constraints rather than duplicating global policy.
 
@@ -19,8 +19,9 @@ and only the relevant topic or card. Keep reading material separate from skills.
 - Home Manager owns shared CLI packages, Mise owns runtimes, and Homebrew supplies
   optional macOS casks. Linux login Fish must remain a stable system executable,
   not a Nix-generation path.
-- `pi/package.json` owns Pi resources, dependencies, and test commands. The local
-  Pi package is separate from the external extensions installed by `--pi`.
+- `home/.pi/pi-ybw/package.json` owns Pi resources, dependencies, and test
+  commands. The local Pi package is separate from the external extensions
+  installed by `--pi`.
 
 ## Editing
 
@@ -72,7 +73,7 @@ client token limit; checks do not verify external URLs or model behavior.
 
 ## Delivery
 
-Never commit secrets, tokens, credentials, or private hostnames; `.gitignore` does
-not protect tracked files. Treat SSH and installer configuration as sensitive.
-When requested, use Conventional Commits and describe affected tools, verification,
-and host or credential impact in PRs. Follow the global authorization boundaries.
+`.gitignore` does not protect tracked files: review every tracked `home/` change
+for secrets, tokens, credentials, and private hostnames, and treat SSH and
+installer configuration as sensitive. In PRs, name the affected tools, the checks
+run, and any host or credential impact.
