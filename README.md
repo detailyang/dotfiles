@@ -30,7 +30,7 @@ pi install "$(pwd)/home/.pi/pi-ybw"
 guides you through GSC data and business context, then prioritizes SEO content work.
 [`/continue 2h`](home/.pi/pi-ybw/extensions/continue/README.md) sends `continue`
 after two hours; `/continue` sends it now.
-[Domain proxy](pi/extensions/domain-proxy/README.md) routes configured hostnames
+[Domain proxy](home/.pi/pi-ybw/extensions/domain-proxy/README.md) routes configured hostnames
 through `127.0.0.1:7890`; `/domain-proxy` shows its file-based settings.
 `bootstrap.sh --pi` installs external extensions, not this local package.
 For dependency changes, update `home/.pi/pi-ybw/package.json` and its lockfile together.
@@ -49,6 +49,6 @@ make check  # both
 - [home/.agents/](home/.agents/): global instructions and workflow skills; `.agents` links here.
 - [home/skills/](home/skills/): domain skills.
 - [knowledge/](knowledge/README.md): curated learning links and notes; start with [GPU optimization](knowledge/gpu/README.md).
-- [pi/](pi/): extensions, skills, prompts, and themes.
+- [home/.pi/pi-ybw/](home/.pi/pi-ybw/): Pi extensions, skills, prompts, and themes.
 
 Repository rules: [AGENTS.md](AGENTS.md).
