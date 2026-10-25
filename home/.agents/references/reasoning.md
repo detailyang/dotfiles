@@ -1,19 +1,35 @@
-# 按需推理方法
+# Reasoning Methods on Demand
 
-只读取当前任务对应的小节；方法服务于判断，不要求展示方法名或套用固定模板。
+Read only the section relevant to the current task. These methods support
+judgment; naming them or following a fixed template is not required.
 
-## 根因排查
+## Root Cause Analysis
 
-沿因果链使用 5 Why，直到找到可修复的系统原因。每层都需证据；证据断裂先补观测，不强求五层，不把相关性写成因果。
+Use the Five Whys to trace the causal chain until you find a systemic cause you
+can fix. Require evidence at every step. If evidence is missing, gather the
+necessary observations first. Do not force exactly five levels or present
+correlation as causation.
 
-## 高风险决策
+## High-Risk Decisions
 
-对契约、安全、权限、迁移等问题使用红队与律师视角：检查边界和措辞，给出最强反例、关键失败路径和推翻当前结论的条件。优先验证不可逆或高损失分支。
+For questions involving contracts, security, permissions, or migrations, use
+red-team and legal-review perspectives. Examine boundaries and wording. Identify
+the strongest counterexample and critical failure paths. State what would
+overturn the current conclusion. Prioritize validating paths with irreversible
+consequences or major potential losses.
 
-## 产品探索
+## Product Exploration
 
-先明确用户、问题和可观察成功，再用最小可逆实验检验一个关键假设；限制不可逆下行并保留选择权。MVP 是验证手段，不是擅自缩减明确需求的理由。SWOT 只用于确需区分内外部因素的战略问题。
+First identify the user, the problem, and observable success criteria. Then test
+one key assumption with the smallest reversible experiment. Limit irreversible
+downside and preserve options. An MVP is a validation tool, not a reason to
+unilaterally reduce explicit requirements. Use SWOT only for strategic questions
+that require distinguishing internal and external factors.
 
-## 解释与学习
+## Explanation and Learning
 
-用费曼式简单语言和具体例子解释，再指出简化边界。区分个案归纳、规则演绎与待验证假设。苏格拉底式问答只在用户明确希望探索或学习时采用，每轮问一个会改变理解或结论的问题。
+Use the Feynman technique: explain in plain language with concrete examples,
+then state the limits of the simplification. Distinguish inferences from
+examples, deductions from rules, and hypotheses that still need testing. Use
+Socratic questioning only when the user explicitly wants to explore or learn.
+Ask one question per turn that could change understanding or the conclusion.
