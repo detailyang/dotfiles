@@ -1,6 +1,7 @@
 check "herdr resolves Fish from PATH" "grep -q '^default_shell = \"fish\"$' home/.config/herdr/config.toml"
 check "Fish launchers avoid platform-specific paths" "! grep -Eq '/opt/homebrew/bin/fish|/usr/local/bin/fish' bootstrap.sh installer/*.sh home/.config/herdr/config.toml"
 check "herdr starts fish as a login shell" "grep -q '^shell_mode = \"login\"$' home/.config/herdr/config.toml"
+check_if_available lua "Rex splits, focus and close target the intended panes and windows" "lua tests/validate/rex.lua"
 
 check "proxy-env is the executable proxy env module" "test -x home/bin/proxy-env"
 check "proxy-env bash adapter output sets the default proxy endpoint" "[[ \"\$(./home/bin/proxy-env bash proxy)\" == *'export HTTP_PROXY=http://192.168.33.1:7890'* ]]"
