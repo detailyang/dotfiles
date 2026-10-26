@@ -1,5 +1,5 @@
 -- Migrated from home/.config/herdr/config.toml and home/.tmux.conf.
--- Where shortcuts conflict, prefer the explicit tmux binding.
+-- Direct macOS shortcuts; no prefix key or key modes.
 -- https://www.superlogical.com/rex/docs/customize/config
 -- Check: rex config check ~/.config/rex/init.lua
 -- Apply on the Rex server: rex config reload
@@ -31,11 +31,22 @@ local function current_directory(ctx)
   end))
 end
 
-local function fish_layout(ctx, command)
+local function fish_layout(ctx, fish_command)
+  -- GUI servers may only inherit system paths. Resolve Fish on the server,
+  -- keeping its PATH preference and adding Nix and Homebrew install locations.
+  local fish = run_command({ "/bin/sh", "-c", [[
+    PATH="$PATH:$HOME/.nix-profile/bin:/etc/profiles/per-user/$USER/bin:/usr/local/bin:/opt/homebrew/bin"
+    command -v fish || { printf '%s\n' 'Fish not found in PATH or standard Nix/Homebrew locations' >&2; exit 1; }
+  ]] }):gsub("\n$", "")
+  local command = { fish, "--login" }
+  if fish_command then
+    command[#command + 1] = "--command"
+    command[#command + 1] = fish_command
+  end
   return rex.layout.block{
     flavor = "com.superlogical.terminal.shell",
     options = {
-      command = command or { "fish", "--login" },
+      command = command,
       shell = "none",
       cwd = current_directory(ctx),
     },
@@ -122,7 +133,7 @@ rex.action{
       side = "after",
       focus = true,
       -- Expand HOME in Fish, so this works on both macOS and Linux.
-      layout = fish_layout(ctx, { "fish", "--login", "--command", 'exec "$HOME/bin/snippet"' }),
+      layout = fish_layout(ctx, 'exec "$HOME/bin/snippet"'),
     }
     if err ~= nil then error(err, 0) end
     return split
@@ -175,55 +186,30 @@ rex.action{
   end,
 }
 
--- Ctrl+A starts a sequence; press it twice to send Ctrl+A to the terminal.
-rex.bind("ctrl+a>ctrl+a", "pane.send_key", { key = "ctrl+a" })
--- Ctrl+A then h/j/k/l or an arrow focuses the adjacent pane.
+-- One chord per action. Ctrl+A and Ctrl+W retain their shell behavior.
+rex.bind("cmd+t", "new_fish_window")
+rex.bind("cmd+d", "split_fish", { direction = "horizontal" })
+rex.bind("cmd+shift+d", "split_fish", { direction = "vertical" })
+rex.bind("cmd+w", "pane.close")
+rex.bind("cmd+shift+w", "close_tab") -- Close the tab and all its panes.
+rex.bind("ctrl+tab", "client.tab.next")
+rex.bind("ctrl+shift+tab", "client.tab.previous")
+
+-- Cmd+Option with vi keys or arrows focuses the adjacent pane.
 for key, direction in pairs({ h = "left", j = "down", k = "up", l = "right" }) do
-  rex.bind("ctrl+a>" .. key, "focus_pane", { direction = direction })
-  rex.bind("ctrl+a>" .. direction, "focus_pane", { direction = direction })
+  rex.bind("cmd+alt+" .. key, "focus_pane", { direction = direction })
+  rex.bind("cmd+alt+" .. direction, "focus_pane", { direction = direction })
+  rex.bind("cmd+shift+" .. direction, "pane.resize", { direction = direction })
 end
+rex.bind("cmd+=", "pane.balance")
+rex.bind("cmd+shift+enter", "pane.zoom")
 
-rex.bind("ctrl+a>t", "new_fish_window")
-rex.bind("ctrl+a>c", "close_tab")
-rex.bind("ctrl+a>n", "client.tab.next")
-rex.bind("ctrl+a>p", "capture_html")
-rex.bind("ctrl+a>shift+p", "client.tab.previous")
--- Ctrl+A then |: side-by-side panes (tmux split-window -h), new pane right.
--- Ctrl+A then -: stacked panes (tmux split-window -v), new pane below.
--- Rex matches unshifted keys: | is Shift+backslash on a US layout.
-rex.bind("ctrl+a>shift+\\", "split_fish", { direction = "horizontal" })
-rex.bind("ctrl+a>-", "split_fish", { direction = "vertical" })
-
--- The session picker is the closest documented equivalent of Herdr's
--- workspace picker and goto. Its own navigation keys are client settings.
-rex.bind("ctrl+a>w", "session.switch")
-rex.bind("ctrl+w", "session.switch")
-rex.bind("ctrl+a>g", "session.switch")
--- tmux's `bind M-w` includes the prefix; this opens Rex's session picker.
-rex.bind("ctrl+a>alt+w", "session.switch")
-
-rex.bind("ctrl+a>r", "reload_config")
-rex.bind("ctrl+a>z", "pane.zoom")
-rex.bind("ctrl+a>x", "pane.close") -- Only this pane; Ctrl+A c closes the tab.
--- Reserve Shift+B for tmux's join-pane workflow (see migration limits).
-rex.bind("ctrl+a>alt+b", "client.sidebar.toggle")
-rex.bind("ctrl+a>o", "open_snippet")
-
--- A one-shot layout mode replaces tmux's Space menu for the supported action.
--- Space then = balances the existing splits; Escape cancels.
-rex.mode("layout", { exclusive = true })
-rex.bind("ctrl+a>space", "client.mode.enter", { name = "layout", once = true })
-rex.bind("layout/=", "pane.balance")
-
--- Shift+R enters resize mode; Escape or Enter leaves it.
-rex.mode("resize", { exclusive = true })
-rex.bind("ctrl+a>shift+r", "client.mode.enter", { name = "resize" })
-for key, direction in pairs({ h = "left", j = "down", k = "up", l = "right" }) do
-  rex.bind("resize/" .. key, "pane.resize", { direction = direction })
-  rex.bind("resize/" .. direction, "pane.resize", { direction = direction })
-end
-rex.bind("resize/=", "pane.balance")
-rex.bind("resize/enter", "client.mode.exit")
+-- The session picker replaces Herdr's workspace picker and goto.
+rex.bind("cmd+k", "session.switch")
+rex.bind("cmd+b", "client.sidebar.toggle")
+rex.bind("cmd+o", "open_snippet")
+rex.bind("cmd+p", "capture_html")
+rex.bind("cmd+r", "reload_config")
 
 -- Keep the existing Ghostty migration's Alt+Backspace behavior.
 rex.bind("alt+backspace", "pane.send_key", { key = "alt+backspace" })
@@ -247,9 +233,9 @@ rex.bind("alt+backspace", "pane.send_key", { key = "alt+backspace" })
 --   Ctrl+A b / Shift+B: move_block supports moving panes; the chooser and
 --     conditional break/join behavior still need implementation.
 --   Ctrl+A Space s/S/h/v/t: swap_blocks and move_block support rearranging
---     panes; layout/= currently only balances the existing split tree.
+--     panes; Cmd+= currently only balances the existing split tree.
 --   Ctrl+A v: persistent p-shell hide/restore behavior is not implemented.
---   Ctrl+A o: snippet remains a temporary split; new_layer supports floats.
+--   Cmd+O: snippet remains a temporary split; new_layer supports floats.
 --   Ctrl+P: no equivalent live input broadcast action was found in the docs.
 --   Ctrl+L: normal shell redraw remains. Public configs use
 --     com.superlogical.terminal.clear; verify it on the installed client
