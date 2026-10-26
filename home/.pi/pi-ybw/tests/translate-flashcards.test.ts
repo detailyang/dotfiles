@@ -1,5 +1,5 @@
 // Ported from mackt/pi-language-tutor test/flashcards.test.ts (Vitest -> node:test).
-// See extensions/language-tutor/ATTRIBUTION.md for provenance.
+// See extensions/translate/ATTRIBUTION.md for provenance.
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -14,9 +14,9 @@ import {
   Rating,
   rateCard,
   updateCard,
-} from "../extensions/language-tutor/src/flashcards.ts";
-import type { FlashcardEntry } from "../extensions/language-tutor/src/flashcards.ts";
-import { clampSettings, DEFAULT_SETTINGS } from "../extensions/language-tutor/src/flashcard-settings.ts";
+} from "../extensions/translate/src/flashcards.ts";
+import type { FlashcardEntry } from "../extensions/translate/src/flashcards.ts";
+import { clampSettings, DEFAULT_SETTINGS } from "../extensions/translate/src/flashcard-settings.ts";
 
 function makeCard(word: string, note = "a note"): FlashcardEntry {
   const cards: FlashcardEntry[] = [];

@@ -1,5 +1,5 @@
 // Ported from mackt/pi-language-tutor test/core.test.ts (Vitest -> node:test).
-// See extensions/language-tutor/ATTRIBUTION.md for provenance.
+// See extensions/translate/ATTRIBUTION.md for provenance.
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
@@ -18,19 +18,19 @@ import {
   resolveStoredModelReference,
   segmentMarkdown,
   shouldSkipCheck,
-} from "../extensions/language-tutor/src/core.ts";
+} from "../extensions/translate/src/core.ts";
 import {
   getProviderStream,
   getRegisteredProviderStream,
   resolveModel,
   runLlm,
   withProviderAuthBaseUrl,
-} from "../extensions/language-tutor/src/llm.ts";
+} from "../extensions/translate/src/llm.ts";
 import type {
   ProviderRegistry,
   RegisteredProviderConfigRegistry,
-} from "../extensions/language-tutor/src/llm.ts";
-import { warnOnCacheMismatch } from "../extensions/language-tutor/src/settings.ts";
+} from "../extensions/translate/src/llm.ts";
+import { warnOnCacheMismatch } from "../extensions/translate/src/settings.ts";
 
 test("shouldSkipCheck: inputs that must be skipped", async (t) => {
   await t.test("slash command", () => assert.equal(shouldSkipCheck("/reload"), true));

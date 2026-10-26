@@ -14,7 +14,7 @@
  * See ATTRIBUTION.md for provenance.
  */
 
-import languageTutor from "./src/index.ts";
+import translate from "./src/index.ts";
 
 export * from "./src/core.ts";
-export default languageTutor;
+export default translate;

@@ -1,6 +1,6 @@
 /**
  * Translation: renders assistant responses as bilingual cards (alt+t,
- * /translate, and auto mode). Cards are custom entries — never sent back to
+ * /t, and auto mode). Cards are custom entries — never sent back to
  * the LLM, costing no context.
  */
 
@@ -29,12 +29,18 @@ import { STATUS_KEY, updateStatus } from './settings.ts'
 
 const ENTRY_TYPE = 'lang-translation'
 
+/**
+ * What Option+T types on macOS US/ABC layouts when the terminal keeps Option
+ * as a text modifier instead of Alt; pi never sees it as alt+t.
+ */
+const MACOS_OPTION_T = '†'
+
 export interface TranslateDeps {
   /** Fork of the main session's last LLM request, for context mode. */
   makeFork(ctx: ExtensionContext): ForkContext | undefined
 }
 
-/** Wire up bilingual translation: entry renderer, alt+t, /translate, and auto mode. */
+/** Wire up bilingual translation: entry renderer, alt+t/option+t, /t, and auto mode. */
 export function registerTranslation(pi: ExtensionAPI, deps: TranslateDeps): void {
   let lastAutoKey: string | undefined
 
@@ -134,7 +140,7 @@ export function registerTranslation(pi: ExtensionAPI, deps: TranslateDeps): void
 
   /**
    * Translate `opts.source`, or the last assistant message on the branch when
-   * the caller has no text in hand (alt+t, /translate).
+   * the caller has no text in hand (alt+t, /t).
    */
   const translateLast = async (
     ctx: ExtensionContext,
@@ -211,9 +217,27 @@ export function registerTranslation(pi: ExtensionAPI, deps: TranslateDeps): void
     handler: (ctx) => translateLast(ctx)
   })
 
-  pi.registerCommand('translate', {
+  pi.registerCommand('t', {
     description: 'Translate the last assistant response into your native language',
     handler: async (_args, ctx) => translateLast(ctx)
+  })
+
+  // pi clears terminal input listeners on every session switch and reload, so
+  // subscribe per session.
+  let stopOptionT: (() => void) | undefined
+  pi.on('session_start', (_event, ctx) => {
+    stopOptionT?.()
+    stopOptionT = undefined
+    if (!ctx.hasUI || ctx.mode !== 'tui') return
+    stopOptionT = ctx.ui.onTerminalInput((data) => {
+      if (data !== MACOS_OPTION_T) return undefined
+      void translateLast(ctx)
+      return { consume: true }
+    })
+  })
+  pi.on('session_shutdown', () => {
+    stopOptionT?.()
+    stopOptionT = undefined
   })
 
   const maybeAutoTranslate = (ctx: ExtensionContext, text: string | undefined): void => {

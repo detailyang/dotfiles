@@ -1,4 +1,4 @@
-# language-tutor
+# translate
 
 Learn a foreign language while coding. Reviews prompts written in the language
 you're learning, teaches you how to say what you couldn't yet when you prompt
@@ -12,7 +12,7 @@ to the LLM.
 
 | Command | Behavior |
 | --- | --- |
-| `/translate` or `alt+t` | Translate the last assistant response into your native language. |
+| `/t`, `alt+t`, or `option+t` (`†`) on macOS | Translate the last assistant response into your native language. |
 | `/flashcards` | Review flashcards captured by the Writing tutor (opens a native window via `glimpseui`). |
 | `/lang` | Interactive settings menu. |
 | `/lang check off\|on\|context` | Writing check & tutor mode (`context` sees the conversation). |
@@ -29,4 +29,4 @@ review limits and FSRS retention in `~/.pi/agent/flashcards-settings.json`.
 
 `/flashcards` depends on the `glimpseui` native window package; if it is
 unavailable in an environment, every other feature (writing check, writing
-tutor, `/translate`, `/lang`) still works.
+tutor, `/t`, `/lang`) still works.

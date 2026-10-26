@@ -10,6 +10,7 @@ the MIT License reproduced in [LICENSE](LICENSE).
 Local changes drop the npm package wrapper (`language-learn.ts`, `package.json`,
 `tsconfig.json`, lint/format config) in favor of this repository's extension
 layout, folding the entry point into `index.ts`, and add this attribution
-file. The `src/`, `web/`, and `types/` implementation files are otherwise
-unmodified. Tests are reauthored under `tests/` using this repository's
-`node:test` conventions instead of the upstream Vitest suite.
+file. The `/translate` command is renamed to `/t`, and macOS option+t (`†`)
+also triggers translation. The `src/`, `web/`, and `types/` implementation
+files are otherwise unmodified. Tests are reauthored under `tests/` using this
+repository's `node:test` conventions instead of the upstream Vitest suite.

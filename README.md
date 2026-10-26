@@ -32,8 +32,8 @@ guides you through GSC data and business context, then prioritizes SEO content w
 after two hours; `/continue` sends it now.
 [Domain proxy](home/.pi/pi-ybw/extensions/domain-proxy/README.md) routes configured hostnames
 through `127.0.0.1:7890`; `/domain-proxy` shows its file-based settings.
-[Language tutor](home/.pi/pi-ybw/extensions/language-tutor/README.md) reviews prompts in the
-language you're learning, teaches native-language prompts, and offers `/translate` and
+[Translate](home/.pi/pi-ybw/extensions/translate/README.md) reviews prompts in the
+language you're learning, teaches native-language prompts, and offers `/t` and
 `/flashcards`.
 `bootstrap.sh --pi` installs external extensions, not this local package.
 For dependency changes, update `home/.pi/pi-ybw/package.json` and its lockfile together.

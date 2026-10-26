@@ -3,8 +3,8 @@
 // upstream Vitest suite (test/extension.test.ts, test/llm.test.ts) drives a
 // full agent session against pi 1.0-only test utilities not available on the
 // pinned pi-ai/pi-coding-agent 0.84.x here; the pure-logic behavior it covers
-// is ported in full in language-tutor-core.test.ts and
-// language-tutor-flashcards.test.ts. See extensions/language-tutor/ATTRIBUTION.md.
+// is ported in full in translate-core.test.ts and
+// translate-flashcards.test.ts. See extensions/translate/ATTRIBUTION.md.
 import assert from "node:assert/strict";
 import * as fs from "node:fs";
 import * as os from "node:os";
@@ -22,10 +22,10 @@ import { createExtensionHarness } from "./helpers/extension.ts";
 // import always runs before any other module code, hooks included, so the
 // override happens here and the extension is loaded with a dynamic import.
 const originalHome = process.env.HOME;
-const testHome = fs.mkdtempSync(path.join(os.tmpdir(), "pi-language-tutor-test-"));
+const testHome = fs.mkdtempSync(path.join(os.tmpdir(), "pi-translate-test-"));
 process.env.HOME = testHome;
 
-const { default: languageTutor } = await import("../extensions/language-tutor/index.ts");
+const { default: translate } = await import("../extensions/translate/index.ts");
 
 const TRANSLATION_ENTRY_TYPE = "lang-translation";
 
@@ -43,7 +43,7 @@ beforeEach(() => {
 });
 
 test("/lang shows current settings when not in an interactive TUI", async () => {
-  const harness = createExtensionHarness(languageTutor);
+  const harness = createExtensionHarness(translate);
   await harness.command("lang");
   assert.equal(harness.notices.length, 1);
   assert.match(harness.notices[0], /learning=en/);
@@ -52,46 +52,62 @@ test("/lang shows current settings when not in an interactive TUI", async () => 
 });
 
 test("/lang native <code> updates and reports the setting", async () => {
-  const harness = createExtensionHarness(languageTutor);
+  const harness = createExtensionHarness(translate);
   await harness.command("lang", "native ja");
   assert.match(harness.notices.at(-1) ?? "", /native=ja/);
 });
 
 test("/lang check requires a valid value", async () => {
-  const harness = createExtensionHarness(languageTutor);
+  const harness = createExtensionHarness(translate);
   await harness.command("lang", "check sometimes");
   assert.match(harness.notices.at(-1) ?? "", /Usage: \/lang check off\|on\|context/);
 });
 
 test("/lang model reports an unknown model reference", async () => {
-  const harness = createExtensionHarness(languageTutor);
+  const harness = createExtensionHarness(translate);
   await harness.command("lang", "model does-not-exist");
   assert.match(harness.notices.at(-1) ?? "", /Model not found: does-not-exist/);
 });
 
-test("/translate notifies when there is no assistant message", async () => {
-  const harness = createExtensionHarness(languageTutor);
-  await harness.command("translate");
+test("/t notifies when there is no assistant message", async () => {
+  const harness = createExtensionHarness(translate);
+  await harness.command("t");
   assert.deepEqual(harness.notices, ["No assistant message to translate"]);
 });
 
-test("/translate notifies when no model is available", async () => {
-  const harness = createExtensionHarness(languageTutor);
+test("macOS option+t (†) translates in the TUI and other input passes through", async () => {
+  const harness = createExtensionHarness(translate);
+  let listener: ((data: string) => unknown) | undefined;
+  harness.ctx.mode = "tui";
+  harness.ctx.ui.onTerminalInput = (handler: (data: string) => unknown) => {
+    listener = handler;
+    return () => { listener = undefined; };
+  };
+  await harness.emit("session_start");
+  assert.equal(listener?.("t"), undefined);
+  assert.deepEqual(listener?.("†"), { consume: true });
+  assert.deepEqual(harness.notices, ["No assistant message to translate"]);
+  await harness.emit("session_shutdown");
+  assert.equal(listener, undefined);
+});
+
+test("/t notifies when no model is available", async () => {
+  const harness = createExtensionHarness(translate);
   harness.setBranch([
     { type: "message", message: { role: "assistant", content: [{ type: "text", text: "The result is ready." }] } },
   ]);
-  await harness.command("translate");
+  await harness.command("t");
   assert.deepEqual(harness.notices, ["No model available for translation (set one with /lang model)"]);
 });
 
 test("/flashcards requires interactive TUI mode", async () => {
-  const harness = createExtensionHarness(languageTutor);
+  const harness = createExtensionHarness(translate);
   await harness.command("flashcards");
   assert.deepEqual(harness.notices, ["/flashcards requires interactive TUI mode."]);
 });
 
 test("registers an entry renderer for bilingual translation cards", () => {
-  const harness = createExtensionHarness(languageTutor);
+  const harness = createExtensionHarness(translate);
   assert.equal(harness.entryRenderers.has(TRANSLATION_ENTRY_TYPE), true);
 
   const renderer = harness.entryRenderers.get(TRANSLATION_ENTRY_TYPE);
@@ -116,7 +132,7 @@ test("registers an entry renderer for bilingual translation cards", () => {
 });
 
 test("renders nothing for a translation entry with no data", () => {
-  const harness = createExtensionHarness(languageTutor);
+  const harness = createExtensionHarness(translate);
   const renderer = harness.entryRenderers.get(TRANSLATION_ENTRY_TYPE);
   const theme = { fg: (_c: string, t: string) => t, bg: (_c: string, t: string) => t, bold: (t: string) => t };
   assert.equal(renderer({ type: "custom", customType: TRANSLATION_ENTRY_TYPE, data: undefined }, { expanded: false }, theme), undefined);
