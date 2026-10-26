@@ -5,6 +5,7 @@ export function createExtensionHarness(factory: ExtensionFactory) {
   const commands = new Map<string, any>();
   const tools = new Map<string, any>();
   const renderers = new Map<string, any>();
+  const entryRenderers = new Map<string, any>();
   const entries: any[] = [];
   const sent: any[] = [];
   const notices: string[] = [];
@@ -14,7 +15,11 @@ export function createExtensionHarness(factory: ExtensionFactory) {
     isIdle: () => true, hasPendingMessages: () => false, isProjectTrusted: () => false,
     abort() {}, getSystemPrompt: () => "",
     sessionManager: { getEntries: () => entries, getBranch: () => branch, getLeafId: () => null },
-    modelRegistry: { getRegisteredProviderIds: () => [], getApiKeyAndHeaders: async () => ({ ok: true }) },
+    modelRegistry: {
+      getRegisteredProviderIds: () => [], getApiKeyAndHeaders: async () => ({ ok: true }),
+      getAvailable: () => [], getAll: () => [], getProvider: () => undefined,
+      getRegisteredProviderConfig: () => undefined, getProviderAuth: async () => undefined,
+    },
     ui: { theme: { fg: (_color: string, text: string) => text, bold: (text: string) => text },
       setStatus() {}, setWidget() {}, confirm: async () => true,
       notify: (text: string) => notices.push(text) },
@@ -23,13 +28,16 @@ export function createExtensionHarness(factory: ExtensionFactory) {
     on(name: string, handler: any) { handlers.set(name, [...(handlers.get(name) ?? []), handler]); },
     registerCommand: (name: string, command: any) => commands.set(name, command),
     registerTool: (tool: any) => tools.set(tool.name, tool),
-    registerShortcut() {}, registerMessageRenderer: (name: string, renderer: any) => renderers.set(name, renderer), getThinkingLevel: () => "off",
+    registerShortcut() {},
+    registerMessageRenderer: (name: string, renderer: any) => renderers.set(name, renderer),
+    registerEntryRenderer: (name: string, renderer: any) => entryRenderers.set(name, renderer),
+    getThinkingLevel: () => "off",
     appendEntry: (customType: string, data: unknown) => entries.push({ type: "custom", customType, data }),
     sendMessage: (message: any, options: any) => sent.push({ message, options }),
     sendUserMessage: (message: any, options: any) => sent.push({ message, options }),
   } as unknown as ExtensionAPI;
   factory(pi);
-  return { pi, ctx, entries, sent, notices, tools, renderers,
+  return { pi, ctx, entries, sent, notices, tools, renderers, entryRenderers,
     setBranch: (next: any[]) => { branch = next; },
     emit: (name: string, event: any = {}) => Promise.all((handlers.get(name) ?? []).map((handler) => handler({ type: name, ...event }, ctx))),
     command: (name: string, args = "") => commands.get(name).handler(args, ctx),
