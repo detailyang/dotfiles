@@ -1,5 +1,8 @@
 {
   "theme": "ybw-light",
+  "markdown": {
+    "mermaid": "off"
+  },
   "defaultTools": [
     "+codemode"
   ],

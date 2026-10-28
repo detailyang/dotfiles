@@ -35,6 +35,8 @@ through `127.0.0.1:7890`; `/domain-proxy` shows its file-based settings.
 [Translate](home/.pi/pi-ybw/extensions/translate/README.md) reviews prompts in the
 language you're learning, teaches native-language prompts, and offers `/t` and
 `/flashcards`.
+[Pele](home/.pi/pi-ybw/extensions/pele/README.md) renders Mermaid diagrams locally;
+`render_mermaid` also returns SVG and PNG paths.
 `bootstrap.sh --pi` installs external extensions, not this local package.
 For dependency changes, update `home/.pi/pi-ybw/package.json` and its lockfile together.
 
