@@ -17,7 +17,6 @@ const WIDGET_KEY = 'language-learn'
 export function showTutorWidget(ctx: ExtensionContext, tutor: TutorResult): void {
   ctx.ui.setWidget(WIDGET_KEY, (_tui, theme) => {
     const container = new Container()
-    container.addChild(new Text(theme.fg('accent', theme.bold('✏ Writing tutor')), 1, 0))
 
     // Whole-sentence expression — the natural way to say the whole thought.
     if (tutor.sentence) {
