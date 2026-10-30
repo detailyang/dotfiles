@@ -1,7 +1,7 @@
 {
   "theme": "ybw-light",
   "markdown": {
-    "mermaid": "off"
+    "mermaid": "on"
   },
   "defaultTools": [
     "+codemode"
@@ -27,5 +27,12 @@
   "hideThinkingBlock": false,
   "lastChangelogVersion": "1.0.0",
   "quietStartup": true,
-  "tuiMode": "regular"
+  "tuiMode": "regular",
+  "modelThinkingLevels": {
+    "magpie/group/deepseek": "xhigh",
+    "magpie/group/gemini": "xhigh",
+    "magpie/group/opus-rustblackyang": "medium",
+    "magpie/group/opus-jameslee": "medium",
+    "magpie/group/opus-jinwoohan": "medium"
+  }
 }
