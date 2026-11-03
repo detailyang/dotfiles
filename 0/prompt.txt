@@ -1,0 +1,5 @@
+我希望 home/.pi/pi-ybw/extensions/translate/ 溢出卡片里的 ✏ Writing tutor 这一行，这样可以让我少占用一行
+
+---
+
+commit pr and merge it
