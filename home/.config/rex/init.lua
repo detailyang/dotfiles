@@ -1,5 +1,5 @@
 -- Migrated from home/.config/herdr/config.toml and home/.tmux.conf.
--- Direct macOS shortcuts; no prefix key or key modes.
+-- Ctrl+A is the tmux-style prefix; Cmd shortcuts remain as direct aliases.
 -- https://www.superlogical.com/rex/docs/customize/config
 -- Check: rex config check ~/.config/rex/init.lua
 -- Apply on the Rex server: rex config reload
@@ -186,7 +186,57 @@ rex.action{
   end,
 }
 
--- One chord per action. Ctrl+A and Ctrl+W retain their shell behavior.
+-- Ctrl+A is the tmux-style prefix. Press it twice to send Ctrl+A itself.
+rex.bind("ctrl+a>ctrl+a", "pane.send_key", { key = "ctrl+a" })
+
+-- Ctrl+A then h/j/k/l or an arrow focuses the adjacent pane.
+for key, direction in pairs({ h = "left", j = "down", k = "up", l = "right" }) do
+  rex.bind("ctrl+a>" .. key, "focus_pane", { direction = direction })
+  rex.bind("ctrl+a>" .. direction, "focus_pane", { direction = direction })
+end
+
+rex.bind("ctrl+a>t", "new_fish_window")
+rex.bind("ctrl+a>c", "close_tab") -- Close the tab and all its panes.
+rex.bind("ctrl+a>n", "client.tab.next")
+rex.bind("ctrl+a>p", "capture_html")
+rex.bind("ctrl+a>shift+p", "client.tab.previous")
+-- Ctrl+A then |: side-by-side panes (tmux split-window -h), new pane right.
+-- Ctrl+A then -: stacked panes (tmux split-window -v), new pane below.
+-- Rex matches unshifted keys: | is Shift+backslash on a US layout.
+rex.bind("ctrl+a>shift+\\", "split_fish", { direction = "horizontal" })
+rex.bind("ctrl+a>-", "split_fish", { direction = "vertical" })
+
+-- The session picker is the closest documented equivalent of Herdr's
+-- workspace picker and goto. Its own navigation keys are client settings.
+rex.bind("ctrl+a>w", "session.switch")
+rex.bind("ctrl+a>g", "session.switch")
+-- tmux's `bind M-w` includes the prefix; this opens Rex's session picker.
+rex.bind("ctrl+a>alt+w", "session.switch")
+
+rex.bind("ctrl+a>r", "reload_config")
+rex.bind("ctrl+a>z", "pane.zoom")
+rex.bind("ctrl+a>x", "pane.close") -- Only this pane; Ctrl+A c closes the tab.
+-- Reserve Shift+B for tmux's join-pane workflow (see migration limits).
+rex.bind("ctrl+a>alt+b", "client.sidebar.toggle")
+rex.bind("ctrl+a>o", "open_snippet")
+
+-- A one-shot layout mode replaces tmux's Space menu for the supported action.
+-- Space then = balances the existing splits; Escape cancels.
+rex.mode("layout", { exclusive = true })
+rex.bind("ctrl+a>space", "client.mode.enter", { name = "layout", once = true })
+rex.bind("layout/=", "pane.balance")
+
+-- Shift+R enters resize mode; Escape or Enter leaves it.
+rex.mode("resize", { exclusive = true })
+rex.bind("ctrl+a>shift+r", "client.mode.enter", { name = "resize" })
+for key, direction in pairs({ h = "left", j = "down", k = "up", l = "right" }) do
+  rex.bind("resize/" .. key, "pane.resize", { direction = direction })
+  rex.bind("resize/" .. direction, "pane.resize", { direction = direction })
+end
+rex.bind("resize/=", "pane.balance")
+rex.bind("resize/enter", "client.mode.exit")
+
+-- Direct macOS shortcuts remain as aliases.
 rex.bind("cmd+t", "new_fish_window")
 rex.bind("cmd+d", "split_fish", { direction = "horizontal" })
 rex.bind("cmd+shift+d", "split_fish", { direction = "vertical" })
@@ -233,9 +283,9 @@ rex.bind("alt+backspace", "pane.send_key", { key = "alt+backspace" })
 --   Ctrl+A b / Shift+B: move_block supports moving panes; the chooser and
 --     conditional break/join behavior still need implementation.
 --   Ctrl+A Space s/S/h/v/t: swap_blocks and move_block support rearranging
---     panes; Cmd+= currently only balances the existing split tree.
+--     panes; Ctrl+A Space = (and Cmd+=) currently only balances the tree.
 --   Ctrl+A v: persistent p-shell hide/restore behavior is not implemented.
---   Cmd+O: snippet remains a temporary split; new_layer supports floats.
+--   Ctrl+A o / Cmd+O: snippet remains a temporary split; new_layer supports floats.
 --   Ctrl+P: no equivalent live input broadcast action was found in the docs.
 --   Ctrl+L: normal shell redraw remains. Public configs use
 --     com.superlogical.terminal.clear; verify it on the installed client
