@@ -1,0 +1,9 @@
+https://www.superlogical.com/rex/docs/customize/config 我想知道 rex 的配置能否做出引导键类似 tmux
+
+---
+
+可以帮我改吧，我习惯了用 ctrl+a 来引导
+
+---
+
+提交merge 然后同步 reload rex
