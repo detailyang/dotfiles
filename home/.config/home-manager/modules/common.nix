@@ -1,5 +1,11 @@
 { pkgs, ... }:
 
+let
+  icat = pkgs.writeShellScriptBin "icat" ''
+    exec ${pkgs.kitty.kitten}/bin/kitten icat "$@"
+  '';
+in
+
 {
   home.packages = [
     pkgs.aha
@@ -21,6 +27,7 @@
     pkgs.hexyl
     pkgs.htop
     pkgs.hyperfine
+    icat
     pkgs.jujutsu
     pkgs.jq
     pkgs.lazygit
