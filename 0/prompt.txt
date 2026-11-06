@@ -1,0 +1,1 @@
+please install curl -LsSf https://mistral.ai/vibe/install.sh | bas
