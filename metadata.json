@@ -3,7 +3,7 @@
   "checkpoint_id": "01M6QWEE2AJ12ZCFFY1T5C0N8Q",
   "strategy": "manual-commit",
   "branch": "master",
-  "checkpoints_count": 3,
+  "checkpoints_count": 5,
   "files_touched": [
     ".gitignore"
   ],
@@ -21,24 +21,31 @@
       "compact_transcript": "/1/transcript.jsonl",
       "content_hash": "/1/content_hash.txt",
       "prompt": "/1/prompt.txt"
+    },
+    {
+      "metadata": "/2/metadata.json",
+      "transcript": "/2/full.jsonl",
+      "compact_transcript": "/2/transcript.jsonl",
+      "content_hash": "/2/content_hash.txt",
+      "prompt": "/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 27480,
+    "input_tokens": 208456,
     "cache_creation_tokens": 0,
-    "cache_read_tokens": 185856,
-    "output_tokens": 11489,
-    "api_call_count": 19
+    "cache_read_tokens": 1169408,
+    "output_tokens": 24468,
+    "api_call_count": 59
   },
   "redaction": {
-    "replacements": 33,
+    "replacements": 37,
     "layers": {
       "betterleaks": 12,
       "connection_string": 0,
       "credential_key": 0,
-      "credential_value": 0,
+      "credential_value": 2,
       "credentialed_uri": 0,
-      "entropy": 48,
+      "entropy": 50,
       "key_context": 0,
       "provider_token": 0,
       "shell_stdin": 0
