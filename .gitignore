@@ -11,3 +11,6 @@ package-lock.json
 !/pi/package-lock.json
 !/home/.pi/pi-ybw/package-lock.json
 home/.codex/.env
+
+# Internal knowledge archive: local-only, never committed.
+knowledge/rtc/internal/
