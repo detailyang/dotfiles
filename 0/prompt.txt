@@ -1,0 +1,105 @@
+我在本机 mac 利用 rex 想连接到 l 这台机器的 rex 为什么无法加进去呢
+
+---
+
+continue
+
+---
+
+我的第一个问题是，rex 必须要打开 tailscale app 才能连，他不能自己内置链上去吗
+
+---
+
+那么我想让我的几个机器全部连起来要咋做呢
+
+---
+
+帮我改下配置吧 home/.config/rex/ 看看咋改
+
+---
+
+帮我把 l 打通，我想在这台机器连入他要早噶呢
+
+---
+
+不能用隧道，我们要通过 tailscale 连入
+
+---
+
+tailscale 我已经连上了，你再看看现在需要咋配置
+
+---
+
+你看看是不是登入了呢
+
+---
+
+我不想用 GUI ，我们能用 cli 吗 https://github.com/tailscale/tailscale
+
+---
+
+那我是不是能把 gui 卸载了呀
+
+---
+
+我已经删除了，另外我发现 l 这台机器开 tailscale 之后，我无法 git pull 公司的域名了
+
+---
+
+怎么又变 现在从 l 访问旧公司 Headscale 地址 了？
+
+---
+
+把老的 headscale 给我去了，我们不需要你先清理，我们不需要公司的
+
+---
+
+remove tailscaled-personal and call it tailscailed we only one tailscaled
+
+---
+
+停掉所有的 tailscale 好像有点问题，导致没法 git push 了
+
+---
+
+l
+
+---
+
+l
+
+---
+
+sd
+
+---
+
+continue
+
+---
+
+tailscale 的网络段是咋分配的
+
+---
+
+能配置吗，这个给我们分配的地址
+
+---
+
+我的意思是我们要划分段，避开公司这个 git 的，能搞吗
+
+---
+
+这倒可以，我在国内 tailscale 建网靠谱吗
+
+---
+
+我还有很多机器要加进来呢，所以我们要组网
+
+---
+
+所以这不是扯淡吗 tailscale + rex 只是适配他自己的那套网络方案啊
+
+---
+
+所以你推荐的方案是什么，我们有10 台机器，有不少在国内

@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.12.2",
+  "checkpoint_id": "01M6QVETC5FWYY17M7W8QWPSTA",
+  "session_id": "01a1a9ba-d95c-70f2-a26c-cb42fa1340dc",
+  "strategy": "manual-commit",
+  "created_at": "2026-11-06T07:16:35.871134Z",
+  "branch": "master",
+  "checkpoints_count": 29,
+  "save_step_count": 16,
+  "files_touched": [
+    "home/.config/rex/init.lua",
+    "tests/validate/rex.lua"
+  ],
+  "agent": "Pi",
+  "model": "group/deepseek",
+  "turn_id": "a00b1543f7a4",
+  "compact_transcript_start": 0,
+  "token_usage": {
+    "input_tokens": 2049731,
+    "cache_creation_tokens": 0,
+    "cache_read_tokens": 26915072,
+    "output_tokens": 287732,
+    "api_call_count": 180
+  },
+  "redaction": {
+    "replacements": 21,
+    "layers": {
+      "betterleaks": 5,
+      "connection_string": 0,
+      "credential_key": 0,
+      "credential_value": 0,
+      "credentialed_uri": 1,
+      "entropy": 24,
+      "key_context": 0,
+      "provider_token": 0,
+      "shell_stdin": 0
+    }
+  },
+  "session_metrics": {
+    "turn_count": 29
+  }
+}
