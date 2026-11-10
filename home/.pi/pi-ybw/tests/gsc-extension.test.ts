@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtemp, readFile, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -43,6 +43,7 @@ test("/gsc rejects ambiguous flags, invalid sites, placeholders and shell-lookin
 
 test("/gsc sends the full workflow and canonical source paths as a queued user request", async (t) => {
   const cwd = await mkdtemp(path.join(tmpdir(), "pi-gsc-command-"));
+  const canonicalCwd = await realpath(cwd);
   t.after(() => rm(cwd, { recursive: true, force: true }));
   const csv = 'Top queries,Clicks,Impressions,CTR,Position\nsteel pipe,11,1000,1.1%,14\n';
   await writeFile(path.join(cwd, "queries.csv"), csv);
@@ -60,7 +61,7 @@ test("/gsc sends the full workflow and canonical source paths as a queued user r
   assert.match(message, /gsc_read/);
   assert.match(message, /15/);
   assert.match(message, /30/);
-  assert.equal(message.split(path.join(cwd, "queries.csv")).length - 1, 1);
+  assert.equal(message.split(path.join(canonicalCwd, "queries.csv")).length - 1, 1);
   assert.match(message, /prior\.csv/);
   assert.doesNotMatch(message, /steel pipe,11/);
   assert.equal(await readFile(path.join(cwd, "queries.csv"), "utf8"), csv);
@@ -99,6 +100,7 @@ test("/gsc help is visible without starting an analysis", async () => {
 
 test("/gsc collects each input in order and sends one complete analysis request", async (t) => {
   const cwd = await mkdtemp(path.join(tmpdir(), "pi-gsc-input-"));
+  const canonicalCwd = await realpath(cwd);
   t.after(() => rm(cwd, { recursive: true, force: true }));
   for (const name of ["current export.csv", "prior export.csv"]) {
     await writeFile(path.join(cwd, name), "Query,Clicks,Impressions,Position\na,1,10,5\n");
@@ -117,8 +119,8 @@ test("/gsc collects each input in order and sends one complete analysis request"
   const context = JSON.parse(h.sent[0].message.split("## Request context\n\n")[1]);
   assert.deepEqual(context, {
     website: "https://jundapipe.com/", audience: "海外管材采购商", goal: "有效询盘",
-    brands: ["Junda", "骏达"], data: [path.join(cwd, "current export.csv")],
-    compare: [path.join(cwd, "prior export.csv")],
+    brands: ["Junda", "骏达"], data: [path.join(canonicalCwd, "current export.csv")],
+    compare: [path.join(canonicalCwd, "prior export.csv")],
   });
   assert.deepEqual(h.sent[0].options, { deliverAs: "followUp" });
   assert.deepEqual(h.notices, []);
@@ -184,6 +186,7 @@ test("/gsc cancellation or a session switch at any step stops the wizard", async
 
 test("/gsc retries an invalid website or source at its step without losing earlier answers", async (t) => {
   const cwd = await mkdtemp(path.join(tmpdir(), "pi-gsc-retry-"));
+  const canonicalCwd = await realpath(cwd);
   t.after(() => rm(cwd, { recursive: true, force: true }));
   for (const name of ["q.csv", "prior.csv"]) {
     await writeFile(path.join(cwd, name), "Query,Clicks,Impressions,Position\na,1,10,5\n");
@@ -205,8 +208,8 @@ test("/gsc retries an invalid website or source at its step without losing earli
   assert.match(h.notices[3], /same|同一/);
   const context = JSON.parse(h.sent[0].message.split("## Request context\n\n")[1]);
   assert.equal(context.website, "https://example.com/");
-  assert.deepEqual(context.data, [path.join(cwd, "q.csv")]);
-  assert.deepEqual(context.compare, [path.join(cwd, "prior.csv")]);
+  assert.deepEqual(context.data, [path.join(canonicalCwd, "q.csv")]);
+  assert.deepEqual(context.compare, [path.join(canonicalCwd, "prior.csv")]);
   assert.equal(context.audience, "buyers");
 });
 
