@@ -5,6 +5,7 @@
 ## 主题
 
 - [GPU 优化](gpu/README.md)：CUDA kernel、性能测量与推理系统。
+- [实时音视频（RTC）](rtc/README.md)：平台服务模块、信令与媒体链路。
 
 ## 怎么收录
 
