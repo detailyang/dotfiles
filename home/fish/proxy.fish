@@ -4,7 +4,6 @@ function __proxy_env_cmd
     set -l repo_root (dirname (status --current-filename))/..
     set -l candidates \
         ~/bin/proxy-env \
-        ~/dotfiles/bin/proxy-env \
         $repo_root/bin/proxy-env
 
     for candidate in $candidates

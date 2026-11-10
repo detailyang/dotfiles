@@ -8,7 +8,6 @@ function _proxy_env_cmd() {
 
     local candidates=(
         "$HOME/bin/proxy-env"
-        "$HOME/dotfiles/bin/proxy-env"
         "$repo_root/bin/proxy-env"
     )
     local candidate

@@ -1,8 +1,6 @@
 ---
 name: glossary
-description: >
-  暴露 AI 在本轮对话中对关键词的实际理解，让用户纠正。
-  用户输入 /glossary 时触发，或说"你理解的是什么"、"词汇对不上"时触发。
+description: 暴露 AI 在本轮对话中对关键词的实际理解，让用户纠正；用户输入 /glossary 或说“词汇对不上”时触发。
 argument-hint: "[terms or topic to align]"
 ---
 

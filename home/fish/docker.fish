@@ -4,8 +4,6 @@ function docker-clean
     
     if test -x ~/snippet/docker/clean
         set docker_clean ~/snippet/docker/clean
-    else if test -x ~/dotfiles/snippet/docker/clean
-        set docker_clean ~/dotfiles/snippet/docker/clean
     else if test -x (dirname (status --current-filename))/../snippet/docker/clean
         set docker_clean (dirname (status --current-filename))/../snippet/docker/clean
     end

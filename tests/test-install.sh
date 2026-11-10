@@ -115,23 +115,32 @@ test_deploy_syncs_local_pi_package() {
     local result=0
     local source_file
     local target_file
+    local stale_file
+    local dependency_file
 
     home_dir="$(mktemp -d)"
     source_file="$PWD/home/.pi/pi-ybw/CONTEXT.md"
     target_file="$home_dir/.pi/pi-ybw/CONTEXT.md"
+    stale_file="$home_dir/.pi/pi-ybw/extensions/stale-extension/index.ts"
+    dependency_file="$home_dir/.pi/pi-ybw/node_modules/example-package/index.js"
     (
         HOME="$home_dir"
         export HOME
         source "$PWD/bootstrap.sh"
         ybw::deploy::run true > /dev/null || exit 1
         [[ ! -e "$home_dir/.pi/pi-ybw" ]] || exit 1
-        mkdir -p "$home_dir/.pi/pi-ybw"
+        mkdir -p "$(dirname "$stale_file")" "$(dirname "$dependency_file")"
+        printf 'stale extension\n' > "$stale_file"
+        printf 'installed dependency\n' > "$dependency_file"
         ybw::deploy::run false > /dev/null || exit 1
         [[ -d "$home_dir/.pi/pi-ybw" && ! -L "$home_dir/.pi/pi-ybw" ]] || exit 1
         cmp "$source_file" "$target_file" || exit 1
+        [[ ! -e "$stale_file" ]] || exit 1
+        [[ -f "$dependency_file" ]] || exit 1
         [[ ! -e "$home_dir/pi" ]] || exit 1
         ybw::deploy::run false > /dev/null || exit 1
         cmp "$source_file" "$target_file" || exit 1
+        [[ -f "$dependency_file" ]] || exit 1
     ) || result=1
     rm -rf "$home_dir"
 

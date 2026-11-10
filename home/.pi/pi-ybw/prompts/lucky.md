@@ -1,61 +1,23 @@
 ---
 name: lucky
-description: Adversarial code review and implementation audit — iteratively find and fix issues until no high or medium severity problems remain.
-argument-hint: "[files, modules, behavior, or PR/commit to audit]"
+description: Find and fix broken, inconsistent, inefficient, or obsolete parts of a project, then list the rest for review.
+argument-hint: "[files, modules, or leave empty for the whole project]"
 ---
 
-Act as a rigorous code reviewer and implementation auditor.
+Read this entire project and find everything that's broken, inconsistent, inefficient, or no longer needed. Fix what you're sure about and list the rest for me to review.
 
 Audit scope: $ARGUMENTS
 
-Do not claim 100% correctness. Iteratively reduce risk until a full pass finds no new high or medium severity issues.
+If no scope is given, audit the whole project. Read the relevant documentation, manifests, scripts, and tests before changing anything. Verify each finding against the implementation, not just names, comments, or old documentation.
 
-## Process
+Rules:
+- Fix only issues you can confirm and verify. Do not guess or make risky changes.
+- Keep unrelated refactors out of the change.
+- Preserve working behavior and existing conventions.
+- Run the checks documented for each changed surface.
+- Report passed, failed, and skipped checks separately.
 
-**1. Establish scope**
-If the user did not specify what to audit, ask: which files, modules, or behaviors are in scope? Do not begin the audit until scope is clear.
-
-State what would count as success before changing code.
-
-**2. Understand intent**
-Read the code. Identify the intended behavior, invariants, assumptions, and external dependencies before auditing.
-
-**3. Audit for**
-- Logic bugs
-- Edge cases
-- Race conditions
-- State inconsistency
-- Error handling gaps
-- Resource leaks
-- Security issues
-- Performance problems
-- Compatibility issues
-- Missing tests
-
-**4. Report each issue**
-- Severity: `high` / `medium` / `low`
-- Root cause
-- Reproduction scenario
-- Impact
-- Concrete fix
-- Test coverage needed
-
-**5. Apply fixes**
-Apply only fixes that directly address confirmed issues in scope. Do not refactor unrelated code.
-
-**6. Re-audit the updated code**
-
-**7. Repeat until a complete pass produces zero high or medium severity issues**
-
-**8. Final output**
-- Summary of all fixes applied
-- Tests added or recommended
-- Remaining low-severity issues (with disposition)
-- Confidence level
-- What still requires human review or production validation
-
-## Termination rule
-
-A round is complete when you have checked every item in step 3 against the current code and found no new high or medium issues. Do not stop after fixing — re-run the full audit first.
-
-Be adversarial. Try to break the implementation before accepting it.
+Final output:
+1. Fixes applied, with file paths and the evidence for each.
+2. Findings left for review, with evidence and a recommended action.
+3. Verification results and anything that still needs human review.

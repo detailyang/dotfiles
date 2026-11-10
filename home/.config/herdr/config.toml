@@ -63,7 +63,7 @@ previous_tab = "prefix+p"
 # Approximation of your tmux popup snippet binding: opens as a temporary Herdr pane.
 key = "prefix+o"
 type = "pane"
-command = "/Users/didi/bin/snippet"
+command = "$HOME/bin/snippet"
 
 [ui]
 prompt_new_tab_name = false

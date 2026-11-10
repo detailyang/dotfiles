@@ -62,7 +62,7 @@ ybw::install::main() {
 
     echo "╔════════════════════════════════════════════════════════════╗"
     echo "║         Dotfiles Installation Script v${YBW_INSTALL_VERSION}           ║"
-    echo "╔════════════════════════════════════════════════════════════╗"
+    echo "╚════════════════════════════════════════════════════════════╝"
     echo ""
 
     if ! ybw::plan::validate || ! ybw::deploy::preflight; then

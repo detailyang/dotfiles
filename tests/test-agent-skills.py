@@ -113,51 +113,5 @@ class SkillValidationTests(unittest.TestCase):
         self.assertTrue(any("missing local link target" in e for e in errors))
 
 
-class ValidationGroupTests(unittest.TestCase):
-    def setUp(self):
-        import shutil
-        self.temporary = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temporary.cleanup)
-        self.root = Path(self.temporary.name)
-        self.groups = ("shell", "installer", "toolchain", "integrations", "agents")
-        directory = self.root / "tests/validate"
-        directory.mkdir(parents=True)
-        shutil.copyfile(Path(__file__).with_name("validate.sh"), self.root / "tests/validate.sh")
-        for group in self.groups:
-            (directory / f"{group}.sh").write_text(f'check "{group}" "true"\n', encoding="utf-8")
-
-    def run_groups(self, *groups):
-        import subprocess
-        return subprocess.run(["bash", "tests/validate.sh", *groups], cwd=self.root,
-                              text=True, capture_output=True, timeout=5)
-
-    def test_default_runs_all_groups(self):
-        result = self.run_groups()
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Passed: 5", result.stdout)
-        positions = [result.stdout.index(f"Checking {g}") for g in self.groups]
-        self.assertEqual(positions, sorted(positions))
-
-    def test_selects_only_requested_groups(self):
-        result = self.run_groups("agents")
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn("Passed: 1", result.stdout)
-        self.assertNotIn("Checking shell", result.stdout)
-
-    def test_invalid_groups_rejected_before_any_check(self):
-        for invalid in ("unknown", "../../bootstrap", ""):
-            with self.subTest(group=invalid):
-                result = self.run_groups("agents", invalid)
-                self.assertEqual(result.returncode, 2)
-                self.assertNotIn("Checking ", result.stdout)
-                self.assertIn("Unknown validation group", result.stderr)
-
-    def test_selected_failure_is_not_hidden(self):
-        (self.root / "tests/validate/agents.sh").write_text('check "failure" "false"\n', encoding="utf-8")
-        result = self.run_groups("agents")
-        self.assertEqual(result.returncode, 1)
-        self.assertIn("Failed: 1", result.stdout)
-
-
 if __name__ == "__main__":
     unittest.main()

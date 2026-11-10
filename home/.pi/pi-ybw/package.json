@@ -35,13 +35,10 @@
     "glimpseui": "^0.8.1",
     "marked": "^18.0.0",
     "pele": "^1.12.0",
-    "ts-fsrs": "^5.4.1",
-    "undici": "8.12.2"
+    "ts-fsrs": "^5.4.1"
   },
   "overrides": {
-    "@earendil-works/pi-coding-agent": {
-      "undici": "8.10.2"
-    }
+    "undici": "8.12.2"
   },
   "peerDependencies": {
     "@earendil-works/pi-agent-core": "^0.84.0",

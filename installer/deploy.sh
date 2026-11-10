@@ -110,6 +110,9 @@ ybw::deploy::sync_pi_package() {
         -avh
         --backup
         --backup-dir="$backup_target"
+        --delete
+        --filter='P node_modules'
+        --filter='P node_modules/**'
     )
 
     if [[ "$dry_run" == true ]]; then

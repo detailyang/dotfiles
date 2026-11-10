@@ -1,6 +1,8 @@
 check "herdr resolves Fish from PATH" "grep -q '^default_shell = \"fish\"$' home/.config/herdr/config.toml"
 check "Fish launchers avoid platform-specific paths" "! grep -Eq '/opt/homebrew/bin/fish|/usr/local/bin/fish' bootstrap.sh installer/*.sh home/.config/herdr/config.toml"
 check "herdr starts fish as a login shell" "grep -q '^shell_mode = \"login\"$' home/.config/herdr/config.toml"
+check "herdr snippet launcher follows HOME" "grep -Fq 'command = \"\$HOME/bin/snippet\"' home/.config/herdr/config.toml && ! grep -Eq '/Users/|/home/[^ ]+/bin' home/.config/herdr/config.toml"
+check "removed Pi extensions leave no stale config" "! test -e home/.pi/agent/domain-proxy.json && ! test -e home/.pi/pi-ybw/extensions/domain-proxy && ! test -e home/.pi/pi-ybw/extensions/multi-skills"
 check_if_available lua "Rex splits, focus and close target the intended panes and windows" "lua tests/validate/rex.lua"
 
 check "proxy-env is the executable proxy env module" "test -x home/bin/proxy-env"

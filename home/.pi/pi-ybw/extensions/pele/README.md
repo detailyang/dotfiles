@@ -14,9 +14,9 @@ the diagram; `@resvg/resvg-js` rasterizes its SVG for terminal previews.
 - Generated files are stored under `.pi/pele/` in the session working directory.
 - Links and images in diagram source are disabled. Source is never uploaded.
 
-The package sets `markdown.mermaid` to `off`. The extension also disables Pi's
-built-in Mermaid display in memory for the active session so Pele is the only
-layout engine. It does not modify `settings.json` on disk.
+The extension disables Pi's built-in Mermaid display in memory for the active
+session, regardless of the on-disk `markdown.mermaid` setting, so Pele is the
+only layout engine. It does not modify `settings.json` on disk.
 
 ## Limits
 

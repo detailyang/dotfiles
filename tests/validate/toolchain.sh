@@ -33,6 +33,7 @@ check "Linux login shell rejects generation-bound Fish paths" "grep -Fq '\$HOME/
 check "native Fish config loads repository modules" "grep -Fq 'for file in ~/fish/*.fish' home/.config/fish/config.fish"
 check "native Fish config loads the Home Manager profile" "grep -Fq '~/.nix-profile/bin' home/fish/path.fish"
 check "Fish exposes npm-global executables" "grep -Fq '~/.npm-global/bin' home/fish/path.fish"
+check "Fish PATH includes the Cargo bin directory" "grep -Fq '~/.cargo/bin' home/fish/path.fish && ! grep -Fq '~/cargo/bin' home/fish/path.fish"
 check "installer activates the locked Home Manager flake" "grep -Fq 'nix run \"\$home_manager_dir#home-manager\"' installer/packages.sh && grep -Fq -- '--flake \"\$home_manager_dir#\$target\" switch' installer/packages.sh"
 check "Home Manager activation is verbose and memory bounded" "grep -Fq -- '--impure -v --option max-jobs 1 --option cores 2' installer/packages.sh"
 check "Home Manager activation rejects a non-symlink Nix profile" "setup_body=\$(sed -n '/^ybw::packages::activate_home_manager()/,/^}/p' installer/packages.sh); grep -Fq '[[ -e \"\$HOME/.nix-profile\" && ! -L \"\$HOME/.nix-profile\" ]]' <<< \"\$setup_body\" && grep -Fq '~/.nix-profile must be a symlink' <<< \"\$setup_body\""
