@@ -31,8 +31,6 @@ guides you through GSC data and business context, then prioritizes SEO content w
 [`/continue 2h`](home/.pi/pi-ybw/extensions/continue/README.md) sends `continue`
 after two hours; `/continue` sends it now.
 `/btw` forks the current conversation into a new pane or tab, or a Rex floating window.
-[Domain proxy](home/.pi/pi-ybw/extensions/domain-proxy/README.md) routes configured hostnames
-through `127.0.0.1:7890`; `/domain-proxy` shows its file-based settings.
 [Translate](home/.pi/pi-ybw/extensions/translate/README.md) reviews prompts in the
 language you're learning, teaches native-language prompts, and offers `/t` and
 `/flashcards`.
