@@ -59,26 +59,26 @@ local function expect_error(key, message, context)
   assert(not ok and tostring(err):find(message, 1, true), tostring(err))
 end
 
--- Ctrl+A is the prefix; no standalone binding may swallow it.
-assert(not bindings["ctrl+a"] and not bindings["ctrl+w"])
-assert(bindings["ctrl+a>ctrl+a"].action == "pane.send_key")
-assert(bindings["ctrl+a>ctrl+a"].args.key == "ctrl+a")
+-- Ctrl+S is the prefix; no standalone binding may swallow it.
+assert(not bindings["ctrl+s"] and not bindings["ctrl+w"])
+assert(bindings["ctrl+s>ctrl+s"].action == "pane.send_key")
+assert(bindings["ctrl+s>ctrl+s"].args.key == "ctrl+s")
 for _, key in ipairs({
-  "ctrl+a>t", "ctrl+a>c", "ctrl+a>n", "ctrl+a>p", "ctrl+a>shift+p",
-  "ctrl+a>shift+\\", "ctrl+a>-", "ctrl+a>w", "ctrl+a>g", "ctrl+a>alt+w",
-  "ctrl+a>r", "ctrl+a>z", "ctrl+a>x", "ctrl+a>alt+b", "ctrl+a>o",
-  "ctrl+a>space", "ctrl+a>shift+r",
+  "ctrl+s>t", "ctrl+s>c", "ctrl+s>n", "ctrl+s>p", "ctrl+s>shift+p",
+  "ctrl+s>shift+\\", "ctrl+s>-", "ctrl+s>w", "ctrl+s>g", "ctrl+s>alt+w",
+  "ctrl+s>r", "ctrl+s>z", "ctrl+s>x", "ctrl+s>alt+b", "ctrl+s>o",
+  "ctrl+s>space", "ctrl+s>shift+r",
 }) do
-  assert(bindings[key], "Missing Ctrl+A binding: " .. key)
+  assert(bindings[key], "Missing Ctrl+S binding: " .. key)
 end
 assert(modes.layout and modes.layout.exclusive == true)
 assert(modes.resize and modes.resize.exclusive == true)
-assert(bindings["ctrl+a>space"].action == "client.mode.enter")
-assert(bindings["ctrl+a>space"].args.name == "layout")
-assert(bindings["ctrl+a>space"].args.once == true)
+assert(bindings["ctrl+s>space"].action == "client.mode.enter")
+assert(bindings["ctrl+s>space"].args.name == "layout")
+assert(bindings["ctrl+s>space"].args.once == true)
 assert(bindings["layout/="].action == "pane.balance")
-assert(bindings["ctrl+a>shift+r"].action == "client.mode.enter")
-assert(bindings["ctrl+a>shift+r"].args.name == "resize")
+assert(bindings["ctrl+s>shift+r"].action == "client.mode.enter")
+assert(bindings["ctrl+s>shift+r"].args.name == "resize")
 assert(bindings["resize/left"].action == "pane.resize")
 assert(bindings["resize/enter"].action == "client.mode.exit")
 assert(bindings["cmd+shift+left"].action == "pane.resize")
@@ -87,12 +87,12 @@ assert(bindings["cmd+="].action == "pane.balance")
 -- All Fish launchers use the resolved executable, including paths with spaces.
 for _, path in ipairs({ fish_path, "/usr/local/bin/fish", "/opt/homebrew/bin/fish", "/usr/bin/fish" }) do
   fish_path = path
-  for _, key in ipairs({ "ctrl+a>t", "ctrl+a>shift+\\", "ctrl+a>-", "ctrl+a>o" }) do
+  for _, key in ipairs({ "ctrl+s>t", "ctrl+s>shift+\\", "ctrl+s>-", "ctrl+s>o" }) do
     invoke(key)
     local options = calls[1].args.layout.options
     assert(options.command[1] == path and options.command[2] == "--login")
     assert(options.shell == "none" and options.cwd == "/tmp/rex project")
-    if key == "ctrl+a>o" then
+    if key == "ctrl+s>o" then
       assert(options.command[3] == "--command")
       assert(options.command[4] == 'exec "$HOME/bin/snippet"')
     else
@@ -100,7 +100,7 @@ for _, path in ipairs({ fish_path, "/usr/local/bin/fish", "/opt/homebrew/bin/fis
     end
   end
 end
-for _, key in ipairs({ "ctrl+a>t", "ctrl+a>shift+\\", "ctrl+a>-", "ctrl+a>o" }) do
+for _, key in ipairs({ "ctrl+s>t", "ctrl+s>shift+\\", "ctrl+s>-", "ctrl+s>o" }) do
   exec_error = "resolver unavailable"
   expect_error(key, exec_error)
   assert(#calls == 0, "Do not create a terminal when Fish cannot be resolved")
@@ -112,8 +112,8 @@ end
 
 -- Split the triggering pane, even if another pane has since taken focus.
 for key, direction in pairs({
-  ["ctrl+a>shift+\\"] = "horizontal",
-  ["ctrl+a>-"] = "vertical",
+  ["ctrl+s>shift+\\"] = "horizontal",
+  ["ctrl+s>-"] = "vertical",
   ["cmd+d"] = "horizontal",
   ["cmd+shift+d"] = "vertical",
 }) do
@@ -132,7 +132,7 @@ end
 
 -- Both vi keys and arrows move focus; wrap preserves tmux's edge behavior.
 for key, direction in pairs({ h = "left", j = "down", k = "up", l = "right" }) do
-  for _, prefix in ipairs({ "ctrl+a>", "cmd+alt+" }) do
+  for _, prefix in ipairs({ "ctrl+s>", "cmd+alt+" }) do
     for _, suffix in ipairs({ key, direction }) do
       invoke(prefix .. suffix)
       assert(calls[1].method == "focus_direction")
@@ -141,15 +141,15 @@ for key, direction in pairs({ h = "left", j = "down", k = "up", l = "right" }) d
   end
 end
 api_error = "focus failed"
-expect_error("ctrl+a>h", api_error)
+expect_error("ctrl+s>h", api_error)
 expect_error("cmd+alt+h", api_error)
 api_error = nil
 
 -- Close the whole window containing the triggering pane, not an active-window
 -- guess or a pane.close action. Keep prefix+x and Cmd+W as pane operations.
-assert(bindings["ctrl+a>x"].action == "pane.close")
+assert(bindings["ctrl+s>x"].action == "pane.close")
 assert(bindings["cmd+w"].action == "pane.close")
-for _, key in ipairs({ "ctrl+a>c", "cmd+shift+w" }) do
+for _, key in ipairs({ "ctrl+s>c", "cmd+shift+w" }) do
   assert(invoke(key).revision == 42)
   assert(#calls == 2 and calls[1].method == "describe_block")
   assert(calls[1].args.session_id == ctx.session_id and calls[1].args.block_id == ctx.block_id)
@@ -158,21 +158,21 @@ for _, key in ipairs({ "ctrl+a>c", "cmd+shift+w" }) do
 end
 
 for _, context in ipairs({ {}, { session_id = ctx.session_id }, { block_id = ctx.block_id } }) do
-  expect_error("ctrl+a>c", "Closing a tab requires a focused pane in a session", context)
+  expect_error("ctrl+s>c", "Closing a tab requires a focused pane in a session", context)
   assert(#calls == 0)
 end
 for _, result in ipairs({ {}, { block = {} }, { block = { window_id = "" } } }) do
   placement = result
-  expect_error("ctrl+a>c", "The focused pane is not in a window")
+  expect_error("ctrl+s>c", "The focused pane is not in a window")
   assert(#calls == 1, "Unresolved window must never be closed")
 end
 placement_error = "pane no longer exists"
-expect_error("ctrl+a>c", placement_error)
+expect_error("ctrl+s>c", placement_error)
 assert(#calls == 1)
 placement_error = nil
 placement = { block = { window_id = "window:target" } }
 close_error = "close failed"
-expect_error("ctrl+a>c", close_error)
+expect_error("ctrl+s>c", close_error)
 assert(#calls == 2)
 
-print("Rex: Ctrl+A prefix, Fish paths, splits, focus, window targeting, and failure paths passed")
+print("Rex: Ctrl+S prefix, Fish paths, splits, focus, window targeting, and failure paths passed")

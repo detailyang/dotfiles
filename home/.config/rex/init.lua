@@ -1,5 +1,5 @@
 -- Migrated from home/.config/herdr/config.toml and home/.tmux.conf.
--- Ctrl+A is the tmux-style prefix; Cmd shortcuts remain as direct aliases.
+-- Ctrl+S is the tmux-style prefix; Cmd shortcuts remain as direct aliases.
 -- https://www.superlogical.com/rex/docs/customize/config
 -- Check: rex config check ~/.config/rex/init.lua
 -- Apply on the Rex server: rex config reload
@@ -148,7 +148,7 @@ rex.action{
   end,
 }
 
--- tmux's Ctrl+A p captures colored scrollback and opens it in a browser.
+-- tmux's prefix p captures colored scrollback and opens it in a browser.
 -- Rex exports HTML directly, so aha is not needed. The file, browser, and
 -- clipboard are on the Rex server, as they were on the tmux server.
 rex.action{
@@ -186,49 +186,49 @@ rex.action{
   end,
 }
 
--- Ctrl+A is the tmux-style prefix. Press it twice to send Ctrl+A itself.
-rex.bind("ctrl+a>ctrl+a", "pane.send_key", { key = "ctrl+a" })
+-- Ctrl+S is the tmux-style prefix. Press it twice to send Ctrl+S itself.
+rex.bind("ctrl+s>ctrl+s", "pane.send_key", { key = "ctrl+s" })
 
--- Ctrl+A then h/j/k/l or an arrow focuses the adjacent pane.
+-- Ctrl+S then h/j/k/l or an arrow focuses the adjacent pane.
 for key, direction in pairs({ h = "left", j = "down", k = "up", l = "right" }) do
-  rex.bind("ctrl+a>" .. key, "focus_pane", { direction = direction })
-  rex.bind("ctrl+a>" .. direction, "focus_pane", { direction = direction })
+  rex.bind("ctrl+s>" .. key, "focus_pane", { direction = direction })
+  rex.bind("ctrl+s>" .. direction, "focus_pane", { direction = direction })
 end
 
-rex.bind("ctrl+a>t", "new_fish_window")
-rex.bind("ctrl+a>c", "close_tab") -- Close the tab and all its panes.
-rex.bind("ctrl+a>n", "client.tab.next")
-rex.bind("ctrl+a>p", "capture_html")
-rex.bind("ctrl+a>shift+p", "client.tab.previous")
--- Ctrl+A then |: side-by-side panes (tmux split-window -h), new pane right.
--- Ctrl+A then -: stacked panes (tmux split-window -v), new pane below.
+rex.bind("ctrl+s>t", "new_fish_window")
+rex.bind("ctrl+s>c", "close_tab") -- Close the tab and all its panes.
+rex.bind("ctrl+s>n", "client.tab.next")
+rex.bind("ctrl+s>p", "capture_html")
+rex.bind("ctrl+s>shift+p", "client.tab.previous")
+-- Ctrl+S then |: side-by-side panes (tmux split-window -h), new pane right.
+-- Ctrl+S then -: stacked panes (tmux split-window -v), new pane below.
 -- Rex matches unshifted keys: | is Shift+backslash on a US layout.
-rex.bind("ctrl+a>shift+\\", "split_fish", { direction = "horizontal" })
-rex.bind("ctrl+a>-", "split_fish", { direction = "vertical" })
+rex.bind("ctrl+s>shift+\\", "split_fish", { direction = "horizontal" })
+rex.bind("ctrl+s>-", "split_fish", { direction = "vertical" })
 
 -- The session picker is the closest documented equivalent of Herdr's
 -- workspace picker and goto. Its own navigation keys are client settings.
-rex.bind("ctrl+a>w", "session.switch")
-rex.bind("ctrl+a>g", "session.switch")
+rex.bind("ctrl+s>w", "session.switch")
+rex.bind("ctrl+s>g", "session.switch")
 -- tmux's `bind M-w` includes the prefix; this opens Rex's session picker.
-rex.bind("ctrl+a>alt+w", "session.switch")
+rex.bind("ctrl+s>alt+w", "session.switch")
 
-rex.bind("ctrl+a>r", "reload_config")
-rex.bind("ctrl+a>z", "pane.zoom")
-rex.bind("ctrl+a>x", "pane.close") -- Only this pane; Ctrl+A c closes the tab.
+rex.bind("ctrl+s>r", "reload_config")
+rex.bind("ctrl+s>z", "pane.zoom")
+rex.bind("ctrl+s>x", "pane.close") -- Only this pane; Ctrl+S c closes the tab.
 -- Reserve Shift+B for tmux's join-pane workflow (see migration limits).
-rex.bind("ctrl+a>alt+b", "client.sidebar.toggle")
-rex.bind("ctrl+a>o", "open_snippet")
+rex.bind("ctrl+s>alt+b", "client.sidebar.toggle")
+rex.bind("ctrl+s>o", "open_snippet")
 
 -- A one-shot layout mode replaces tmux's Space menu for the supported action.
 -- Space then = balances the existing splits; Escape cancels.
 rex.mode("layout", { exclusive = true })
-rex.bind("ctrl+a>space", "client.mode.enter", { name = "layout", once = true })
+rex.bind("ctrl+s>space", "client.mode.enter", { name = "layout", once = true })
 rex.bind("layout/=", "pane.balance")
 
 -- Shift+R enters resize mode; Escape or Enter leaves it.
 rex.mode("resize", { exclusive = true })
-rex.bind("ctrl+a>shift+r", "client.mode.enter", { name = "resize" })
+rex.bind("ctrl+s>shift+r", "client.mode.enter", { name = "resize" })
 for key, direction in pairs({ h = "left", j = "down", k = "up", l = "right" }) do
   rex.bind("resize/" .. key, "pane.resize", { direction = direction })
   rex.bind("resize/" .. direction, "pane.resize", { direction = direction })
