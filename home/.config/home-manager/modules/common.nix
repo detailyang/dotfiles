@@ -7,6 +7,10 @@ let
 in
 
 {
+  imports = [
+    ../apps/cfst.nix
+  ];
+
   home.packages = [
     pkgs.aha
     pkgs.bat
