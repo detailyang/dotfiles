@@ -210,6 +210,10 @@ export function injectAdrGuide(existing: string | null): AdrInjectionResult {
   const content = `# ADR Workflow Guide\n\n${ADR_GUIDANCE}\n`;
   if (existing === null) return { action: "created", content };
   if (existing === content) return { action: "unchanged", content };
+  // A repository may symlink docs/adr/GUIDE.md to guidance.md to keep one
+  // source for the guide. That copy is the bare guidance, without the managed
+  // heading, and it is already current.
+  if (existing.trim() === ADR_GUIDANCE) return { action: "unchanged", content };
   if (!existing.startsWith("# ADR Workflow Guide\n")) {
     throw new Error(`${ADR_GUIDE_PATH} already exists and is not managed by the ADR extension`);
   }

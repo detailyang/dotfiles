@@ -122,6 +122,13 @@ test("injectAdrGuide owns the complete standalone workflow file", () => {
   );
 });
 
+test("injectAdrGuide accepts a guide that is the bare bundled guidance", () => {
+  const result = injectAdrGuide(ADR_GUIDANCE);
+
+  assert.equal(result.action, "unchanged");
+  assert.equal(result.content, `# ADR Workflow Guide\n\n${ADR_GUIDANCE}\n`);
+});
+
 test("the bundled toolkit includes all upstream references, templates, and scripts", () => {
   const paths = ADR_TOOLKIT_FILES.map((file) => file.relativePath);
   assert.deepEqual(paths, [
