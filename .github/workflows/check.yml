@@ -1,0 +1,32 @@
+name: Check
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux (dotfiles + Pi)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # Minimum supported runtime, from engines.node in home/.pi/pi-ybw/package.json.
+          node-version: "22.19.0"
+      - name: Install Pi dependencies
+        run: npm --prefix home/.pi/pi-ybw ci
+      - name: Run dotfiles and Pi checks
+        run: make check
+
+  macos:
+    name: macOS (dotfiles)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run dotfiles checks
+        run: make check-dotfiles
