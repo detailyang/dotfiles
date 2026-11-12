@@ -24,8 +24,7 @@
     "showTerminalProgress": true
   },
   "enableInstallTelemetry": false,
-  "hideThinkingBlock": false,
-  "lastChangelogVersion": "1.0.0",
+  "hideThinkingBlock": true,
   "quietStartup": true,
   "tuiMode": "regular",
   "modelThinkingLevels": {
@@ -34,5 +33,6 @@
     "magpie/group/opus-rustblackyang": "medium",
     "magpie/group/opus-jameslee": "medium",
     "magpie/group/opus-jinwoohan": "medium"
-  }
+  },
+  "showCacheMissNotices": true
 }
