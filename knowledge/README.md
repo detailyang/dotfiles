@@ -5,6 +5,7 @@
 ## 主题
 
 - [GPU 优化](gpu/README.md)：CUDA kernel、性能测量与推理系统。
+- [图形与渲染](rendering/README.md)：3D / VFX 工具链与面向 agent 的渲染引擎。
 
 ## 怎么收录
 
