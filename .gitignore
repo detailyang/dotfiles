@@ -10,6 +10,8 @@ node_modules
 package-lock.json
 !/home/.pi/pi-ybw/package-lock.json
 home/.codex/.env
+# Local delta tool artifacts: development-only, never committed.
+.delta/
 
 # Internal knowledge archive: local-only, never committed.
 knowledge/rtc/internal/
