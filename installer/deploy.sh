@@ -127,8 +127,11 @@ ybw::deploy::sync_pi_package() {
         fi
     elif [[ -d "$target_path" ]]; then
         # Snapshot the current package so replaced and deleted files stay
-        # recoverable under both GNU rsync and openrsync.
-        if ! mkdir -p "$backup_target" || ! rsync -a "$target" "$backup_target/"; then
+        # recoverable under both GNU rsync and openrsync. Installed
+        # dependencies are excluded: the sync protects them from deletion, so
+        # they never need restoring, and copying them would add hundreds of
+        # megabytes to every deploy backup.
+        if ! mkdir -p "$backup_target" || ! rsync -a --exclude='node_modules' "$target" "$backup_target/"; then
             ybw::log::error "Failed to snapshot existing Pi package to $backup_target"
             return 1
         fi
