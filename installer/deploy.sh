@@ -106,10 +106,10 @@ ybw::deploy::sync_pi_package() {
         return 1
     fi
 
+    # openrsync (macOS /usr/bin/rsync) silently drops --delete when --backup is
+    # also present, so the previous contents are snapshotted separately below.
     rsync_args=(
         -avh
-        --backup
-        --backup-dir="$backup_target"
         --delete
         --filter='P node_modules'
         --filter='P node_modules/**'
@@ -125,14 +125,20 @@ ybw::deploy::sync_pi_package() {
             ybw::log::error "Failed to back up existing $target_path"
             return 1
         fi
+    elif [[ -d "$target_path" ]]; then
+        # Snapshot the current package so replaced and deleted files stay
+        # recoverable under both GNU rsync and openrsync. Installed
+        # dependencies are excluded: the sync protects them from deletion, so
+        # they never need restoring, and copying them would add hundreds of
+        # megabytes to every deploy backup.
+        if ! mkdir -p "$backup_target" || ! rsync -a --exclude='node_modules' "$target" "$backup_target/"; then
+            ybw::log::error "Failed to snapshot existing Pi package to $backup_target"
+            return 1
+        fi
     fi
 
     if ! mkdir -p "$(dirname "$target")" "$target"; then
         ybw::log::error "Failed to create Pi package target: $target_path"
-        return 1
-    fi
-    if ! mkdir -p "$backup_target"; then
-        ybw::log::error "Failed to create Pi package backup directory: $backup_target"
         return 1
     fi
     if ! rsync "${rsync_args[@]}" "$source" "$target"; then

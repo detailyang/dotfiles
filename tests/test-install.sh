@@ -138,6 +138,12 @@ test_deploy_syncs_local_pi_package() {
         [[ ! -e "$stale_file" ]] || exit 1
         [[ -f "$dependency_file" ]] || exit 1
         [[ ! -e "$home_dir/pi" ]] || exit 1
+        # The snapshot taken before the sync keeps removed files recoverable
+        # without copying installed dependencies.
+        backup_pi=( "$home_dir"/.dotfiles-backup-*/.pi/pi-ybw )
+        [[ ${#backup_pi[@]} -eq 1 && -d "${backup_pi[0]}" ]] || exit 1
+        [[ -f "${backup_pi[0]}/extensions/stale-extension/index.ts" ]] || exit 1
+        [[ ! -e "${backup_pi[0]}/node_modules" ]] || exit 1
         ybw::deploy::run false > /dev/null || exit 1
         cmp "$source_file" "$target_file" || exit 1
         [[ -f "$dependency_file" ]] || exit 1
