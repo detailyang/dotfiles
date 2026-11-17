@@ -1,3 +1,5 @@
+import { statSync } from "node:fs";
+
 import type {
   ExtensionAPI,
   ExtensionCommandContext,
@@ -39,12 +41,26 @@ export function report(
   ctx.ui.notify(message, type);
 }
 
+// Pi only writes the session file once the conversation has a message, so a fresh
+// session reports a path that does not exist yet. Forking it makes `pi` exit with
+// "Cannot fork: source session file is empty or invalid", which closes the new
+// pane before it shows anything. Such a session has nothing to fork anyway.
+export function canForkSession(parentSessionFile: string): boolean {
+  try {
+    return statSync(parentSessionFile).size > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function buildPiArgs(
   pi: ExtensionAPI,
   ctx: ExtensionCommandContext,
   parentSessionFile: string,
 ): string[] {
-  const args = ["--fork", parentSessionFile];
+  const args = canForkSession(parentSessionFile)
+    ? ["--fork", parentSessionFile]
+    : [];
   if (ctx.model) {
     args.push("--model", `${ctx.model.provider}/${ctx.model.id}`);
   }

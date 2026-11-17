@@ -16,11 +16,11 @@ type LocationChoice<L extends string> = { label: string; location: L };
 
 const HERDR_LOCATIONS: ReadonlyArray<LocationChoice<BtwLocation>> = [
   { label: "New pane in current tab", location: "pane" },
-  { label: "New tab", location: "tab" },
+  { label: "New pane in new tab", location: "tab" },
 ];
 
 const REX_LOCATIONS: ReadonlyArray<LocationChoice<RexLocation>> = [
-  { label: "Floating window", location: "float" },
+  { label: "New pane in floating window", location: "float" },
   ...HERDR_LOCATIONS,
 ];
 

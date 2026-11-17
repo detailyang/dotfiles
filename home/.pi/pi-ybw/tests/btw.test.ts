@@ -1,7 +1,26 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
 import { registerBtwExtension } from "../extensions/btw/index.ts";
+
+const SESSION_DIR = mkdtempSync(join(tmpdir(), "pi-btw-test-"));
+const PARENT_SESSION_FILE = join(SESSION_DIR, "parent.jsonl");
+writeFileSync(
+  PARENT_SESSION_FILE,
+  `${JSON.stringify({
+    type: "session",
+    version: 3,
+    id: "parent",
+    timestamp: "2026-01-01T00:00:00.000Z",
+    cwd: "/workspace/project",
+  })}\n`,
+);
+const MISSING_SESSION_FILE = join(SESSION_DIR, "not-written-yet.jsonl");
+const EMPTY_SESSION_FILE = join(SESSION_DIR, "empty.jsonl");
+writeFileSync(EMPTY_SESSION_FILE, "");
 
 interface ExecResult {
   stdout: string;
@@ -145,15 +164,15 @@ function createHarness(options: HarnessOptions) {
     sessionManager: {
       getSessionFile: () => options.sessionFile === null
         ? undefined
-        : options.sessionFile ?? "/sessions/parent.jsonl",
+        : options.sessionFile ?? PARENT_SESSION_FILE,
     },
     ui: {
       async select(title: string, choices: string[]) {
         assert.equal(title, "Open BTW in:");
-        assert.deepEqual(choices, options.choices ?? ["New pane in current tab", "New tab"]);
+        assert.deepEqual(choices, options.choices ?? ["New pane in current tab", "New pane in new tab"]);
         return options.selection === null
           ? undefined
-          : options.selection ?? "New tab";
+          : options.selection ?? "New pane in new tab";
       },
       notify(message: string, type: string) {
         notifications.push({ message, type });
@@ -180,7 +199,7 @@ function rexEnv(extra: NodeJS.ProcessEnv = {}): NodeJS.ProcessEnv {
   };
 }
 
-const REX_LOCATION_CHOICES = ["Floating window", "New pane in current tab", "New tab"];
+const REX_LOCATION_CHOICES = ["New pane in floating window", "New pane in current tab", "New pane in new tab"];
 
 function createRexHarness(options: HarnessOptions) {
   return createHarness({
@@ -244,7 +263,7 @@ test("creates a focused pane in the current tab when selected", async () => {
         "30000",
         "--",
         "--fork",
-        "/sessions/parent.jsonl",
+        PARENT_SESSION_FILE,
         "--model",
         "openai/gpt-5.2-codex",
         "--thinking",
@@ -320,7 +339,7 @@ test("creates a focused tab in the current Herdr workspace and starts a BTW Pi s
         "30000",
         "--",
         "--fork",
-        "/sessions/parent.jsonl",
+        PARENT_SESSION_FILE,
         "--model",
         "openai/gpt-5.2-codex",
         "--thinking",
@@ -370,6 +389,97 @@ test("does not create a target when the current Pi session is not persisted", as
       message: "Cannot fork BTW: the current Pi session is not persisted.",
       type: "error",
     },
+  ]);
+});
+
+test("starts a fresh Pi session when the parent session was never written", async () => {
+  const harness = createRexHarness({
+    selection: "New pane in current tab",
+    sessionFile: MISSING_SESSION_FILE,
+    exec: () => ok(rexPaneOutput()),
+  });
+
+  await harness.run("  Compare these approaches  ");
+
+  assert.deepEqual(harness.calls, [
+    {
+      command: "rex",
+      args: [
+        "split",
+        "-s",
+        "session:S",
+        "-b",
+        "block:B",
+        "--split=right",
+        "-c",
+        "/workspace/project",
+        "--focus",
+        "--json",
+        "--",
+        "pi",
+        "--model",
+        "openai/gpt-5.2-codex",
+        "--thinking",
+        "high",
+        "--approve",
+        "--",
+        "Compare these approaches",
+      ],
+      options: { cwd: "/workspace/project", timeout: 10_000 },
+    },
+  ]);
+  assert.deepEqual(harness.notifications, [
+    { message: "Opened Rex BTW pane block:N.", type: "info" },
+  ]);
+});
+
+test("starts a fresh Pi session in a floating window when the session file is empty", async () => {
+  const harness = createRexHarness({
+    selection: "New pane in floating window",
+    sessionFile: EMPTY_SESSION_FILE,
+    exec: ({ args }) => args[4] === "target.resolve"
+      ? ok(rexResolveOutput())
+      : ok(rexFloatOutput()),
+  });
+
+  await harness.run("question");
+
+  const request = JSON.parse(harness.calls[1]!.args[5]!);
+  assert.deepEqual(request.layout.block.options.command, [
+    "pi",
+    "--model",
+    "openai/gpt-5.2-codex",
+    "--thinking",
+    "high",
+    "--approve",
+    "--",
+    "question",
+  ]);
+  assert.deepEqual(harness.notifications, [
+    { message: "Opened Rex BTW floating window layer:L.", type: "info" },
+  ]);
+});
+
+test("starts a fresh Pi session in a Herdr tab without a session file", async () => {
+  const harness = createHarness({
+    env: { HERDR_WORKSPACE_ID: "wH" },
+    sessionFile: MISSING_SESSION_FILE,
+    exec: ({ args }) => args[1] === "create" ? ok(tabCreatedOutput()) : ok(),
+  });
+
+  await harness.run("question");
+
+  assert.deepEqual(harness.calls[1]?.args.slice(-6), [
+    "--",
+    "--model",
+    "openai/gpt-5.2-codex",
+    "--thinking",
+    "high",
+    "--approve",
+  ]);
+  assert.equal(harness.calls[1]?.args.includes("--fork"), false);
+  assert.deepEqual(harness.notifications, [
+    { message: "Opened Herdr BTW tab wH:tZ.", type: "info" },
   ]);
 });
 
@@ -520,7 +630,7 @@ test("creates a focused Rex pane and starts Pi with the question", async () => {
         "--",
         "pi",
         "--fork",
-        "/sessions/parent.jsonl",
+        PARENT_SESSION_FILE,
         "--model",
         "openai/gpt-5.2-codex",
         "--thinking",
@@ -560,7 +670,7 @@ test("creates a focused Rex tab and starts Pi with the question", async () => {
         "--",
         "pi",
         "--fork",
-        "/sessions/parent.jsonl",
+        PARENT_SESSION_FILE,
         "--model",
         "openai/gpt-5.2-codex",
         "--thinking",
@@ -579,7 +689,7 @@ test("creates a focused Rex tab and starts Pi with the question", async () => {
 
 test("creates a Rex floating window and starts Pi with the question", async () => {
   const harness = createRexHarness({
-    selection: "Floating window",
+    selection: "New pane in floating window",
     exec: ({ args }) => args[4] === "target.resolve"
       ? ok(rexResolveOutput())
       : ok(rexFloatOutput()),
@@ -611,7 +721,7 @@ test("creates a Rex floating window and starts Pi with the question", async () =
         rexFloatRequest([
           "pi",
           "--fork",
-          "/sessions/parent.jsonl",
+          PARENT_SESSION_FILE,
           "--model",
           "openai/gpt-5.2-codex",
           "--thinking",
@@ -631,7 +741,7 @@ test("creates a Rex floating window and starts Pi with the question", async () =
 
 test("reports when the Rex block is not placed in a window", async () => {
   const harness = createRexHarness({
-    selection: "Floating window",
+    selection: "New pane in floating window",
     exec: () => ok(JSON.stringify({
       results: [{ query: "block:B", status: "not_found", reason: "block is detached" }],
     })),
@@ -647,7 +757,7 @@ test("reports when the Rex block is not placed in a window", async () => {
 
 test("reports when the resolved Rex block has no window", async () => {
   const harness = createRexHarness({
-    selection: "Floating window",
+    selection: "New pane in floating window",
     exec: () => ok(JSON.stringify({
       results: [{
         query: "block:B",
@@ -675,7 +785,7 @@ test("reports when the resolved Rex block has no window", async () => {
 
 test("reports Rex floating window creation failures", async () => {
   const harness = createRexHarness({
-    selection: "Floating window",
+    selection: "New pane in floating window",
     exec: ({ args }) => args[4] === "target.resolve"
       ? ok(rexResolveOutput())
       : { stdout: "", stderr: "layer limit reached", code: 1 },
@@ -690,7 +800,7 @@ test("reports Rex floating window creation failures", async () => {
 
 test("reports malformed Rex floating window responses", async () => {
   const harness = createRexHarness({
-    selection: "Floating window",
+    selection: "New pane in floating window",
     exec: ({ args }) => args[4] === "target.resolve"
       ? ok(rexResolveOutput())
       : ok(JSON.stringify({ block_ids: ["block:N"] })),
@@ -714,7 +824,7 @@ test("opens an idle Rex Pi session without a question argument", async () => {
   assert.deepEqual(harness.calls[0]?.args.slice(-8), [
     "pi",
     "--fork",
-    "/sessions/parent.jsonl",
+    PARENT_SESSION_FILE,
     "--model",
     "openai/gpt-5.2-codex",
     "--thinking",
