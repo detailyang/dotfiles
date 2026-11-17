@@ -2,7 +2,9 @@ import type { Theme } from "@earendil-works/pi-coding-agent";
 import { Key, matchesKey, truncateToWidth, visibleWidth } from "@earendil-works/pi-tui";
 import type { Component } from "@earendil-works/pi-tui";
 
-const DEFAULT_DIALOG_BODY_ROWS = Math.max(10, Math.min(28, (process.stdout.rows ?? 30) - 10));
+function defaultDialogBodyRows(): number {
+  return Math.max(10, Math.min(28, (process.stdout.rows ?? 30) - 10));
+}
 
 function repeat(char: string, count: number): string {
   return count > 0 ? char.repeat(count) : "";
@@ -42,7 +44,7 @@ export class ScrollDialog implements Component {
   ) {}
 
   handleInput(data: string): void {
-    const pageSize = Math.max(1, (this.options.maxBodyRows ?? DEFAULT_DIALOG_BODY_ROWS) - 2);
+    const pageSize = Math.max(1, (this.options.maxBodyRows ?? defaultDialogBodyRows()) - 2);
 
     if (this.options.onKey) {
       const handled = this.options.onKey(data);
@@ -92,7 +94,7 @@ export class ScrollDialog implements Component {
 
     const dialogWidth = Math.max(40, Math.min(this.options.width ?? width, width));
     const innerWidth = dialogWidth - 2;
-    const maxBodyRows = this.options.maxBodyRows ?? DEFAULT_DIALOG_BODY_ROWS;
+    const maxBodyRows = this.options.maxBodyRows ?? defaultDialogBodyRows();
     const bodyLines = this.options.renderBody(Math.max(10, innerWidth));
     const maxScrollOffset = Math.max(0, bodyLines.length - maxBodyRows);
     const scrollOffset = Math.min(this.scrollOffset, maxScrollOffset);

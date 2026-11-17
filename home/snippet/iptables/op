@@ -1,7 +1,7 @@
 ## Checking iptables Rules
-# List all rules iptables-L
+# List all rules iptables -L
 # List rules with verbose output and numerical addresses
-iptables-L -v -n
+iptables -L -v -n
 
 # List all rules in a format that can be reused
 iptables-save
@@ -44,4 +44,4 @@ iptables-save > /etc/iptables/rules.v4 # Save IPv4 rules to a file
 iptables-restore < /etc/iptables/rules.v4 # Restore IPv4 rules from a file
 
 ## Logging
-iptables -A INPUT -p tcp --dport <port> -j LOG --log-prefix "IPTables-Dropped:" --log-level
+iptables -A INPUT -p tcp --dport <port> -j LOG --log-prefix "IPTables-Dropped:" --log-level 4

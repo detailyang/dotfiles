@@ -58,6 +58,16 @@ chmod +x "$temp_dir/uname"
 
 cat > "$temp_dir/scutil" <<'EOF'
 #!/usr/bin/env bash
+if [[ "${FAKE_SCUTIL_DISABLED:-false}" == "true" ]]; then
+    cat <<'PROXIES'
+<dictionary> {
+  HTTPEnable : 0
+  HTTPSEnable : 0
+  SOCKSEnable : 0
+}
+PROXIES
+    exit 0
+fi
 cat <<'PROXIES'
 <dictionary> {
   HTTPPort : 7890
@@ -100,6 +110,16 @@ macos_output="$(env "${clear_proxy_env[@]}" \
     "$PROXY_ENV" bash autoproxy)"
 [[ "$macos_output" == *'export HTTP_PROXY=http://127.0.0.1:7890'* ]]
 [[ "$macos_output" == *'export HTTPS_PROXY=http://127.0.0.1:7891'* ]]
+[[ "$macos_output" == *'export SOCKS_PROXY=socks5://127.0.0.1:7892'* ]]
+[[ "$macos_output" == *'export ALL_PROXY=socks5://127.0.0.1:7892'* ]]
+
+macos_disabled_output="$(env "${clear_proxy_env[@]}" \
+    PATH="$temp_dir:/usr/bin:/bin" \
+    FAKE_UNAME=Darwin \
+    FAKE_SCUTIL_DISABLED=true \
+    "$PROXY_ENV" bash autoproxy)"
+[[ "$macos_disabled_output" == *'unset HTTP_PROXY'* ]]
+[[ "$macos_disabled_output" == *'echo Proxy\ disabled'* ]]
 
 none_output="$(env "${clear_proxy_env[@]}" \
     PATH="$temp_dir:/usr/bin:/bin" \

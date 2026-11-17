@@ -178,7 +178,7 @@ export default function goalExtension(pi: ExtensionAPI) {
 	}
 
 	function updateStatusBar(ctx: ExtensionContext) {
-		ctx.ui.setStatus(CUSTOM_TYPE, statusBarEnabled ? statusLine(goal) ?? "" : "");
+		ctx.ui.setStatus(CUSTOM_TYPE, statusBarEnabled ? (statusLine(goal) ?? undefined) : undefined);
 	}
 
 	function syncGoalTools(pi: ExtensionAPI) {
@@ -408,6 +408,10 @@ export default function goalExtension(pi: ExtensionAPI) {
 				}
 				if (goal.status === "complete") {
 					ctx.ui.notify("The goal is complete. Set a new goal to start more work.", "warning");
+					return;
+				}
+				if (trimmed === "pause" && goal.status !== "active") {
+					ctx.ui.notify(`The goal is already ${goal.status}.`, "info");
 					return;
 				}
 				if (trimmed === "resume" && goalBudgetReached(goal)) {

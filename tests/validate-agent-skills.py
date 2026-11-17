@@ -17,8 +17,9 @@ WORKFLOW_NAMES = {
     "to-spec", "zoom-out",
 }
 NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
-RESOURCE = re.compile(r"(?:references|scripts|assets)/[\w./-]+\.[\w-]+")
+RESOURCE = re.compile(r"(?<![/\w.-])(?:references|scripts|assets)/[\w./-]+\.[\w-]+")
 LINK = re.compile(r"\[[^\]\n]*\]\(([^\s)]+)\)")
+FENCE = re.compile(r"^```.*?^```", re.MULTILINE | re.DOTALL)
 ENTRY_LIMIT = 8192
 
 
@@ -60,10 +61,14 @@ def manifest_errors(path: Path) -> list[str]:
     return errors
 
 
+def strip_fences(text: str) -> str:
+    return FENCE.sub("", text)
+
+
 def link_errors(path: Path, boundary: Path) -> list[str]:
     """Validate simple local Markdown links, including links inside references."""
     errors = []
-    for raw in LINK.findall(path.read_text(encoding="utf-8")):
+    for raw in LINK.findall(strip_fences(path.read_text(encoding="utf-8"))):
         url = urlsplit(raw)
         if url.scheme or url.netloc or not url.path:
             continue
@@ -101,11 +106,17 @@ def validate(root: Path) -> list[str]:
                 errors.append(f"duplicate skill name across roots: {directory.name}")
             seen.add(directory.name)
             text = entry.read_text(encoding="utf-8")
-            for resource in sorted(set(RESOURCE.findall(text))):
+            unquoted_text = strip_fences(text)
+            for resource in sorted(set(RESOURCE.findall(unquoted_text))):
                 target = (directory / resource).resolve()
                 if not target.is_relative_to(directory.resolve()) or not target.is_file():
                     errors.append(f"{label}: missing or escaping resource: {resource}")
-            for reference in sorted((directory / "references").rglob("*.md")):
+            discoverable_docs = list((directory / "references").rglob("*.md"))
+            discoverable_docs.extend(
+                doc for doc in directory.glob("*.md")
+                if doc.name not in {"SKILL.md", "LICENSE.md", "ATTRIBUTION.md"}
+            )
+            for reference in sorted(discoverable_docs):
                 relative = reference.relative_to(directory).as_posix()
                 if relative not in text:
                     errors.append(f"{label}: reference not discoverable from entry: {relative}")

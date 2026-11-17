@@ -5,7 +5,12 @@ import { DEFAULT_TOOL_DISPLAY_CONFIG } from "../extensions/diff-view/config/conf
 import {
 	renderCompact, renderSplit, renderUnified, type DiffRenderContext,
 } from "../extensions/diff-view/renderer/tool/diff/diff-layout.ts";
-import type { DiffLineEntry, DiffLineKind } from "../extensions/diff-view/renderer/tool/diff/diff-parse.ts";
+import { parseDiff, type DiffLineEntry, type DiffLineKind } from "../extensions/diff-view/renderer/tool/diff/diff-parse.ts";
+import { installDiffViewTools } from "../extensions/diff-view/renderer/tool/diff/index.ts";
+import { renderEditDiffResult } from "../extensions/diff-view/renderer/tool/diff/diff-renderer.ts";
+import { mkdtempSync, rmSync, writeFileSync, readFileSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 type Layout = "unified" | "split" | "compact";
 const plain = (text: string) => text.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "");
@@ -146,4 +151,71 @@ test("split fallback to a narrow unified viewport retains hashline signs", () =>
 		context({ width: 24, showHashlineAnchors: true }));
 	assert.ok(lines.some((line) => line.includes("│- old")));
 	assert.ok(lines.some((line) => line.includes("│+ new")));
+});
+
+test("compact production renderer preserves hashline anchors with real code highlighter", () => {
+	const theme = { fg: (_color: string, text: string) => text, bg: (_color: string, text: string) => text };
+	const component = renderEditDiffResult(
+		{ diff: "-42#AB:const x = 1;\n+42#CD:const x = 2;" },
+		{ expanded: true, filePath: "demo.ts" },
+		DEFAULT_TOOL_DISPLAY_CONFIG,
+		theme as any,
+		"",
+	);
+	assert.ok(component);
+	const lines = component.render(16).map(plain);
+	assert.ok(lines.some((line: string) => line.includes("42#AB:")), lines.join("\n"));
+	assert.ok(lines.some((line: string) => line.includes("42#CD:")), lines.join("\n"));
+});
+
+test("parseDiff keeps --- and +++ content lines inside hunks without resetting line cursors", () => {
+	const parsed = parseDiff([
+		"--- a/sql.sql",
+		"+++ b/sql.sql",
+		"@@ -10,3 +10,3 @@",
+		" select 1;",
+		"--- old comment",
+		"+++ new comment",
+		" select 2;",
+	].join("\n"));
+	const lineEntries = parsed.entries.filter((item): item is DiffLineEntry => item.kind === "line");
+	assert.equal(parsed.stats.removed, 1);
+	assert.equal(parsed.stats.added, 1);
+	assert.deepEqual(
+		lineEntries.map((item) => [item.lineKind, item.oldLineNumber, item.newLineNumber, item.content]),
+		[
+			["context", 10, 10, "select 1;"],
+			["remove", 11, null, "-- old comment"],
+			["add", null, 11, "++ new comment"],
+			["context", 12, 12, "select 2;"],
+		],
+	);
+});
+
+test("installDiffViewTools edit wrapper resolves paths against runtime ctx.cwd", async () => {
+	const loadDir = mkdtempSync(path.join(os.tmpdir(), "diff-edit-load-"));
+	const runtimeDir = mkdtempSync(path.join(os.tmpdir(), "diff-edit-ctx-"));
+	try {
+		writeFileSync(path.join(loadDir, "sample.txt"), "before\n", "utf8");
+		writeFileSync(path.join(runtimeDir, "sample.txt"), "before\n", "utf8");
+		const registered = new Map<string, any>();
+		installDiffViewTools({
+			registerTool: (tool: any) => registered.set(tool.name, tool),
+			getAllTools: () => [],
+		} as any, undefined, loadDir);
+		const editTool = registered.get("edit");
+		assert.ok(editTool);
+		await editTool.execute(
+			"call-1",
+			{ path: "sample.txt", edits: [{ oldText: "before", newText: "after" }] },
+			undefined,
+			undefined,
+			{ cwd: runtimeDir },
+		);
+		assert.equal(readFileSync(path.join(loadDir, "sample.txt"), "utf8"), "before\n");
+		assert.equal(readFileSync(path.join(runtimeDir, "sample.txt"), "utf8"), "after\n");
+	} finally {
+		rmSync(loadDir, { recursive: true, force: true });
+		rmSync(runtimeDir, { recursive: true, force: true });
+	}
 });

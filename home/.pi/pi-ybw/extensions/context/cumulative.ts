@@ -1,5 +1,5 @@
-import { computeCacheHitPercent } from "./cache-math.js";
-import type { AssistantUsageMetric } from "./types.js";
+import { computeCacheHitPercent } from "./cache-math.ts";
+import type { AssistantUsageMetric } from "./types.ts";
 
 export interface CumulativeSeries {
   cumInput: number[];

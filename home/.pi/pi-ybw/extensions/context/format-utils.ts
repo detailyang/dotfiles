@@ -1,5 +1,5 @@
-import { computeCacheHitPercent } from "./cache-math.js";
-import type { CacheUsageTotals } from "./types.js";
+import { computeCacheHitPercent } from "./cache-math.ts";
+import type { CacheUsageTotals } from "./types.ts";
 
 export function formatInt(value: number): string {
   return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(Math.round(value));

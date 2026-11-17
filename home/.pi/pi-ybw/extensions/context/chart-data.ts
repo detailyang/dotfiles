@@ -36,6 +36,19 @@ export function bucketMaxValues(values: number[], bucketCount: number): number[]
   return result;
 }
 
+export function bucketLastValues(values: number[], bucketCount: number): number[] {
+  if (values.length <= bucketCount) return [...values];
+
+  const result: number[] = [];
+  for (let i = 0; i < bucketCount; i += 1) {
+    const start = Math.floor((i * values.length) / bucketCount);
+    const end = Math.floor(((i + 1) * values.length) / bucketCount);
+    const slice = values.slice(start, Math.max(start + 1, end));
+    result.push(slice[slice.length - 1]!);
+  }
+  return result;
+}
+
 export function bucketCumulativeSeries(
   series: CumulativeSeriesBuckets,
   bucketCount: number,
@@ -44,6 +57,6 @@ export function bucketCumulativeSeries(
     cumInput: bucketMaxValues(series.cumInput, bucketCount),
     cumCacheRead: bucketMaxValues(series.cumCacheRead, bucketCount),
     cumCacheWrite: bucketMaxValues(series.cumCacheWrite, bucketCount),
-    cumHitPercent: bucketMaxValues(series.cumHitPercent, bucketCount),
+    cumHitPercent: bucketLastValues(series.cumHitPercent, bucketCount),
   };
 }

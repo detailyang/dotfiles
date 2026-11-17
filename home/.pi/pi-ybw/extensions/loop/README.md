@@ -41,7 +41,7 @@ register the blocked tool. Use `/loop stop` to stop an existing runaway loop.
 From the repository root:
 
 ```sh
-node --test pi/tests/loop-*.test.ts
+node --test home/.pi/pi-ybw/tests/loop-*.test.ts
 make check-pi
 ```
 

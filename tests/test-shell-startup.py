@@ -131,6 +131,15 @@ class ShellStartupTests(unittest.TestCase):
         self.assertNotEqual(result.returncode, 0, "syntax error after bootstrap.sh was ignored")
 
 
+    def test_aliases_use_colon_delimited_ls_colors(self):
+        result = self.bash(
+            r'ls() { return 0; }; source "$1"; printf "%s" "$LS_COLORS"',
+            ROOT / "home/bash/.aliases",
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn(":*.gz=01;31:*.bz2=01;31:", result.stdout)
+
+
 @unittest.skipUnless(FISH, "Fish is not installed")
 class FishStartupTests(unittest.TestCase):
     def test_login_loads_checkout_config_without_host_dotfiles(self):
@@ -151,6 +160,64 @@ class FishStartupTests(unittest.TestCase):
             self.assertEqual(result.stdout, "a\nz\n")
             self.assertEqual(result.stderr, "")
 
+    def test_fish_helpers_preserve_pwd_arguments_and_empty_dirs(self):
+        with tempfile.TemporaryDirectory() as directory:
+            home = Path(directory)
+            (home / ".work").mkdir()
+            (home / ".k8s").write_text("alpha|/tmp/a\nbeta|/tmp/b\n", encoding="utf-8")
+            sub = home / "workspace/pkg"
+            sub.mkdir(parents=True)
+            bin_dir = home / "bin"
+            bin_dir.mkdir()
+            for tool in ("cat", "cut", "dirname", "mkdir", "pwd", "sort"):
+                found = shutil.which(tool)
+                if found:
+                    (bin_dir / tool).symlink_to(found)
+            fzf = bin_dir / "fzf"
+            fzf.write_text("#!/bin/sh\n/usr/bin/wc -l > \"$HOME/fzf_lines\"\nhead -n 1\n" if Path("/usr/bin/wc").exists() else "#!/bin/sh\nsed -n '2p'\n", encoding="utf-8")
+            fzf.write_text("#!/bin/sh\nawk 'NR==2 {print; exit}'\n", encoding="utf-8")
+            fzf.chmod(0o755)
+            for tool in ("awk",):
+                found = shutil.which(tool)
+                if found:
+                    (bin_dir / tool).symlink_to(found)
+            rpmbuild = bin_dir / "rpmbuild"
+            rpmbuild.write_text('#!/bin/sh\nfor arg in "$@"; do printf "%s\\n" "$arg"; done\n', encoding="utf-8")
+            rpmbuild.chmod(0o755)
+
+            script = r'''
+                source $argv[1]; or exit 11
+                source $argv[2]; and source $argv[2]; or exit 12
+                source $argv[3]; or exit 13
+                source $argv[4]; or exit 14
+                source $argv[5]; or exit 15
+                set before $PWD
+                ec >/dev/null; or exit 16
+                test "$PWD" = "$before"; or exit 17
+                not set -q DIR; or exit 18
+                set rpm_out (rpmbuild-here foo.spec bar.spec)
+                test "$PWD" = "$before"; or exit 19
+                test (count $rpm_out) -eq 4; or exit 20
+                test "$rpm_out[3]" = "foo.spec"; and test "$rpm_out[4]" = "bar.spec"; or exit 21
+                k >/dev/null; or exit 22
+                test "$KUBENAME" = "beta"; and test "$KUBECONFIG" = "/tmp/b"; or exit 23
+            '''
+            result = subprocess.run(
+                [
+                    FISH, "--no-config", "-c", script,
+                    str(ROOT / "home/fish/work.fish"),
+                    str(ROOT / "home/fish/greetings.fish"),
+                    str(ROOT / "home/fish/editorconfig.fish"),
+                    str(ROOT / "home/fish/rpm.fish"),
+                    str(ROOT / "home/fish/k8s.fish"),
+                ],
+                cwd=sub,
+                env={"HOME": directory, "PATH": str(bin_dir), "LC_ALL": "C"},
+                text=True, capture_output=True, timeout=5,
+            )
+            self.assertEqual(result.returncode, 0, f"code={result.returncode} stderr={result.stderr}")
+            self.assertEqual(result.stderr, "")
+
 
 @unittest.skipUnless(BASH, "Bash is not installed")
 class ProxyAdapterTests(unittest.TestCase):
@@ -160,7 +227,7 @@ class ProxyAdapterTests(unittest.TestCase):
             binary = home / "bin"
             binary.mkdir()
             # Only declared executable dependencies are visible; no deployed tools.
-            for tool in ("bash", "dirname", "seq"):
+            for tool in ("bash", "dirname"):
                 (binary / tool).symlink_to(shutil.which(tool))
             executable = binary / "proxy-env"
             shutil.copy2(ROOT / "home/bin/proxy-env", executable)

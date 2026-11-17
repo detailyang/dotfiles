@@ -144,7 +144,27 @@ export function installDiffViewTools(
 
   if (!hasExternalOwner(pi, "edit")) {
     const nativeEdit = createEditToolDefinition(cwd) as any;
-    pi.registerTool(withDiffRenderer(nativeEdit, "edit", store, displayConfig));
+    pi.registerTool(
+      withDiffRenderer(
+        {
+          ...nativeEdit,
+          async execute(
+            toolCallId: string,
+            params: any,
+            signal: AbortSignal | undefined,
+            onUpdate: any,
+            ctx: { cwd?: string } | undefined,
+          ) {
+            const targetCwd = ctx?.cwd ?? cwd;
+            const impl = targetCwd === cwd ? nativeEdit : (createEditToolDefinition(targetCwd) as any);
+            return impl.execute(toolCallId, params, signal, onUpdate, ctx);
+          },
+        },
+        "edit",
+        store,
+        displayConfig,
+      ),
+    );
   }
 
   if (!hasExternalOwner(pi, "write")) {

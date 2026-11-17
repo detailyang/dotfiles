@@ -38,6 +38,20 @@ export function resolveLanguageFromPath(rawPath: string | undefined): string | u
 	}
 }
 
+function withLinePrefix(line: string, cleanEntryLine: string, highlighted: string): string {
+	const cleanLine = cleanCodeLine(line);
+	if (cleanLine === cleanEntryLine) {
+		return highlighted;
+	}
+	if (cleanLine.endsWith(cleanEntryLine)) {
+		const prefix = sanitizeAnsiForThemedOutput(
+			cleanLine.slice(0, cleanLine.length - cleanEntryLine.length),
+		);
+		return `${prefix}${highlighted}`;
+	}
+	return sanitizeAnsiForThemedOutput(cleanLine);
+}
+
 export function createCodeLineHighlighter(
 	language: string | undefined,
 	theme: DiffTheme,
@@ -47,6 +61,9 @@ export function createCodeLineHighlighter(
 	const codeEntries = entries.filter((entry): entry is DiffLineEntry => entry.kind === "line");
 	const cleanLines = codeEntries.map((entry) =>
 		cleanCodeLine(normalizeCodeWhitespace(entry.content)),
+	);
+	const cleanByEntry = new WeakMap(
+		codeEntries.map((entry, index) => [entry, cleanLines[index] ?? ""]),
 	);
 	const code = cleanLines.join("\n");
 	const shouldHighlight = !!language && shouldHighlightCodeBlock(code);
@@ -62,7 +79,10 @@ export function createCodeLineHighlighter(
 	const fallbackByEntry = new WeakMap(
 		codeEntries.map((entry, index) => [entry, fallbackLines[index] ?? cleanLines[index] ?? ""]),
 	);
-	if (!shouldHighlight) return (_line, entry) => fallbackByEntry.get(entry) ?? "";
+	if (!shouldHighlight) {
+		return (line, entry) =>
+			withLinePrefix(line, cleanByEntry.get(entry) ?? "", fallbackByEntry.get(entry) ?? "");
+	}
 
 	const shikiTheme = resolveShikiTheme(theme);
 	let highlightedByEntry: WeakMap<DiffLineEntry, string> | undefined;
@@ -85,9 +105,10 @@ export function createCodeLineHighlighter(
 		}
 	};
 	resolveHighlighted();
-	return (_line, entry) => {
+	return (line, entry) => {
 		resolveHighlighted();
-		return highlightedByEntry?.get(entry) ?? fallbackByEntry.get(entry) ?? "";
+		const base = highlightedByEntry?.get(entry) ?? fallbackByEntry.get(entry) ?? "";
+		return withLinePrefix(line, cleanByEntry.get(entry) ?? "", base);
 	};
 }
 

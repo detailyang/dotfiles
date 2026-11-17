@@ -64,7 +64,7 @@ y = 0
 history = 100000
 multiplier = 3
 
-[shell]
+[terminal.shell]
 args = ["-l", "-c", "tmux attach || tmux"]
 program = "/usr/local/bin/fish"
 

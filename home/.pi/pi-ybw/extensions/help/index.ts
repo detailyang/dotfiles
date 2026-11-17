@@ -33,9 +33,11 @@ const BUILTIN_COMMANDS: CommandEntry[] = [
   { name: "tree", description: "Navigate session tree (switch branches)", source: "built-in" },
   { name: "compact", description: "Manually compact the session context", source: "built-in" },
   { name: "model", description: "Select model (opens selector UI)", source: "built-in" },
+  { name: "thinking", description: "Set thinking level", source: "built-in" },
   { name: "scoped-models", description: "Enable/disable models for Ctrl+P cycling", source: "built-in" },
   { name: "settings", description: "Open settings menu", source: "built-in" },
-  { name: "reload", description: "Reload keybindings, extensions, skills, prompts, and themes", source: "built-in" },
+  { name: "reload", description: "Reload keybindings, extensions, skills, prompts, themes, and context files", source: "built-in" },
+  { name: "trust", description: "Save project trust decision for future sessions", source: "built-in" },
   { name: "share", description: "Share session as a secret GitHub gist", source: "built-in" },
   { name: "export", description: "Export session (HTML default, or specify path: .html/.jsonl)", source: "built-in" },
   { name: "import", description: "Import and resume a session from a JSONL file", source: "built-in" },
@@ -142,7 +144,7 @@ export default function helpExtension(pi: ExtensionAPI) {
 
         container.addChild(new DynamicBorder((s: string) => theme.fg("borderMuted", s)));
         container.addChild(
-          new Text(theme.fg("dim", "  ↑↓ navigate  •  / filter  •  enter close  •  esc close"), 0, 0),
+          new Text(theme.fg("dim", "  ↑↓ navigate  •  enter close  •  esc close"), 0, 0),
         );
         container.addChild(new DynamicBorder((s: string) => theme.fg("accent", s)));
 

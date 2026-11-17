@@ -80,8 +80,17 @@ class SkillValidationTests(unittest.TestCase):
         self.assertTrue(any("missing local link target" in e for e in validator.validate(self.root)))
 
     def test_external_and_anchor_links_are_not_fetched(self):
-        self.entry.write_text(skill() + "[Source](https://example.com/missing.md) [Topic](#topic)\n", encoding="utf-8")
+        self.entry.write_text(
+            skill()
+            + "[Source](https://example.com/references/missing.md) [Topic](#topic)\n"
+            + "```markdown\n[Illustrative](missing-in-code-fence.md)\n```\n",
+            encoding="utf-8",
+        )
         self.assertEqual(validator.validate(self.root), [])
+
+    def test_orphan_root_doc_in_pi_skill_is_rejected(self):
+        self.put("home/.pi/pi-ybw/skills/pi-sample/UNREFERENCED.md", "# Unused\n")
+        self.assertTrue(any("not discoverable" in e for e in validator.validate(self.root)))
 
     def test_encoded_local_link(self):
         self.put("home/skills/sample/assets/test file.txt", "example")
@@ -111,6 +120,54 @@ class SkillValidationTests(unittest.TestCase):
         errors = validator.validate(self.root)
         self.assertFalse(any("global AGENTS.md exceeds" in e for e in errors))
         self.assertTrue(any("missing local link target" in e for e in errors))
+
+
+class ComplexityAnalyzerTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        analyzer_path = (
+            Path(__file__).resolve().parents[1]
+            / "home/skills/complexity-optimizer/scripts/analyze_complexity.py"
+        )
+        analyzer_spec = importlib.util.spec_from_file_location("analyze_complexity", analyzer_path)
+        cls.analyzer = importlib.util.module_from_spec(analyzer_spec)
+        import sys
+        sys.modules["analyze_complexity"] = cls.analyzer
+        analyzer_spec.loader.exec_module(cls.analyzer)
+
+    def test_text_scanner_avoids_false_positives_on_sequential_loops_tabs_strings_and_constants(self):
+        root = Path("/repo")
+        ts_code = "\n".join([
+            "const ADR_FILES = items.map(x => x.name);",
+            "function demo(items) {",
+            "  const help = 'Title for initial ADR';",
+            "  const hit = items.find(x => x.id === 1);",
+            "  for (const a of items) {",
+            "    consume(a);",
+            "  }",
+            "  for (const b of items) {",
+            "    consume(b);",
+            "  }",
+            "}",
+        ])
+        go_code = "package main\nfunc run(xs []int) {\n\tfor _, x := range xs {\n\t\t_ = x\n\t}\n\tfor _, y := range xs {\n\t\t_ = y\n\t}\n}\n"
+        self.assertEqual(self.analyzer.scan_text(root / "demo.ts", root, ts_code), [])
+        self.assertEqual(self.analyzer.scan_text(root / "demo.go", root, go_code), [])
+
+    def test_python_scanner_handles_async_for_comprehensions_and_nested_defs(self):
+        root = Path("/repo")
+        py_code = "\n".join([
+            "async def load(ids, banned):",
+            "    async for item_id in ids:",
+            "        await db.query(item_id)",
+            "    for x in ids:",
+            "        def helper(y):",
+            "            return y in banned",
+            "    return [x for x in ids if x in banned]",
+        ])
+        findings = self.analyzer.scan_python(root / "app.py", root, py_code)
+        kinds = [(f.line, f.kind) for f in findings]
+        self.assertEqual(kinds, [(3, "io-or-query-in-loop"), (7, "membership-in-loop")])
 
 
 if __name__ == "__main__":

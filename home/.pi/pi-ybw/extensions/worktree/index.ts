@@ -4,6 +4,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
 const START_SECTION_PATTERN = /^##\s+Start every task\s*$/gm;
 const SKILL_TITLE = "# Worktree Workflow Skill";
+const MANAGED_SKILL_HEADER_PATTERN = /^(?:---\nname:\s*worktree\ndescription:[^\n]+\n---\n\n)?# Worktree Workflow Skill\n/;
 
 export const WORKTREE_GUIDANCE = readFileSync(new URL("./guidance.md", import.meta.url), "utf-8").trim();
 export const WORKTREE_SKILL_PATH = path.join(".agents", "skills", "worktree", "SKILL.md");
@@ -80,7 +81,7 @@ export function injectWorktreeGuidance(existing: string | null): WorktreeInjecti
 export function injectWorktreeSkill(existing: string | null): WorktreeInjectionResult {
   if (existing === null) return { action: "created", content: `${WORKTREE_SKILL}\n` };
   if (existing.trimEnd() === WORKTREE_SKILL) return { action: "unchanged", content: existing };
-  if (!existing.startsWith(`${SKILL_TITLE}\n`)) {
+  if (!MANAGED_SKILL_HEADER_PATTERN.test(existing) && !existing.startsWith(`${SKILL_TITLE}\n`)) {
     throw new Error(`${WORKTREE_SKILL_PATH} already exists and is not managed by the worktree extension`);
   }
   return { action: "updated", content: `${WORKTREE_SKILL}\n` };

@@ -240,7 +240,7 @@ test("/init-adr writes and runs the complete toolkit without Source metadata", a
         "--dir",
         "docs/adr",
         "--title",
-        "Choose queue",
+        "Choose $HOME queue",
         "--status",
         "proposed",
         "--update-index",
@@ -250,8 +250,12 @@ test("/init-adr writes and runs the complete toolkit without Source metadata", a
     );
     assert.equal(newAdr.status, 0, newAdr.stderr);
     const createdAdrPath = JSON.parse(newAdr.stdout).createdAdrPath as string;
-    assert.match(await fs.readFile(createdAdrPath, "utf-8"), /# Choose queue/);
-    assert.match(await fs.readFile(path.join(cwd, ADR_README_PATH), "utf-8"), /Choose queue/);
+    assert.match(path.basename(createdAdrPath), /^\d{4}-\d{2}-\d{2}-choose-home-queue\.md$/);
+    const createdAdrText = await fs.readFile(createdAdrPath, "utf-8");
+    assert.match(createdAdrText, /# Choose \$HOME queue/);
+    assert.doesNotMatch(createdAdrText, /^decision-makers:\s+$/m);
+    const updatedReadme = await fs.readFile(path.join(cwd, ADR_README_PATH), "utf-8");
+    assert.match(updatedReadme, /## Decision Index\n\n- \[Choose \$HOME queue\]/);
 
     const setStatus = spawnSync(
       process.execPath,
@@ -264,7 +268,9 @@ test("/init-adr writes and runs the complete toolkit without Source metadata", a
       { cwd, encoding: "utf-8" },
     );
     assert.equal(setStatus.status, 0, setStatus.stderr);
-    assert.match(await fs.readFile(createdAdrPath, "utf-8"), /^status: accepted$/m);
+    const updatedAdrText = await fs.readFile(createdAdrPath, "utf-8");
+    assert.match(updatedAdrText, /^status: accepted$/m);
+    assert.ok(!updatedAdrText.endsWith("\n\n"), "set_adr_status.js must not append extra trailing blank lines");
 
     assert.deepEqual(notifications, [
       {

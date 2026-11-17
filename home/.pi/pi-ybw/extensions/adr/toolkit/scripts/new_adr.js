@@ -141,8 +141,12 @@ function listMdFiles(dir) {
     .map(e => e.name);
 }
 
+const NON_ADR_MARKDOWN_FILES = new Set(['readme.md', 'guide.md', 'index.md']);
+
 function detectStrategy(adrDir) {
-  const md = listMdFiles(adrDir);
+  const md = listMdFiles(adrDir).filter(
+    name => !NON_ADR_MARKDOWN_FILES.has(name.toLowerCase()),
+  );
   for (const name of md) {
     if (/^\d{4}-\d{2}-\d{2}-/.test(name)) return 'date';
   }
@@ -174,12 +178,15 @@ function renderTemplate(raw, vars) {
   // e.g. status: "{proposed | accepted | ...}" → status: proposed
   out = out.replace(
     /^(status:\s*)["']?\{[^}]*\}["']?\s*$/m,
-    `$1${vars.status}`,
+    (_, prefix) => `${prefix}${vars.status}`,
   );
-  out = out.replace(/^(date:\s*)\{[^}]*\}\s*$/m, `$1${vars.date}`);
   out = out.replace(
-    /^(decision-makers:\s*)["']?\{[^}]*\}["']?\s*$/m,
-    `$1${vars.deciders || ''}`,
+    /^(date:\s*)\{[^}]*\}\s*$/m,
+    (_, prefix) => `${prefix}${vars.date}`,
+  );
+  out = out.replace(
+    /^decision-makers:\s*["']?\{[^}]*\}["']?\s*$/m,
+    () => (vars.deciders ? `decision-makers: ${vars.deciders}` : 'decision-makers:'),
   );
 
   // consulted / informed: replace if a value was provided, otherwise remove the
@@ -187,7 +194,7 @@ function renderTemplate(raw, vars) {
   if (vars.consulted) {
     out = out.replace(
       /^(consulted:\s*)["']?\{[^}]*\}["']?\s*$/m,
-      `$1${vars.consulted}`,
+      (_, prefix) => `${prefix}${vars.consulted}`,
     );
   } else {
     out = out.replace(/^consulted:\s*["']?\{[^}]*\}["']?\s*\n/m, '');
@@ -195,14 +202,17 @@ function renderTemplate(raw, vars) {
   if (vars.informed) {
     out = out.replace(
       /^(informed:\s*)["']?\{[^}]*\}["']?\s*$/m,
-      `$1${vars.informed}`,
+      (_, prefix) => `${prefix}${vars.informed}`,
     );
   } else {
     out = out.replace(/^informed:\s*["']?\{[^}]*\}["']?\s*\n/m, '');
   }
 
   // Replace MADR-style heading placeholder
-  out = out.replace(/^(#\s+)\{short title[^}]*\}\s*$/m, `$1${vars.title}`);
+  out = out.replace(
+    /^(#\s+)\{short title[^}]*\}\s*$/m,
+    (_, prefix) => `${prefix}${vars.title}`,
+  );
 
   // Inline placeholders (title in heading, etc.)
   out = out
@@ -246,13 +256,14 @@ function insertIndexEntryUnderHeading(lines, headingRegex, entryLine) {
     }
   }
 
-  const insertAt = lastListItem !== -1 ? lastListItem + 1 : sectionEnd;
+  let insertAt = lastListItem !== -1 ? lastListItem + 1 : sectionEnd;
 
   const out = [...lines];
 
   // Ensure there's a blank line after the heading if we're inserting immediately after it.
   if (insertAt === headingIndex + 1 && out[insertAt] !== '') {
     out.splice(insertAt, 0, '');
+    insertAt++;
   }
 
   out.splice(insertAt, 0, entryLine);
@@ -279,8 +290,12 @@ function updateIndex(indexFile, { relLink, title, status, date }) {
   }
   const entryLine = `- [${title}](${relLink}) (${status}, ${date})`;
 
-  // Prefer inserting under "## ADRs" if it exists, otherwise append at EOF.
-  const r = insertIndexEntryUnderHeading(lines, /^##\s+ADRs\s*$/i, entryLine);
+  // Prefer inserting under the ADR index heading if it exists, otherwise append at EOF.
+  const r = insertIndexEntryUnderHeading(
+    lines,
+    /^##\s+(Decision Index|ADRs|Decisions)\s*$/i,
+    entryLine,
+  );
   const nextLines = r.inserted ? r.lines : [...lines, entryLine];
 
   let next = nextLines.join('\n');

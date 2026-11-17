@@ -13,7 +13,7 @@ function sb() {
     fi
     
     if test -n "$snippet"; then
-        $snippet "$@"
+        "$snippet" "$@"
     else
         echo "Warning: snippet not found"
     fi

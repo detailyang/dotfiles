@@ -1,9 +1,9 @@
 import type { Theme } from "@earendil-works/pi-coding-agent";
-import type { AssistantUsageMetric, CacheSessionMetrics } from "./types.js";
-import { formatInt, formatPercent, formatTotalsLine } from "./format-utils.js";
-import { computeCumulativeSeries, type CumulativeSeries } from "./cumulative.js";
-import { graphViewLabel, type GraphView } from "./view-state.js";
-import { bucketCumulativeSeries, bucketItems } from "./chart-data.js";
+import type { AssistantUsageMetric, CacheSessionMetrics } from "./types.ts";
+import { formatInt, formatPercent, formatTotalsLine } from "./format-utils.ts";
+import { computeCumulativeSeries, type CumulativeSeries } from "./cumulative.ts";
+import { graphViewLabel, type GraphView } from "./view-state.ts";
+import { bucketCumulativeSeries, bucketItems } from "./chart-data.ts";
 
 // ─── Bucketing helpers ────────────────────────────────────────────────────────
 
@@ -79,7 +79,7 @@ function renderStackedSeriesChart(
       .join("");
     lines.push(theme.fg("muted", label) + body);
   }
-  lines.push(theme.fg("muted", `    0│${theme.fg("dim", "─".repeat(seriesInput.length))}`));
+  lines.push(theme.fg("muted", `   0│${theme.fg("dim", "─".repeat(seriesInput.length))}`));
   return { lines, unitTokens };
 }
 

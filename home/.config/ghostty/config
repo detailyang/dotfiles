@@ -1,6 +1,6 @@
 shell-integration = fish
 cursor-click-to-move = false
-command = /usr/local/bin/fish 
+command = /usr/local/bin/fish
 font-family = "JetBrains Mono"
 font-size = 14
 macos-titlebar-style = tabs
@@ -14,7 +14,6 @@ clipboard-paste-bracketed-safe = false
 unfocused-split-opacity = 0.55
 shell-integration-features = ssh-terminfo,ssh-env
 keybind = alt+backspace=text:\x1b\x7f
-cursor-click-to-move = false
 window-padding-x = 0
 window-padding-y = 0
 window-padding-balance = false

@@ -6,9 +6,9 @@ export BAT_THEME="Catppuccin-mocha"
 
 # check uname is linux or darwin
 if [[ $(uname) == "Linux" ]]; then
-    export FZF_DEFAULT_OPTS="--reverse --inline-info --bind 'ctrl-y:execute-silent(readlink -f {} | cat {} | xclip -selection clipboard)+abort' --header 'Press CTRL-Y to copy file content into clipboard'"
+    export FZF_DEFAULT_OPTS="--reverse --inline-info --bind 'ctrl-y:execute-silent(cat {} | xclip -selection clipboard)+abort' --header 'Press CTRL-Y to copy file content into clipboard'"
 elif [[ $(uname) == "Darwin" ]]; then
-    export FZF_DEFAULT_OPTS="--reverse --inline-info --bind 'ctrl-y:execute-silent(readlink -f {} | cat {} | pbcopy)+abort' --header 'Press CTRL-Y to copy file content into clipboard'"
+    export FZF_DEFAULT_OPTS="--reverse --inline-info --bind 'ctrl-y:execute-silent(cat {} | pbcopy)+abort' --header 'Press CTRL-Y to copy file content into clipboard'"
 fi
 
 fd . "$HOME/snippet" --type f | fzf  --preview='bat --color always {}'

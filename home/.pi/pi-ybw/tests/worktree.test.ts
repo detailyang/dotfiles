@@ -54,11 +54,14 @@ test("injectWorktreeGuidance rejects duplicate sections", () => {
   );
 });
 
-test("injectWorktreeSkill protects an unrelated existing skill", () => {
-  assert.equal(injectWorktreeSkill(null).action, "created");
+test("injectWorktreeSkill writes valid frontmatter, upgrades legacy headerless skill, and protects unrelated skills", () => {
+  const created = injectWorktreeSkill(null);
+  assert.equal(created.action, "created");
+  assert.match(created.content, /^---\nname: worktree\ndescription: [^\n]+\n---\n\n# Worktree Workflow Skill\n/);
   assert.equal(injectWorktreeSkill(WORKTREE_SKILL).action, "unchanged");
   assert.equal(injectWorktreeSkill(`${WORKTREE_SKILL}\n`).action, "unchanged");
   assert.equal(injectWorktreeSkill(`${WORKTREE_SKILL}\n\n`).action, "unchanged");
+  assert.equal(injectWorktreeSkill("# Worktree Workflow Skill\n\nLegacy content.\n").action, "updated");
   assert.throws(
     () => injectWorktreeSkill("# A team's worktree rules\n"),
     new RegExp(`${WORKTREE_SKILL_PATH.replaceAll(".", "\\.")} already exists`),

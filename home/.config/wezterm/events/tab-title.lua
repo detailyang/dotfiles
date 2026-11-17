@@ -32,6 +32,9 @@ M.colors = {
 }
 
 M.set_process_name = function(s)
+   if not s then
+      return ""
+   end
    local a = string.gsub(s, "(.*[/\\])(.*)", "%2")
    return a:gsub("%.exe$", "")
 end
@@ -57,7 +60,7 @@ M.set_title = function(process_name, static_title, active_title, max_width, inse
 end
 
 M.check_if_admin = function(p)
-   if p:match("^Administrator: ") then
+   if p and p:match("^Administrator: ") then
       return true
    end
    return false

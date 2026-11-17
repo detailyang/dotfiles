@@ -172,7 +172,8 @@ ybw::packages::install_go_tools() {
     ybw::log::info "Installing Go tools..."
 
     for package in "${YBW_GO_PACKAGES[@]}"; do
-        package_name="$(echo "$package" | sed 's/@.*//' | awk -F'/' '{print $NF}')"
+        package_name="${package%%@*}"
+        package_name="${package_name##*/}"
 
         ybw::log::info "Installing Go package $package..."
         if mise exec -- go install "$package"; then
@@ -246,12 +247,23 @@ ybw::packages::activate_home_manager() {
     fi
 
     target="$(ybw::platform::home_manager_target "$profile")" || return 1
+    export USER="${USER:-$(id -un)}"
     ybw::log::info "Activating Home Manager target: $target"
 
     if ! nix run "$home_manager_dir#home-manager" -- --impure -v --option max-jobs 1 --option cores 2 --flake "$home_manager_dir#$target" switch; then
         ybw::log::error "Failed to activate Home Manager target: $target"
         return 1
     fi
+
+    local profile_bin
+    for profile_bin in \
+        "$HOME/.nix-profile/bin" \
+        "$HOME/.local/state/nix/profiles/home-manager/home-path/bin"
+    do
+        if [[ -d "$profile_bin" && ":$PATH:" != *":$profile_bin:"* ]]; then
+            export PATH="$profile_bin:$PATH"
+        fi
+    done
 
     ybw::log::success "Home Manager setup completed"
 }

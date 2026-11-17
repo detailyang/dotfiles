@@ -1,3 +1,8 @@
+---
+name: worktree
+description: Isolate each implementation slice in a dedicated Git worktree under .worktrees/.
+---
+
 # Worktree Workflow Skill
 
 Use this skill before editing files for any independently reviewable feature, fix,

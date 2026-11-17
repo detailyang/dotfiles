@@ -6,8 +6,12 @@ const INIT_AGENTS_PROMPT = readFileSync(new URL("./prompt.md", import.meta.url),
 export default function initExtension(pi: ExtensionAPI): void {
   pi.registerCommand("init", {
     description: "Initialize or update AGENTS.md for this repository",
-    handler: async () => {
-      pi.sendUserMessage(INIT_AGENTS_PROMPT);
+    handler: async (_args, ctx) => {
+      if (ctx.isIdle()) {
+        pi.sendUserMessage(INIT_AGENTS_PROMPT);
+      } else {
+        pi.sendUserMessage(INIT_AGENTS_PROMPT, { deliverAs: "followUp" });
+      }
     },
   });
 }

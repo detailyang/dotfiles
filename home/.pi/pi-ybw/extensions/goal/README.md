@@ -50,7 +50,7 @@ is aborted. Wrap-up tokens remain visible in the saved usage.
 From the repository root:
 
 ```sh
-node --test pi/tests/goal-*.test.ts
+node --test home/.pi/pi-ybw/tests/goal-*.test.ts
 make check-pi
 ```
 

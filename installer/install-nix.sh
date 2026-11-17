@@ -6,7 +6,7 @@ cd "$(dirname "${BASH_SOURCE[0]}")/.." || exit 1
 
 readonly TUNA_NIX_INSTALL_URL="https://mirrors.tuna.tsinghua.edu.cn/nix/latest/install"
 readonly OFFICIAL_NIX_INSTALL_URL="https://nixos.org/nix/install"
-readonly NIX_CONFIG_SOURCE="$PWD/.config/nix/nix.conf"
+readonly NIX_CONFIG_SOURCE="$PWD/home/.config/nix/nix.conf"
 readonly NIX_CONFIG_TARGET="$HOME/.config/nix/nix.conf"
 readonly NIX_DAEMON_CONFIG="/etc/nix/nix.conf"
 readonly NIX_DAEMON_CONFIG_FRAGMENT="/etc/nix/nix.conf.d/dotfiles.conf"
@@ -192,7 +192,7 @@ verify_nix() {
     config="$(show_nix_config || true)"
     if [[ "$config" != *"https://mirrors.tuna.tsinghua.edu.cn/nix-channels/store"* ]]; then
         log_error "Nix is not using the TUNA binary cache"
-        log_error "For a multi-user install, also add $NIX_CONFIG_TARGET to the daemon configuration"
+        log_error "For a multi-user install, ensure $NIX_DAEMON_CONFIG includes $NIX_DAEMON_CONFIG_FRAGMENT"
         return 1
     fi
 

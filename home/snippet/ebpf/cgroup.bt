@@ -36,9 +36,9 @@ kretprobe:cgroup_rmdir /@cg_rmdir[tid]/ {
 
 kretprobe:vfs_mkdir/@vfs_mkdir[tid]/ {
     $elapsed = (nsecs - @vfs_mkdir[tid])/1000/1000;
-    @h_vfs_rmdir = hist($elapsed);
+    @h_vfs_mkdir = hist($elapsed);
     delete(@vfs_mkdir[tid]);
 
-    printf("vfs rmdir %s %d -> %dms\n", comm, tid, $elapsed);
+    printf("vfs mkdir %s %d -> %dms\n", comm, tid, $elapsed);
 }
 
