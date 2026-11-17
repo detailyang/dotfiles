@@ -7,21 +7,23 @@ readonly YBW_OMF_PLUGINS=(
     "bass"
 )
 
-readonly YBW_ART_DIRS=(
-    "$HOME/art/github"
-    "$HOME/art/opensource"
-    "$HOME/art/personal"
+readonly YBW_ART_SUBDIRS=(
+    "art/github"
+    "art/opensource"
+    "art/personal"
 )
 
 ybw::postinstall::run() {
     local warning_count_before="$YBW_INSTALL_WARNING_COUNT"
     local warning_count
     local directory
+    local subdir
 
     ybw::log::step "Phase 5: Post-Install Configuration"
     ybw::log::info "Creating directory structure..."
 
-    for directory in "${YBW_ART_DIRS[@]}"; do
+    for subdir in "${YBW_ART_SUBDIRS[@]}"; do
+        directory="$HOME/$subdir"
         if [[ ! -d "$directory" ]]; then
             if ! mkdir -p "$directory"; then
                 ybw::log::error "Failed to create $directory"
@@ -80,9 +82,19 @@ ybw::remote::run_installer() {
 
 ybw::postinstall::setup_oh_my_fish() {
     local failed=0
+    local fish_bin=""
     local plugin
 
-    if ! ybw::command::exists fish; then
+    if ybw::platform::is_macos; then
+        fish_bin="$(ybw::macos::find_fish || true)"
+    elif ybw::platform::is_linux; then
+        fish_bin="$(ybw::linux::find_fish || true)"
+    fi
+    if [[ -z "$fish_bin" ]]; then
+        fish_bin="$(command -v fish 2>/dev/null || true)"
+    fi
+
+    if [[ -z "$fish_bin" || ! -x "$fish_bin" ]]; then
         ybw::log::warn "Fish shell is not installed; cannot configure oh-my-fish"
         return 1
     fi
@@ -94,7 +106,7 @@ ybw::postinstall::setup_oh_my_fish() {
         if ybw::remote::run_installer \
             "oh-my-fish" \
             "https://raw.githubusercontent.com/oh-my-fish/oh-my-fish/master/bin/install" \
-            fish \
+            "$fish_bin" \
             --noninteractive --yes
         then
             ybw::log::success "oh-my-fish installed"
@@ -109,7 +121,7 @@ ybw::postinstall::setup_oh_my_fish() {
             ybw::log::success "omf plugin $plugin already installed"
         else
             ybw::log::info "Installing omf plugin $plugin..."
-            if fish -c "omf install $plugin"; then
+            if "$fish_bin" -c "omf install $plugin"; then
                 ybw::log::success "omf plugin $plugin installed"
             else
                 ybw::log::warn "Failed to install omf plugin $plugin"

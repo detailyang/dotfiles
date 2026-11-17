@@ -68,11 +68,11 @@ no_proxy_value() {
     local values=("127.0.0.1" "localhost")
     local i
 
-    for i in $(seq 0 40); do
+    for i in {0..40}; do
         values+=("192.168.44.$i")
     done
 
-    for i in $(seq 0 254); do
+    for i in {0..254}; do
         values+=("192.168.0.$i")
     done
 
@@ -238,27 +238,42 @@ emit_macos_auto_proxy() {
         return 1
     fi
 
-    local http_port http_proxy https_port https_proxy socks_port socks_proxy no_proxy
+    local http_enable https_enable socks_enable
+    local http_port http_host https_port https_host socks_port socks_host
+    local http_proxy="" https_proxy="" socks_proxy="" no_proxy
+    http_enable=$(scutil_value HTTPEnable)
+    https_enable=$(scutil_value HTTPSEnable)
+    socks_enable=$(scutil_value SOCKSEnable)
     http_port=$(scutil_value HTTPPort)
-    http_proxy=$(scutil_value HTTPProxy)
+    http_host=$(scutil_value HTTPProxy)
     https_port=$(scutil_value HTTPSPort)
-    https_proxy=$(scutil_value HTTPSProxy)
+    https_host=$(scutil_value HTTPSProxy)
     socks_port=$(scutil_value SOCKSPort)
-    socks_proxy=$(scutil_value SOCKSProxy)
+    socks_host=$(scutil_value SOCKSProxy)
     no_proxy=$(no_proxy_value)
 
-    emit_proxy_vars \
-        "$shell" \
-        "http://$http_proxy:$http_port" \
-        "http://$https_proxy:$https_port" \
-        "$socks_proxy:$socks_port" \
-        "http://$socks_proxy:$socks_port" \
-        "$no_proxy"
+    if [[ "${http_enable:-1}" != "0" ]]; then
+        http_proxy=$(proxy_url http "$http_host" "$http_port" || true)
+    fi
+    if [[ "${https_enable:-1}" != "0" ]]; then
+        https_proxy=$(proxy_url http "$https_host" "$https_port" || true)
+    fi
+    if [[ "${socks_enable:-1}" != "0" ]]; then
+        socks_proxy=$(proxy_url socks5 "$socks_host" "$socks_port" || true)
+    fi
 
-    emit_echo "$shell" "HTTP_PROXY:http://$http_proxy:$http_port"
-    emit_echo "$shell" "HTTPS_PROXY:http://$https_proxy:$https_port"
-    emit_echo "$shell" "SOCKS_PROXY:$socks_proxy:$socks_port"
-    emit_echo "$shell" "NO_PROXY:$no_proxy"
+    if [[ -z "$http_proxy$https_proxy$socks_proxy" ]]; then
+        emit_unproxy_vars "$shell"
+        return 0
+    fi
+
+    emit_resolved_proxy \
+        "$shell" \
+        "$http_proxy" \
+        "$https_proxy" \
+        "$socks_proxy" \
+        "$socks_proxy" \
+        "$no_proxy"
 }
 
 emit_gnome_auto_proxy() {

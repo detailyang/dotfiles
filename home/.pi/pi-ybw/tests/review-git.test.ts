@@ -39,6 +39,16 @@ test("getMergeBase prefers upstream and falls back to branch", async () => {
     return { stdout: args[2] === "main" ? "def456\n" : "", code: args[2] === "main" ? 0 : 1 };
   });
   assert.equal(await getMergeBase(fallbackHost, "main"), "def456");
+
+  const remoteOnlyHost = fakeHost((_cmd, args) => {
+    if (args[0] === "rev-parse") return { code: 1 };
+    return { stdout: args[2] === "origin/release/1.0" ? "fed789\n" : "", code: args[2] === "origin/release/1.0" ? 0 : 1 };
+  });
+  assert.equal(await getMergeBase(remoteOnlyHost, "release/1.0"), "fed789");
+
+  const flagHost = fakeHost(() => ({ stdout: "bad\n", code: 0 }));
+  assert.equal(await getMergeBase(flagHost, "--octopus"), null);
+  assert.equal(flagHost.calls.length, 0);
 });
 
 test("hasPendingChanges ignores untracked files but detects tracked changes", async () => {

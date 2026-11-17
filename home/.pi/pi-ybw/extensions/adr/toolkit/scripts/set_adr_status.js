@@ -55,30 +55,18 @@ function parseArgs(argv) {
 
 function setYamlFrontMatterStatus(lines, newStatus) {
   // YAML front matter: starts with '---', ends with next '---'
-  if (lines.length < 2 || lines[0].trim() !== '---')
+  if (lines.length < 3 || lines[0].trim() !== '---')
     return { lines, changed: false };
+  const closingIndex = lines.findIndex((line, index) => index > 0 && line.trim() === '---');
+  if (closingIndex === -1) return { lines, changed: false };
 
   let changed = false;
   const out = [];
-  let inFrontMatter = true;
-  let passedOpening = false;
 
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
 
-    if (i === 0 && line.trim() === '---') {
-      passedOpening = true;
-      out.push(line);
-      continue;
-    }
-
-    if (passedOpening && inFrontMatter && line.trim() === '---') {
-      inFrontMatter = false;
-      out.push(line);
-      continue;
-    }
-
-    if (passedOpening && inFrontMatter && /^status\s*:/.test(line)) {
+    if (i > 0 && i < closingIndex && /^status\s*:/.test(line)) {
       out.push(`status: ${newStatus}`);
       changed = true;
       continue;
@@ -138,8 +126,12 @@ function main() {
   if (!fs.existsSync(filePath)) die(`File not found: ${filePath}`);
 
   const content = fs.readFileSync(filePath, 'utf8');
-  const hadTrailingNewline = content.endsWith('\n');
-  const lines = content.replace(/\r\n/g, '\n').split('\n');
+  const normalized = content.replace(/\r\n/g, '\n');
+  const hadTrailingNewline = normalized.endsWith('\n');
+  let lines = normalized.split('\n');
+  if (hadTrailingNewline && lines.length > 0 && lines[lines.length - 1] === '') {
+    lines = lines.slice(0, -1);
+  }
 
   let r = setYamlFrontMatterStatus(lines, args.status);
   if (!r.changed) r = setBulletStatus(lines, args.status);

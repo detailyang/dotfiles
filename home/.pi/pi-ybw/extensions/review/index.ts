@@ -478,10 +478,6 @@ export default function reviewExtension(pi: ExtensionAPI) {
 		applyAllReviewState(ctx, { clearAutoFinish: true });
 	});
 
-	(pi.on as any)("session_switch", (_event: unknown, ctx: ExtensionContext) => {
-		applyAllReviewState(ctx, { clearAutoFinish: true });
-	});
-
 	pi.on("session_tree", (_event, ctx) => {
 		applyAllReviewState(ctx);
 	});

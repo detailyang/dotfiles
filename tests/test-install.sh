@@ -32,7 +32,7 @@ test_installer_has_namespaced_module_boundary() {
         [[ -f "$PWD/installer/$module.sh" ]] || result=1
     done
 
-    if ! bash -c 'source "$1"; declare -F ybw::install::main > /dev/null; ! declare -F | awk "{print \$3}" | grep -qv "^ybw::"' _ "$PWD/bootstrap.sh"; then
+    if ! env -i PATH="$PATH" HOME="$HOME" bash --noprofile --norc -c 'source "$1"; declare -F ybw::install::main > /dev/null; ! declare -F | awk "{print \$3}" | grep -qv "^ybw::"' _ "$PWD/bootstrap.sh"; then
         result=1
     fi
 
@@ -55,6 +55,7 @@ test_deploy_is_scoped_and_backed_up() {
     local untracked_nested_path="$PWD/home/.config/install-test-untracked-$$"
 
     home_dir="$(mktemp -d)"
+    trap 'rm -f "$untracked_path" "$untracked_nested_path"; rm -rf "$home_dir"' RETURN
     mkdir -p "$home_dir/.config/fish" "$home_dir/.codex"
     printf 'old fish config\n' > "$home_dir/.config/fish/config.fish"
     printf 'old codex rules\n' > "$home_dir/.codex/AGENTS.md"
@@ -107,28 +108,37 @@ test_deploy_is_scoped_and_backed_up() {
 
     rm -f "$untracked_path" "$untracked_nested_path"
     rm -rf "$home_dir"
+    trap - RETURN
     return "$status"
 }
 
 test_deploy_syncs_local_pi_package() {
+    local untracked_pi_path="$PWD/home/.pi/pi-ybw/install-test-untracked-$$"
     local home_dir
     local result=0
     local source_file
     local target_file
     local stale_file
     local dependency_file
+    local symlink_target
 
     home_dir="$(mktemp -d)"
+    symlink_target="$(mktemp -d)"
+    trap 'rm -f "$untracked_pi_path"; rm -rf "$home_dir" "$symlink_target"' RETURN
     source_file="$PWD/home/.pi/pi-ybw/CONTEXT.md"
     target_file="$home_dir/.pi/pi-ybw/CONTEXT.md"
     stale_file="$home_dir/.pi/pi-ybw/extensions/stale-extension/index.ts"
     dependency_file="$home_dir/.pi/pi-ybw/node_modules/example-package/index.js"
+    printf 'untracked pi file\n' > "$untracked_pi_path"
+    mkdir -p "$home_dir/.pi"
+    ln -s "$symlink_target" "$home_dir/.pi/pi-ybw"
     (
         HOME="$home_dir"
         export HOME
         source "$PWD/bootstrap.sh"
         ybw::deploy::run true > /dev/null || exit 1
-        [[ ! -e "$home_dir/.pi/pi-ybw" ]] || exit 1
+        [[ -L "$home_dir/.pi/pi-ybw" ]] || exit 1
+        rm -f "$home_dir/.pi/pi-ybw"
         mkdir -p "$(dirname "$stale_file")" "$(dirname "$dependency_file")"
         printf 'stale extension\n' > "$stale_file"
         printf 'installed dependency\n' > "$dependency_file"
@@ -136,6 +146,8 @@ test_deploy_syncs_local_pi_package() {
         [[ -d "$home_dir/.pi/pi-ybw" && ! -L "$home_dir/.pi/pi-ybw" ]] || exit 1
         cmp "$source_file" "$target_file" || exit 1
         [[ ! -e "$stale_file" ]] || exit 1
+        [[ ! -e "$home_dir/.pi/pi-ybw/$(basename "$untracked_pi_path")" ]] || exit 1
+        [[ ! -e "$home_dir/.pi/pi-ybw/node_modules/typescript" ]] || exit 1
         [[ -f "$dependency_file" ]] || exit 1
         [[ ! -e "$home_dir/pi" ]] || exit 1
         # The snapshot taken before the sync keeps removed files recoverable
@@ -147,8 +159,17 @@ test_deploy_syncs_local_pi_package() {
         ybw::deploy::run false > /dev/null || exit 1
         cmp "$source_file" "$target_file" || exit 1
         [[ -f "$dependency_file" ]] || exit 1
+        printf 'preserve symlink target\n' > "$symlink_target/sentinel"
+        rm -rf "$home_dir/.pi/pi-ybw"
+        ln -s "$symlink_target" "$home_dir/.pi/pi-ybw"
+        ybw::deploy::run false > /dev/null || exit 1
+        [[ -d "$home_dir/.pi/pi-ybw" && ! -L "$home_dir/.pi/pi-ybw" ]] || exit 1
+        [[ -f "$symlink_target/sentinel" && ! -e "$symlink_target/CONTEXT.md" ]] || exit 1
+        cmp "$source_file" "$target_file" || exit 1
     ) || result=1
-    rm -rf "$home_dir"
+    rm -f "$untracked_pi_path"
+    rm -rf "$home_dir" "$symlink_target"
+    trap - RETURN
 
     return "$result"
 }
@@ -441,6 +462,33 @@ test_macos_postinstall_uses_only_configured_integrations() {
     return "$result"
 }
 
+test_home_manager_activation_exposes_profile_binaries() {
+    local fake_bin
+    local home_dir
+    local hm_bin
+    local output
+    local result=0
+
+    fake_bin="$(mktemp -d)"
+    home_dir="$(mktemp -d)"
+    hm_bin="$home_dir/.local/state/nix/profiles/home-manager/home-path/bin"
+    mkdir -p "$home_dir/.config/home-manager" "$hm_bin"
+    touch "$home_dir/.config/home-manager/flake.nix" "$home_dir/.config/home-manager/flake.lock"
+    printf '#!/bin/sh\nexit 0\n' > "$fake_bin/nix"
+    printf '#!/bin/sh\nprintf "hm-mise"\n' > "$hm_bin/mise"
+    chmod +x "$fake_bin/nix" "$hm_bin/mise"
+
+    output="$(HOME="$home_dir" USER="" PATH="$fake_bin:/usr/bin:/bin" bash -c '
+        source "$1"
+        ybw::packages::activate_home_manager development > /dev/null
+        printf "%s:%s" "$(command -v mise)" "$USER"
+    ' _ "$PWD/bootstrap.sh" 2>&1)" || result=1
+    rm -rf "$fake_bin" "$home_dir"
+
+    [[ "$output" == "$hm_bin/mise:$(id -un)" ]] || result=1
+    return "$result"
+}
+
 check "installer exposes a namespaced module boundary" test_installer_has_namespaced_module_boundary
 check "installer can be sourced without execution or cwd changes" test_installer_can_be_sourced
 check "deployment is scoped to tracked files and preserves replaced paths" test_deploy_is_scoped_and_backed_up
@@ -459,6 +507,7 @@ check "requested npx failures produce a failed result" test_requested_npx_failur
 check "requested PI failures produce a failed result" test_requested_pi_failure_is_reported
 check "optional post-install failures are counted" test_optional_postinstall_failure_is_counted
 check "macOS post-install runs only configured integrations" test_macos_postinstall_uses_only_configured_integrations
+check "Home Manager activation exposes profile binaries on PATH" test_home_manager_activation_exposes_profile_binaries
 check "remote bootstrap download failures are reported" test_remote_bootstrap_download_failures_are_reported
 
 echo ""

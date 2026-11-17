@@ -41,7 +41,10 @@ function createHarness(initial: GoalState | null = null) {
     abort: () => { aborted = true; },
     sessionManager: { getBranch: () => branch, getEntries: () => branch },
     ui: {
-      setStatus: (key: string, value: string) => status.set(key, value),
+      setStatus: (key: string, value: string | undefined) => {
+        if (value === undefined) status.delete(key);
+        else status.set(key, value);
+      },
       notify: (message: string) => notifications.push(message),
       confirm: async () => confirmed,
     },
@@ -90,8 +93,8 @@ test("extension instances isolate goals, counters, and settings", async () => {
   assert.equal((await a.state())?.objective, "A");
   assert.equal((await a.state())?.tokensUsed, 100);
   assert.equal((await b.state())?.tokensUsed, 200);
-  assert.equal(a.status.get("pi-goal"), "");
-  assert.notEqual(b.status.get("pi-goal"), "");
+  assert.equal(a.status.get("pi-goal"), undefined);
+  assert.notEqual(b.status.get("pi-goal"), undefined);
   await a.command("clear");
   assert.equal((await b.state())?.objective, "B");
 });
@@ -151,7 +154,7 @@ test("tree navigation restores the target branch, including empty and corrupt st
   h.setBranch([stateEntry(target, false)]);
   h.emit("session_tree");
   assert.deepEqual(await h.state(), target);
-  assert.equal(h.status.get("pi-goal"), "");
+  assert.equal(h.status.get("pi-goal"), undefined);
   assert.ok(!h.pi.getActiveTools().includes("update_goal"));
   for (const entries of [[], [stateEntry(null)], [{ type: "custom", customType: "pi-goal", data: { goal: { version: 2 } } }]]) {
     h.setBranch(entries);
@@ -337,7 +340,19 @@ test("clearing or pausing an old inactive goal does not abort unrelated work", a
   }
 });
 
-test("exhausted or completed goals cannot be reopened by resume", async () => {
+test("exhausted or completed goals cannot be reopened by resume, and pause preserves blocked or budget-limited states", async () => {
+  const blocked = { ...createGoalState("audit", 100), status: "blocked" as const, reason: "Need credentials" };
+  const hb = createHarness(blocked);
+  hb.start();
+  await hb.command("pause");
+  assert.deepEqual(await hb.state(), blocked);
+
+  const limited = { ...createGoalState("audit", 100), status: "budget_limited" as const, tokensUsed: 100 };
+  const hl = createHarness(limited);
+  hl.start();
+  await hl.command("pause");
+  assert.deepEqual(await hl.state(), limited);
+
   for (const status of ["budget_limited", "paused", "blocked", "complete"] as const) {
     const goal = { ...createGoalState("audit", 100), status, tokensUsed: 100 };
     const h = createHarness(goal);

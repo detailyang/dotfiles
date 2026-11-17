@@ -1,19 +1,12 @@
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
-import { renderGraphBody } from "./graph-view.js";
-import { ScrollDialog } from "./scroll-dialog.js";
-import { collectCacheSessionMetrics } from "./session-data.js";
-import { applyGraphViewKey, graphViewLabel, type GraphView } from "./view-state.js";
+import { renderGraphBody } from "./graph-view.ts";
+import { ScrollDialog } from "./scroll-dialog.ts";
+import { collectCacheSessionMetrics } from "./session-data.ts";
+import { applyGraphViewKey, graphViewLabel, type GraphView } from "./view-state.ts";
 
 export default function contextExtension(pi: ExtensionAPI): void {
   pi.registerCommand("context", {
     description: "Show context cache hit graph for the current session",
-    getArgumentCompletions(prefix) {
-      const items = [
-        { value: "graph", label: "graph", description: "Show cache hit % graph over time" },
-      ];
-      const filtered = items.filter((item) => item.value.startsWith(prefix.toLowerCase()));
-      return filtered.length > 0 ? filtered : items;
-    },
     handler: async (_args, ctx) => {
       if (ctx.mode !== "tui") {
         ctx.ui.notify("/context requires interactive TUI mode.", "info");

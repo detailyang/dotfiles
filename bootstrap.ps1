@@ -76,7 +76,10 @@ function Deploy-Configs {
     # Deploy wezterm config from the home/ mirror if it exists
     if (Test-Path ".\home\.config\wezterm") {
         $destDir = "$env:USERPROFILE\.config\wezterm"
-        Copy-Item -Path ".\home\.config\wezterm" -Destination $destDir -Recurse -Force
+        if (!(Test-Path $destDir)) {
+            New-Item -ItemType Directory -Path $destDir -Force | Out-Null
+        }
+        Copy-Item -Path ".\home\.config\wezterm\*" -Destination $destDir -Recurse -Force
         Write-Success "Deployed wezterm configuration"
     }
     
@@ -85,13 +88,17 @@ function Deploy-Configs {
 
 function Update-Repository {
     if ($NoPull) {
-        Write-Warning "Skipping git pull (--no-pull specified)"
+        Write-Warning "Skipping git pull (-NoPull specified)"
         return
     }
     
     Write-Status "Pulling latest changes"
     try {
         git pull --ff origin master
+        if ($LASTEXITCODE -ne 0) {
+            Write-Warning "Failed to pull latest changes (git exited with code $LASTEXITCODE)"
+            return
+        }
         Write-Success "Repository updated"
     }
     catch {
@@ -103,7 +110,6 @@ function Install-Apps {
     Write-Status "Installing applications via winget"
     
     $apps = @(
-        "WingetPathUpdater",
         "wez.wezterm",
         "Microsoft.Coreutils",
         "Microsoft.PowerToys",
@@ -140,7 +146,7 @@ function Install-Apps {
         
         try {
             # Check if app is already installed
-            $installed = winget list --id $appId -e --exact 2>$null
+            winget list --id $appId --exact *> $null
             
             if ($LASTEXITCODE -eq 0) {
                 if ($Verbose) {
@@ -149,7 +155,7 @@ function Install-Apps {
             }
             else {
                 Write-Host "  📦 Installing: $appId" -ForegroundColor Yellow
-                $result = winget install --id $appId --exact --accept-package-agreements --accept-source-agreements
+                winget install --id $appId --exact --accept-package-agreements --accept-source-agreements
                 
                 if ($LASTEXITCODE -eq 0) {
                     Write-Success "  ✓ Installed: $appId"

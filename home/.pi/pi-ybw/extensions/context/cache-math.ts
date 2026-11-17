@@ -1,4 +1,4 @@
-import type { AssistantUsageMetric, CacheUsageTotals } from "./types.js";
+import type { AssistantUsageMetric, CacheUsageTotals } from "./types.ts";
 
 /**
  * Canonical cache-hit % formula.

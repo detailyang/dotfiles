@@ -187,8 +187,12 @@ export function parseDiff(diffText: string): ParsedDiff {
 	let oldLineCursor: number | null = null;
 	let newLineCursor: number | null = null;
 	let lineNumberDelta = 0;
+	let hunkOldRemaining = 0;
+	let hunkNewRemaining = 0;
 
-	for (const rawLine of diffText.replace(/\r/g, "").split("\n")) {
+	const rawLines = diffText.replace(/\r/g, "").split("\n");
+	for (let lineIndex = 0; lineIndex < rawLines.length; lineIndex++) {
+		const rawLine = rawLines[lineIndex]!;
 		stats.lines++;
 
 		const hunkMatch = rawLine.match(HUNK_HEADER_PATTERN);
@@ -197,6 +201,8 @@ export function parseDiff(diffText: string): ParsedDiff {
 			stats.hunks = Math.max(stats.hunks, hunkIndex);
 			oldLineCursor = toNumber(hunkMatch[1]);
 			newLineCursor = toNumber(hunkMatch[3]);
+			hunkOldRemaining = hunkMatch[2] === undefined ? 1 : (toNumber(hunkMatch[2]) ?? 0);
+			hunkNewRemaining = hunkMatch[4] === undefined ? 1 : (toNumber(hunkMatch[4]) ?? 0);
 			lineNumberDelta = (newLineCursor ?? 0) - (oldLineCursor ?? 0);
 			entries.push({ kind: "hunk", raw: rawLine, hunkIndex });
 			continue;
@@ -207,14 +213,28 @@ export function parseDiff(diffText: string): ParsedDiff {
 			oldLineCursor = null;
 			newLineCursor = null;
 			lineNumberDelta = 0;
+			hunkOldRemaining = 0;
+			hunkNewRemaining = 0;
 			entries.push({ kind: "file", raw: rawLine, hunkIndex });
 			continue;
 		}
 
-		if (rawLine.startsWith("--- ") || rawLine.startsWith("+++ ")) {
+		const inActiveHunk = hunkOldRemaining > 0 || hunkNewRemaining > 0;
+		const isOldFileHeader =
+			!inActiveHunk &&
+			rawLine.startsWith("--- ") &&
+			(rawLines[lineIndex + 1]?.startsWith("+++ ") ?? true);
+		const isNewFileHeader =
+			!inActiveHunk &&
+			rawLine.startsWith("+++ ") &&
+			(lineIndex === 0 || (rawLines[lineIndex - 1]?.startsWith("--- ") ?? false));
+
+		if (isOldFileHeader || isNewFileHeader) {
 			oldLineCursor = null;
 			newLineCursor = null;
 			lineNumberDelta = 0;
+			entries.push(createMetaEntry(rawLine, hunkIndex));
+			continue;
 		}
 
 		const canonical = parseCanonicalDiffLine(rawLine);
@@ -272,10 +292,11 @@ export function parseDiff(diffText: string): ParsedDiff {
 			continue;
 		}
 
-		if (rawLine.startsWith("-") && !rawLine.startsWith("---")) {
+		if (rawLine.startsWith("-")) {
 			hunkIndex = ensureImplicitHunk(hunkIndex);
 			stats.hunks = Math.max(stats.hunks, hunkIndex);
 			stats.removed++;
+			if (hunkOldRemaining > 0) hunkOldRemaining--;
 			const oldLineNumber = oldLineCursor;
 			if (oldLineCursor !== null) {
 				oldLineCursor++;
@@ -293,10 +314,11 @@ export function parseDiff(diffText: string): ParsedDiff {
 			continue;
 		}
 
-		if (rawLine.startsWith("+") && !rawLine.startsWith("+++")) {
+		if (rawLine.startsWith("+")) {
 			hunkIndex = ensureImplicitHunk(hunkIndex);
 			stats.hunks = Math.max(stats.hunks, hunkIndex);
 			stats.added++;
+			if (hunkNewRemaining > 0) hunkNewRemaining--;
 			const newLineNumber = newLineCursor;
 			if (newLineCursor !== null) {
 				newLineCursor++;
@@ -318,6 +340,8 @@ export function parseDiff(diffText: string): ParsedDiff {
 			hunkIndex = ensureImplicitHunk(hunkIndex);
 			stats.hunks = Math.max(stats.hunks, hunkIndex);
 			stats.context++;
+			if (hunkOldRemaining > 0) hunkOldRemaining--;
+			if (hunkNewRemaining > 0) hunkNewRemaining--;
 			const oldLineNumber = oldLineCursor;
 			const newLineNumber = newLineCursor;
 			if (oldLineCursor !== null) {

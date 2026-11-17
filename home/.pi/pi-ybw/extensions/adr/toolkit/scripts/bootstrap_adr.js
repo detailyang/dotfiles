@@ -116,10 +116,14 @@ function generateFirstAdr({ title, status, date, deciders, adrDir }) {
         .join(', ')
     : '';
 
+  const deciderField = deciderLine
+    ? `decision-makers: ${deciderLine}`
+    : 'decision-makers:';
+
   return `---
 status: ${status}
 date: ${date}
-decision-makers: ${deciderLine}
+${deciderField}
 ---
 
 # ${title}
@@ -160,8 +164,8 @@ Conventions:
 
 ## More Information
 
-* MADR: <https://adr.github.io/madr/>
-* Michael Nygard, "Documenting Architecture Decisions": <https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions>`;
+* [MADR](https://adr.github.io/madr/)
+* [Michael Nygard, "Documenting Architecture Decisions"](https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions)`;
 }
 
 function updateIndexFile(indexFile, { relLink, title, status, date }) {
@@ -171,21 +175,44 @@ function updateIndexFile(indexFile, { relLink, title, status, date }) {
 
   const entryLine = `- [${title}](${relLink}) (${status}, ${date})`;
 
-  // Append after "## ADRs" heading if found, otherwise append at end
+  // Append after index heading if found, otherwise append at end
   const normalized = content.replace(/\r\n/g, '\n');
-  const lines = normalized.split('\n');
-  const headingIdx = lines.findIndex(l => /^##\s+ADRs\s*$/i.test(l));
+  const hadTrailingNewline = normalized.endsWith('\n');
+  let lines = normalized.split('\n');
+  if (hadTrailingNewline && lines.length > 0 && lines[lines.length - 1] === '') {
+    lines = lines.slice(0, -1);
+  }
+  const headingIdx = lines.findIndex(l =>
+    /^##\s+(Decision Index|ADRs|Decisions)\s*$/i.test(l),
+  );
 
   if (headingIdx !== -1) {
-    // Insert after the heading (and any blank line after it)
-    let insertAt = headingIdx + 1;
-    while (insertAt < lines.length && lines[insertAt].trim() === '') insertAt++;
+    let sectionEnd = lines.length;
+    for (let i = headingIdx + 1; i < lines.length; i++) {
+      if (/^##\s+/.test(lines[i])) {
+        sectionEnd = i;
+        break;
+      }
+    }
+    let lastListItem = -1;
+    for (let i = sectionEnd - 1; i > headingIdx; i--) {
+      if (/^[-*]\s+/.test(lines[i])) {
+        lastListItem = i;
+        break;
+      }
+    }
+    let insertAt = lastListItem !== -1 ? lastListItem + 1 : sectionEnd;
+    if (insertAt === headingIdx + 1 && lines[insertAt] !== '') {
+      lines.splice(insertAt, 0, '');
+      insertAt++;
+    }
     lines.splice(insertAt, 0, entryLine);
   } else {
     lines.push(entryLine);
   }
 
-  fs.writeFileSync(indexFile, lines.join('\n'), 'utf8');
+  const next = lines.join('\n') + (hadTrailingNewline ? '\n' : '');
+  fs.writeFileSync(indexFile, next, 'utf8');
 }
 
 function main() {

@@ -53,7 +53,10 @@ TEXT_EXTENSIONS = {
 }
 
 LOOP_RE = re.compile(
-    r"\b(for|while|forEach|map|filter|reduce|some|every|find|findIndex)\b"
+    r"\b(for|while|forEach|map|filter|reduce|some|every)\b"
+)
+CALLBACK_LOOP_RE = re.compile(
+    r"\.(forEach|map|filter|reduce|some|every)\s*\("
 )
 MEMBERSHIP_RE = re.compile(
     r"(\.includes\s*\(|\.indexOf\s*\(|\.find\s*\(|\.findIndex\s*\(|\bin_array\s*\(|\bcontains\s*\()"
@@ -64,8 +67,9 @@ QUERY_IN_LOOP_RE = re.compile(
     re.IGNORECASE,
 )
 RENDER_HINT_RE = re.compile(
-    r"\b(function\s+[A-Z][A-Za-z0-9_]*|const\s+[A-Z][A-Za-z0-9_]*\s*=|export\s+default\s+function\s+[A-Z])"
+    r"\b(function\s+[A-Z][a-z][A-Za-z0-9_]*|const\s+[A-Z][a-z][A-Za-z0-9_]*\s*=\s*(?:async\s*)?(?:\([^)]*\)|[A-Za-z0-9_]+)\s*=>|export\s+default\s+function\s+[A-Z][a-z])"
 )
+STRING_LITERAL_RE = re.compile(r"""(?:"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)""")
 
 
 @dataclass
@@ -121,8 +125,63 @@ class PythonVisitor(ast.NodeVisitor):
     def visit_For(self, node: ast.For) -> None:
         self._visit_loop(node)
 
+    def visit_AsyncFor(self, node: ast.AsyncFor) -> None:
+        self._visit_loop(node)
+
     def visit_While(self, node: ast.While) -> None:
         self._visit_loop(node)
+
+    def visit_ListComp(self, node: ast.ListComp) -> None:
+        self._visit_comprehension(node, node.generators, [node.elt])
+
+    def visit_SetComp(self, node: ast.SetComp) -> None:
+        self._visit_comprehension(node, node.generators, [node.elt])
+
+    def visit_GeneratorExp(self, node: ast.GeneratorExp) -> None:
+        self._visit_comprehension(node, node.generators, [node.elt])
+
+    def visit_DictComp(self, node: ast.DictComp) -> None:
+        self._visit_comprehension(node, node.generators, [node.key, node.value])
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        self._visit_scoped_def(node)
+
+    def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> None:
+        self._visit_scoped_def(node)
+
+    def visit_ClassDef(self, node: ast.ClassDef) -> None:
+        self._visit_scoped_def(node)
+
+    def _visit_scoped_def(self, node: ast.AST) -> None:
+        saved = self.loop_depth
+        self.loop_depth = 0
+        self.generic_visit(node)
+        self.loop_depth = saved
+
+    def _visit_comprehension(
+        self,
+        node: ast.AST,
+        generators: list[ast.comprehension],
+        elements: list[ast.AST],
+    ) -> None:
+        saved = self.loop_depth
+        for gen in generators:
+            self.visit(gen.iter)
+            if self.loop_depth >= 1:
+                self.add(
+                    node,
+                    "high",
+                    "nested-loop",
+                    "Nested loop or comprehension may create O(n^2) or worse behavior.",
+                    "Check whether a map/set index, sort+two-pointer pass, grouping, or batching can replace the inner scan.",
+                )
+            self.loop_depth += 1
+            self.visit(gen.target)
+            for cond in gen.ifs:
+                self.visit(cond)
+        for elt in elements:
+            self.visit(elt)
+        self.loop_depth = saved
 
     def _visit_loop(self, node: ast.AST) -> None:
         if self.loop_depth >= 1:
@@ -214,21 +273,51 @@ def scan_python(path: Path, root: Path, text: str) -> list[Finding]:
     return visitor.findings
 
 
+def strip_code_noise(line: str, in_block_comment: bool) -> tuple[str, bool]:
+    out: list[str] = []
+    i = 0
+    n = len(line)
+    while i < n:
+        if in_block_comment:
+            end = line.find("*/", i)
+            if end == -1:
+                return "", True
+            i = end + 2
+            in_block_comment = False
+            continue
+        if line.startswith("/*", i):
+            in_block_comment = True
+            i += 2
+            continue
+        if line.startswith("//", i):
+            break
+        out.append(line[i])
+        i += 1
+    cleaned = STRING_LITERAL_RE.sub('""', "".join(out))
+    if "#" in cleaned:
+        cleaned = cleaned.split("#", 1)[0]
+    return cleaned.strip(), in_block_comment
+
+
 def scan_text(path: Path, root: Path, text: str) -> list[Finding]:
     findings: list[Finding] = []
     lines = text.splitlines()
     loop_stack: list[tuple[int, int]] = []
-    function_component_ranges = component_ranges(lines) if path.suffix in {".jsx", ".tsx", ".js", ".ts"} else set()
+    in_block_comment = False
+    function_component_ranges = component_ranges(lines) if path.suffix in {".jsx", ".tsx"} else set()
 
     for idx, line in enumerate(lines, start=1):
-        stripped = line.strip()
-        if not stripped or stripped.startswith(("//", "#", "*")):
+        stripped, in_block_comment = strip_code_noise(line, in_block_comment)
+        if not stripped:
             continue
-        indent = len(line) - len(line.lstrip(" "))
-        loop_stack = [(level, lno) for level, lno in loop_stack if level < indent + 4]
+        expanded = line.expandtabs(4)
+        indent = len(expanded) - len(expanded.lstrip(" "))
+        loop_stack = [(level, lno) for level, lno in loop_stack if level < indent]
+        was_in_loop = bool(loop_stack)
+        has_inline_callback = bool(CALLBACK_LOOP_RE.search(stripped)) and ("=>" in stripped or "function" in stripped)
 
         if LOOP_RE.search(stripped):
-            if loop_stack:
+            if was_in_loop or len(CALLBACK_LOOP_RE.findall(stripped)) >= 2:
                 findings.append(
                     Finding(
                         rel(path, root),
@@ -241,7 +330,9 @@ def scan_text(path: Path, root: Path, text: str) -> list[Finding]:
                 )
             loop_stack.append((indent, idx))
 
-        if loop_stack and MEMBERSHIP_RE.search(stripped):
+        in_effective_loop = was_in_loop or has_inline_callback
+
+        if in_effective_loop and MEMBERSHIP_RE.search(stripped):
             findings.append(
                 Finding(
                     rel(path, root),
@@ -253,7 +344,7 @@ def scan_text(path: Path, root: Path, text: str) -> list[Finding]:
                 )
             )
 
-        if loop_stack and SORT_RE.search(stripped):
+        if in_effective_loop and SORT_RE.search(stripped):
             findings.append(
                 Finding(
                     rel(path, root),
@@ -265,7 +356,7 @@ def scan_text(path: Path, root: Path, text: str) -> list[Finding]:
                 )
             )
 
-        if loop_stack and QUERY_IN_LOOP_RE.search(stripped):
+        if in_effective_loop and QUERY_IN_LOOP_RE.search(stripped):
             findings.append(
                 Finding(
                     rel(path, root),

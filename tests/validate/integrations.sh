@@ -3,6 +3,9 @@ check "Fish launchers avoid platform-specific paths" "! grep -Eq '/opt/homebrew/
 check "herdr starts fish as a login shell" "grep -q '^shell_mode = \"login\"$' home/.config/herdr/config.toml"
 check "herdr snippet launcher follows HOME" "grep -Fq 'command = \"\$HOME/bin/snippet\"' home/.config/herdr/config.toml && ! grep -Eq '/Users/|/home/[^ ]+/bin' home/.config/herdr/config.toml"
 check "removed Pi extensions leave no stale config" "! test -e home/.pi/agent/domain-proxy.json && ! test -e home/.pi/pi-ybw/extensions/domain-proxy && ! test -e home/.pi/pi-ybw/extensions/multi-skills"
+check "gitconfig cb alias uses valid shell prefix" "[[ \"\$(git config --file home/.gitconfig --get alias.cb)\" == '!'* ]]"
+check "Alacritty config uses terminal.shell table" "grep -Fq '[terminal.shell]' home/.config/alacritty/alacritty.toml && ! grep -Fxq '[shell]' home/.config/alacritty/alacritty.toml"
+check "WezTerm copy/paste bindings define modifier keys on Linux" "grep -Fq 'platform.is_linux' home/.config/wezterm/config/bindings.lua"
 check_if_available lua "Rex splits, focus and close target the intended panes and windows" "lua tests/validate/rex.lua"
 
 check "proxy-env is the executable proxy env module" "test -x home/bin/proxy-env"

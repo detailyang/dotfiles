@@ -37,7 +37,7 @@ acceptance; every local reference resolves and no superseded rule remains active
 
 ```json
 {
-  "plan": "docs/plans/<topic>-phased-plan.md",
+  "plan": "docs/plans/<date>-<topic>-phased-plan.md",
   "execution": {
     "path": "<selected checkout>",
     "git_policy": "No commits or new worktrees unless explicitly authorized",

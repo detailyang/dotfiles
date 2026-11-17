@@ -16,7 +16,7 @@ ybw::deploy::preflight() {
     ybw::log::info "Platform: $(ybw::platform::name)"
     ybw::log::info "Script version: $YBW_INSTALL_VERSION"
 
-    available_space="$(df -k "$HOME" | awk 'NR==2 {print int($4/1024)}')" || {
+    available_space="$(df -Pk "$HOME" | awk 'NR==2 {print int($4/1024)}')" || {
         ybw::log::error "Failed to determine available disk space"
         return 1
     }
@@ -92,13 +92,37 @@ ybw::deploy::sync_tree() {
     return "$rsync_status"
 }
 
+ybw::deploy::backup_pi_target() {
+    local backup_dir="$1"
+    local target_path="$HOME/.pi/pi-ybw"
+    local backup_target="$backup_dir/.pi/pi-ybw"
+
+    if [[ -L "$target_path" || ( -e "$target_path" && ! -d "$target_path" ) ]]; then
+        if ! mkdir -p "$(dirname "$backup_target")" || ! mv "$target_path" "$backup_target"; then
+            ybw::log::error "Failed to back up existing $target_path"
+            return 1
+        fi
+    elif [[ -d "$target_path" ]]; then
+        # Snapshot the current package before sync_tree and sync_pi_package run
+        # so replaced and deleted files stay recoverable under both GNU rsync
+        # and macOS openrsync (which silently disables --delete when --backup is
+        # present). Installed dependencies are excluded because node_modules is
+        # protected from deletion on the receiver.
+        if ! mkdir -p "$backup_target" || ! rsync -a --exclude='node_modules' "$target_path/" "$backup_target/"; then
+            ybw::log::error "Failed to snapshot existing Pi package to $backup_target"
+            return 1
+        fi
+    fi
+}
+
 ybw::deploy::sync_pi_package() {
     local dry_run="$1"
-    local backup_dir="$2"
     local source="$YBW_INSTALL_ROOT/home/.pi/pi-ybw/"
     local target="$HOME/.pi/pi-ybw/"
     local target_path="$HOME/.pi/pi-ybw"
-    local backup_target="$backup_dir/.pi/pi-ybw"
+    local pi_list
+    local staged_pi
+    local rsync_status=0
     local -a rsync_args
 
     if [[ ! -d "$source" ]]; then
@@ -106,44 +130,51 @@ ybw::deploy::sync_pi_package() {
         return 1
     fi
 
-    # openrsync (macOS /usr/bin/rsync) silently drops --delete when --backup is
-    # also present, so the previous contents are snapshotted separately below.
-    rsync_args=(
-        -avh
-        --delete
-        --filter='P node_modules'
-        --filter='P node_modules/**'
-    )
-
     if [[ "$dry_run" == true ]]; then
         ybw::log::info "Would sync Pi package with rsync: $source -> $target"
         return 0
     fi
 
-    if [[ -e "$target_path" || -L "$target_path" ]] && [[ -L "$target_path" || ! -d "$target_path" ]]; then
-        if ! mkdir -p "$(dirname "$backup_target")" || ! mv "$target_path" "$backup_target"; then
-            ybw::log::error "Failed to back up existing $target_path"
-            return 1
-        fi
-    elif [[ -d "$target_path" ]]; then
-        # Snapshot the current package so replaced and deleted files stay
-        # recoverable under both GNU rsync and openrsync. Installed
-        # dependencies are excluded: the sync protects them from deletion, so
-        # they never need restoring, and copying them would add hundreds of
-        # megabytes to every deploy backup.
-        if ! mkdir -p "$backup_target" || ! rsync -a --exclude='node_modules' "$target" "$backup_target/"; then
-            ybw::log::error "Failed to snapshot existing Pi package to $backup_target"
-            return 1
-        fi
+    pi_list="$(mktemp "${TMPDIR:-/tmp}/dotfiles-pi-files.XXXXXX")" || {
+        ybw::log::error "Failed to create Pi package file list"
+        return 1
+    }
+    staged_pi="$(mktemp -d "${TMPDIR:-/tmp}/dotfiles-pi-stage.XXXXXX")" || {
+        rm -f "$pi_list"
+        ybw::log::error "Failed to create Pi package staging directory"
+        return 1
+    }
+
+    if ! ybw::deploy::list_tree_files home/.pi/pi-ybw home/.pi/pi-ybw "$pi_list" || \
+        ! rsync -a --no-perms --files-from="$pi_list" "$source" "$staged_pi/"
+    then
+        rm -f "$pi_list"
+        rm -rf "$staged_pi"
+        ybw::log::error "Failed to stage tracked Pi package files"
+        return 1
     fi
+    rm -f "$pi_list"
+
+    # openrsync (macOS /usr/bin/rsync) silently drops --delete when --backup is
+    # also present, so the previous contents are snapshotted in backup_pi_target.
+    rsync_args=(
+        -avh
+        --no-perms
+        --delete
+        --filter='P node_modules'
+        --filter='P node_modules/**'
+    )
 
     if ! mkdir -p "$(dirname "$target")" "$target"; then
+        rm -rf "$staged_pi"
         ybw::log::error "Failed to create Pi package target: $target_path"
         return 1
     fi
-    if ! rsync "${rsync_args[@]}" "$source" "$target"; then
+    rsync "${rsync_args[@]}" "$staged_pi/" "$target" || rsync_status=$?
+    rm -rf "$staged_pi"
+    if [[ $rsync_status -ne 0 ]]; then
         ybw::log::error "Failed to sync Pi package to $target_path"
-        return 1
+        return "$rsync_status"
     fi
 
     ybw::log::success "Pi package synced: $target_path <- ${source%/}"
@@ -164,10 +195,17 @@ ybw::deploy::link_agent_instructions() {
 
 ybw::deploy::run() {
     local dry_run="$1"
-    local backup_dir="$HOME/.dotfiles-backup-$(date +%Y%m%d_%H%M%S)-$$"
+    local backup_base="$HOME/.dotfiles-backup-$(date +%Y%m%d_%H%M%S)-$$"
+    local backup_dir="$backup_base"
+    local backup_seq=1
     local home_list
     local rsync_status=0
     local pi_rsync_status=0
+
+    while [[ -e "$backup_dir" || -L "$backup_dir" ]]; do
+        backup_dir="${backup_base}-${backup_seq}"
+        backup_seq=$((backup_seq + 1))
+    done
 
     ybw::log::step "Phase 2: Deploying Configuration Files"
 
@@ -190,6 +228,11 @@ ybw::deploy::run() {
             return 1
         fi
 
+        if ! ybw::deploy::backup_pi_target "$backup_dir"; then
+            rm -f "$home_list"
+            return 1
+        fi
+
         ybw::log::info "Backup location: $backup_dir"
         ybw::log::info "Deploying tracked configs with rsync..."
     fi
@@ -199,7 +242,7 @@ ybw::deploy::run() {
     rm -f "$home_list"
 
     if [[ $rsync_status -eq 0 ]]; then
-        ybw::deploy::sync_pi_package "$dry_run" "$backup_dir" || pi_rsync_status=$?
+        ybw::deploy::sync_pi_package "$dry_run" || pi_rsync_status=$?
     fi
 
     if [[ $rsync_status -ne 0 ]]; then
@@ -219,6 +262,12 @@ ybw::deploy::run() {
 
     ybw::deploy::link_agent_instructions || return 1
 
+    if [[ -d "$backup_dir" ]] && [[ -z "$(find "$backup_dir" -mindepth 1 -print -quit 2>/dev/null)" ]]; then
+        rmdir "$backup_dir" 2>/dev/null || true
+    fi
+
     ybw::log::success "Configs deployed successfully"
-    ybw::log::info "To restore replaced files: rsync -av '$backup_dir/' '$HOME/'"
+    if [[ -d "$backup_dir" ]]; then
+        ybw::log::info "To restore replaced files: rsync -av '$backup_dir/' '$HOME/'"
+    fi
 }

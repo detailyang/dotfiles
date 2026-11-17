@@ -11,11 +11,16 @@ export type ReviewExecHost = {
 };
 
 export async function getMergeBase(host: ReviewExecHost, branch: string): Promise<string | null> {
+	const trimmedBranch = branch.trim();
+	if (!trimmedBranch || trimmedBranch.startsWith("-")) {
+		return null;
+	}
+
 	try {
 		const { stdout: upstream, code: upstreamCode } = await host.exec("git", [
 			"rev-parse",
 			"--abbrev-ref",
-			`${branch}@{upstream}`,
+			`${trimmedBranch}@{upstream}`,
 		]);
 
 		if (upstreamCode === 0 && upstream.trim()) {
@@ -25,9 +30,11 @@ export async function getMergeBase(host: ReviewExecHost, branch: string): Promis
 			}
 		}
 
-		const { stdout: mergeBase, code } = await host.exec("git", ["merge-base", "HEAD", branch]);
-		if (code === 0 && mergeBase.trim()) {
-			return mergeBase.trim();
+		for (const candidate of [trimmedBranch, `origin/${trimmedBranch}`]) {
+			const { stdout: mergeBase, code } = await host.exec("git", ["merge-base", "HEAD", candidate]);
+			if (code === 0 && mergeBase.trim()) {
+				return mergeBase.trim();
+			}
 		}
 
 		return null;

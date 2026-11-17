@@ -7,6 +7,6 @@ function rpmbuild-here() {
 }
 
 function rpmbuild-bootstrap() {
-    mkdir -p BUILD BUILDROOT SOURCE SPECS SRPMS
-    echo "RPM build directory structure created in parent directory"
+    mkdir -p BUILD BUILDROOT RPMS SOURCES SPECS SRPMS
+    echo "RPM build directory structure created"
 }

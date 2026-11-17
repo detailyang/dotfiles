@@ -4,7 +4,7 @@ description: Compact the current conversation into a handoff document for anothe
 argument-hint: "What will the next session be used for?"
 ---
 
-Write a handoff document so a fresh agent can continue the work without re-reading the conversation. Save it to a path produced by `mktemp /tmp/handoff-XXXXXX.md`.
+Write a handoff document so a fresh agent can continue the work without re-reading the conversation. Save it to a path produced by `mktemp "${TMPDIR:-/tmp}/handoff.XXXXXX"`.
 
 Next-session focus: $ARGUMENTS
 

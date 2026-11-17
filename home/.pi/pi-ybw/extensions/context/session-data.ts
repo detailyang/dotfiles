@@ -1,7 +1,7 @@
 import type { AssistantMessage } from "@earendil-works/pi-ai";
 import type { SessionEntry, SessionManager } from "@earendil-works/pi-coding-agent";
-import { computeCacheHitPercent, emptyTotals, addToTotals } from "./cache-math.js";
-import type { AssistantUsageMetric, CacheSessionMetrics } from "./types.js";
+import { computeCacheHitPercent, emptyTotals, addToTotals } from "./cache-math.ts";
+import type { AssistantUsageMetric, CacheSessionMetrics } from "./types.ts";
 
 function isAssistantMessageEntry(entry: SessionEntry): entry is Extract<SessionEntry, { type: "message" }> & {
   message: AssistantMessage;

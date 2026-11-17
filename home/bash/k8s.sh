@@ -23,18 +23,18 @@ function k() {
             echo "Switched to: $name"
             echo "KUBECONFIG=$config"
             
-            # Try to switch to preferred shell
-            if which fish &> /dev/null; then
-                exec fish
-            elif which zsh &> /dev/null; then
-                exec zsh
-            elif which bash &> /dev/null; then
-                exec bash
-            fi
-            
             # Copy to clipboard if available
-            if which pbcopy &> /dev/null; then
+            if command -v pbcopy &> /dev/null; then
                 echo "export KUBECONFIG=$config" | pbcopy
+            fi
+
+            # Try to switch to preferred shell
+            if command -v fish &> /dev/null; then
+                exec fish
+            elif command -v zsh &> /dev/null; then
+                exec zsh
+            elif command -v bash &> /dev/null; then
+                exec bash
             fi
             return 0
         fi

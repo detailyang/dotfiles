@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 const resources = JSON.parse(readFileSync(path.join(ROOT, "package.json"), "utf8")).pi;
 const MARKDOWN_LINK_RE = /!?\[[^\]]*\]\(([^)]+)\)/g;
+const CODE_FENCE_RE = /^```[\s\S]*?^```/gm;
 
 function listMarkdownFiles(dir) {
   const fullDir = path.join(ROOT, dir);
@@ -62,8 +63,20 @@ for (const kind of Object.keys(registered)) {
   }
 }
 
-for (const file of [...registered.skills, ...registered.prompts].flatMap(listMarkdownFiles)) {
-  const text = readFileSync(file, "utf8");
+const extensionDocs = registered.extensions.flatMap((resource) => {
+  const extensionsRoot = path.resolve(ROOT, resource);
+  if (!statSync(extensionsRoot).isDirectory()) return [];
+  return readdirSync(extensionsRoot).flatMap((entry) => {
+    const dir = path.join(extensionsRoot, entry);
+    if (!statSync(dir).isDirectory()) return [];
+    return ["README.md", "ATTRIBUTION.md"]
+      .map((name) => path.join(dir, name))
+      .filter((file) => existsSync(file));
+  });
+});
+
+for (const file of [...[...registered.skills, ...registered.prompts].flatMap(listMarkdownFiles), ...extensionDocs]) {
+  const text = readFileSync(file, "utf8").replace(CODE_FENCE_RE, "");
   const relativeFile = path.relative(ROOT, file);
 
   for (const match of text.matchAll(MARKDOWN_LINK_RE)) {
@@ -73,6 +86,20 @@ for (const file of [...registered.skills, ...registered.prompts].flatMap(listMar
     const resolved = path.resolve(path.dirname(file), target);
     if (!existsSync(resolved)) {
       failures.push(`${relativeFile}: missing link target ${match[1]}`);
+    }
+  }
+}
+
+for (const themeEntry of registered.themes) {
+  const themesRoot = path.resolve(ROOT, themeEntry);
+  const themeFiles = statSync(themesRoot).isDirectory()
+    ? readdirSync(themesRoot).filter((f) => f.endsWith(".json")).map((f) => path.join(themesRoot, f))
+    : [themesRoot];
+  for (const themeFile of themeFiles) {
+    try {
+      JSON.parse(readFileSync(themeFile, "utf8"));
+    } catch (err) {
+      failures.push(`${path.relative(ROOT, themeFile)}: invalid theme JSON (${err.message})`);
     }
   }
 }

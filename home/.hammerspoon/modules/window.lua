@@ -8,8 +8,7 @@ local logger = hs.logger.new("windows")
 
 function winresize(how)
    local win = hs.window.focusedWindow()
-   local app = win:application():name()
-   local windowLayout
+   if not win then return end
    local newrect
 
    if how == "left" then
@@ -41,6 +40,7 @@ end
 
 function winmovescreen(how)
    local win = hs.window.focusedWindow()
+   if not win then return end
    if how == "left" then
       win:moveOneScreenWest()
    elseif how == "right" then
@@ -51,6 +51,7 @@ end
 -- Toggle a window between its normal size, and being maximized
 function toggle_window_maximized()
    local win = hs.window.focusedWindow()
+   if not win then return end
    if frameCache[win:id()] then
       win:setFrame(frameCache[win:id()])
       frameCache[win:id()] = nil
@@ -65,7 +66,7 @@ function get_horizontal_third(win)
    local frame=win:frame()
    local screenframe=win:screen():frame()
    local relframe=hs.geometry(frame.x-screenframe.x, frame.y-screenframe.y, frame.w, frame.h)
-   local third = math.floor(3.01*relframe.x/screenframe.w)
+   local third = math.max(0, math.min(2, math.floor(3.01*relframe.x/screenframe.w)))
    logger.df("Screen frame: %s", screenframe)
    logger.df("Window frame: %s, relframe %s is in horizontal third #%d", frame, relframe, third)
    return third
@@ -75,7 +76,7 @@ function get_vertical_third(win)
    local frame=win:frame()
    local screenframe=win:screen():frame()
    local relframe=hs.geometry(frame.x-screenframe.x, frame.y-screenframe.y, frame.w, frame.h)
-   local third = math.floor(3.01*relframe.y/screenframe.h)
+   local third = math.max(0, math.min(2, math.floor(3.01*relframe.y/screenframe.h)))
    logger.df("Screen frame: %s", screenframe)
    logger.df("Window frame: %s, relframe %s is in vertical third #%d", frame, relframe, third)
    return third
@@ -83,6 +84,7 @@ end
 
 function left_third()
    local win = hs.window.focusedWindow()
+   if not win then return end
    local third = get_horizontal_third(win)
    if third == 0 then
       winresize("hthird-0")
@@ -93,6 +95,7 @@ end
 
 function right_third()
    local win = hs.window.focusedWindow()
+   if not win then return end
    local third = get_horizontal_third(win)
    if third == 2 then
       winresize("hthird-2")
@@ -103,6 +106,7 @@ end
 
 function up_third()
    local win = hs.window.focusedWindow()
+   if not win then return end
    local third = get_vertical_third(win)
    if third == 0 then
       winresize("vthird-0")
@@ -113,6 +117,7 @@ end
 
 function down_third()
    local win = hs.window.focusedWindow()
+   if not win then return end
    local third = get_vertical_third(win)
    if third == 2 then
       winresize("vthird-2")
@@ -123,6 +128,7 @@ end
 
 function center()
    local win = hs.window.focusedWindow()
+   if not win then return end
    win:centerOnScreen()
 end
 

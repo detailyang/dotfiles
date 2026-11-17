@@ -18,8 +18,8 @@ ybw::brew::install_cask() {
     local cask="$1"
     local cask_name
 
-    cask_name="$(basename "$cask")"
-    if brew list --cask "$cask" &> /dev/null; then
+    cask_name="${cask##*/}"
+    if brew list --cask "$cask_name" &> /dev/null; then
         ybw::log::success "$cask_name already installed"
         return 0
     fi
@@ -211,6 +211,7 @@ ybw::macos::configure_fish_login_shell() {
         fi
     fi
 
+    local USER="${USER:-$(id -un)}"
     current_shell="$(/usr/bin/dscl . -read "/Users/$USER" UserShell 2>/dev/null | awk '{print $2}')"
     if [[ "$current_shell" == "$fish_path" ]]; then
         ybw::log::success "$fish_path is already the default shell"
@@ -244,23 +245,8 @@ ybw::macos::install_optional_packages() {
         ybw::brew::install_tap "$tap" || failed=1
     done
 
-    for cask in "${YBW_BREW_CASK_PACKAGES[@]}"; do
+    for cask in "${YBW_BREW_CASK_PACKAGES[@]}" "${YBW_BREW_TAP_CASKS[@]}"; do
         ybw::brew::install_cask "$cask" || failed=1
-    done
-
-    for cask in "${YBW_BREW_TAP_CASKS[@]}"; do
-        cask_name="${cask##*/}"
-        if brew list --cask | grep -q "^$cask_name$"; then
-            ybw::log::success "$cask_name already installed"
-        else
-            ybw::log::info "Installing $cask..."
-            if brew install --cask "$cask"; then
-                ybw::log::success "$cask_name installed"
-            else
-                ybw::log::warn "Failed to install $cask"
-                failed=1
-            fi
-        fi
     done
 
     if [[ $failed -ne 0 ]]; then
@@ -328,6 +314,7 @@ ybw::linux::configure_fish_login_shell() {
         fi
     fi
 
+    local USER="${USER:-$(id -un)}"
     current_shell="$(getent passwd "$USER" 2>/dev/null | cut -d: -f7)"
     current_shell="${current_shell:-${SHELL:-}}"
     if [[ "$current_shell" == "$fish_path" ]]; then
