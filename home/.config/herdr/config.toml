@@ -67,8 +67,10 @@ command = "$HOME/bin/snippet"
 
 [ui]
 prompt_new_tab_name = false
-pane_borders = true
-pane_gaps = false 
+# No borders, outer frame, or gaps around panes: no empty space at all.
+pane_borders = "off"
+pane_outer_borders = false
+pane_gaps = false
 agent_panel_sort = "priority"
 
 # Keep status colors dynamic while emphasizing identity and de-emphasizing context.
