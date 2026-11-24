@@ -91,12 +91,13 @@ test("reclassifies the Excel BPS upstream response too", async () => {
   assert.equal(isRetryableAssistantError(result.message), true);
 });
 
-test("reclassifies upstream HTTP/2 stream and connection failures for retry", async () => {
+test("reclassifies upstream HTTP/2 stream, connection, and incomplete-reply failures for retry", async () => {
   const errorMessages = [
     "Error: Upstream HTTP/2 stream failed",
     "Upstream HTTP/2 stream failed",
     "Error: Connection error.",
     "Error: Retry failed after 3 attempts: Connection error.",
+    "ant-jameslee: the reply ended before it was complete",
   ];
 
   for (const errorMessage of errorMessages) {
