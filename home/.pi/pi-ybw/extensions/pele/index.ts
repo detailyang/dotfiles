@@ -11,7 +11,7 @@ import { Image, Markdown, getCapabilities, getCellDimensions } from "@earendil-w
 import { Type } from "typebox";
 import { transformMermaid } from "./markdown.ts";
 import { imageMarkdown, normalizeKittyImageRows } from "./preview.ts";
-import { PeleRenderer, type Appearance, type Diagram } from "./renderer.ts";
+import { PeleRenderer, outputDirectory, type Appearance, type Diagram } from "./renderer.ts";
 
 const MAX_PREVIEW_ROWS = 32;
 
@@ -162,8 +162,8 @@ export default function peleExtension(pi: ExtensionAPI): void {
 	let sessionActive = false;
 	const previews = new WeakMap<Diagram, { image: Image; base64: string }>();
 	let appearance: () => Appearance = () => "light";
-	const getRenderer = (cwd: string) => {
-		renderer ??= new PeleRenderer(join(cwd, ".pi", "pele"));
+	const getRenderer = () => {
+		renderer ??= new PeleRenderer(outputDirectory());
 		return renderer;
 	};
 
@@ -173,7 +173,7 @@ export default function peleExtension(pi: ExtensionAPI): void {
 			activeSessions++;
 		}
 		installRuntimeHooks();
-		renderer = new PeleRenderer(join(ctx.cwd, ".pi", "pele"));
+		renderer = new PeleRenderer(outputDirectory());
 		appearance = () => appearanceFromContext(ctx);
 	});
 
@@ -215,9 +215,9 @@ export default function peleExtension(pi: ExtensionAPI): void {
 			width: Type.Optional(Type.Integer({ minimum: 80, maximum: 1600, description: "Layout width in pixels (default 720)" })),
 			appearance: Type.Optional(Type.Union([Type.Literal("light"), Type.Literal("dark")])),
 		}),
-		async execute(_id, params, signal, _onUpdate, ctx) {
+		async execute(_id, params, signal, _onUpdate, _ctx) {
 			signal?.throwIfAborted();
-			const diagram = getRenderer(ctx.cwd).render(params.source, params.width, params.appearance ?? appearance());
+			const diagram = getRenderer().render(params.source, params.width, params.appearance ?? appearance());
 			signal?.throwIfAborted();
 			const base64 = diagram.png.toString("base64");
 			rememberNaturalSize(base64, diagram);

@@ -11,7 +11,8 @@ the diagram; `@resvg/resvg-js` rasterizes its SVG for terminal previews.
   paths.
 - Inline previews require a terminal that Pi detects as supporting Kitty or
   iTerm2 graphics. Other terminals show the source and a local SVG link.
-- Generated files are stored under `.pi/pele/` in the session working directory.
+- Generated files are stored under `pi-pele` in the system temp directory
+  (`$TMPDIR/pi-pele`), never in the session working directory.
 - Links and images in diagram source are disabled. Source is never uploaded.
 
 The extension disables Pi's built-in Mermaid display in memory for the active
