@@ -78,6 +78,12 @@ pane_borders = "off"
 pane_outer_borders = false
 pane_gaps = false
 agent_panel_sort = "priority"
+# Reclaim the scrollbar column; wheel and keyboard scrolling still work.
+pane_scrollbars = false
+# Single-tab workspaces do not need a tab row.
+hide_tab_bar_when_single_tab = true
+# Use distinct glyphs instead of color-only dots for agent state.
+status_indicators = "symbols"
 
 # Keep status colors dynamic while emphasizing identity and de-emphasizing context.
 [ui.sidebar.agents]
@@ -139,5 +145,20 @@ rows = [
   ],
 ]
 
+# Visual feedback for background agents while sound stays off.
+[ui.toast]
+delivery = "herdr"
+delay_seconds = 1
+
+[ui.toast.herdr]
+position = "bottom-right"
+
 [ui.sound]
 enabled = false
+
+[experimental]
+# Let prefix mode switch the host input source so Ctrl+A works with an IME.
+switch_ascii_input_source_in_prefix = true
+# Keep the macOS IME candidate window anchored in agent TUIs.
+reveal_hidden_cursor_for_cjk_ime = true
+cjk_ime_agents = ["pi", "claude", "codex"]
