@@ -7,6 +7,12 @@ manage_ssh_config = true
 [theme]
 name = "catppuccin-latte"
 
+# Subtle Latte surfaces keep the borderless sidebar distinct from panes.
+[theme.custom]
+sidebar_bg = "#e6e9ef"
+active_row_bg = "#dce0e8"
+selection_bg = "#ccd0da"
+
 [terminal]
 default_shell = "fish"
 shell_mode = "login"
@@ -84,6 +90,8 @@ pane_scrollbars = false
 hide_tab_bar_when_single_tab = true
 # Use distinct glyphs instead of color-only dots for agent state.
 status_indicators = "symbols"
+# Match the blue used for workspace labels in sidebar rows.
+accent = "#1e66f5"
 
 # Keep status colors dynamic while emphasizing identity and de-emphasizing context.
 [ui.sidebar.agents]
