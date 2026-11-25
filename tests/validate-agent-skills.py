@@ -13,8 +13,8 @@ from urllib.parse import unquote, urlsplit
 
 
 WORKFLOW_NAMES = {
-    "grill", "herdr", "improve", "ship", "show-me", "to-goal", "to-issue",
-    "to-spec", "zoom-out",
+    "grill", "herdr", "improve", "ship", "show-me", "terminal-browser",
+    "to-goal", "to-issue", "to-spec", "zoom-out",
 }
 NAME = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*\Z")
 RESOURCE = re.compile(r"(?<![/\w.-])(?:references|scripts|assets)/[\w./-]+\.[\w-]+")
