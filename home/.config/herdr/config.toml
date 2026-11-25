@@ -73,10 +73,10 @@ command = "$HOME/bin/snippet"
 
 [ui]
 # Narrower default while still fitting two-line agent/space rows.
-sidebar_width = 22
-sidebar_min_width = 16
+sidebar_width = 18
+sidebar_min_width = 14
 # Keep auto-scaling from widening beyond this on long workspace names.
-sidebar_max_width = 28
+sidebar_max_width = 22
 
 prompt_new_tab_name = false
 # No borders, outer frame, or gaps around panes: no empty space at all.
