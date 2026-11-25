@@ -214,6 +214,7 @@ rex.bind("ctrl+a>g", "session.switch")
 -- tmux's `bind M-w` includes the prefix; this opens Rex's session picker.
 rex.bind("ctrl+a>alt+w", "session.switch")
 
+-- Reload is prefix-only: a direct Cmd+R alias would fire too easily.
 rex.bind("ctrl+a>r", "reload_config")
 rex.bind("ctrl+a>z", "pane.zoom")
 rex.bind("ctrl+a>x", "pane.close") -- Only this pane; Ctrl+A c closes the tab.
@@ -260,7 +261,6 @@ rex.bind("cmd+k", "session.switch")
 rex.bind("cmd+b", "client.sidebar.toggle")
 rex.bind("cmd+o", "open_snippet")
 rex.bind("cmd+p", "capture_html")
-rex.bind("cmd+r", "reload_config")
 
 -- Keep the existing Ghostty migration's Alt+Backspace behavior.
 rex.bind("alt+backspace", "pane.send_key", { key = "alt+backspace" })

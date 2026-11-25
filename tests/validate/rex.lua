@@ -84,6 +84,13 @@ assert(bindings["resize/enter"].action == "client.mode.exit")
 assert(bindings["cmd+shift+left"].action == "pane.resize")
 assert(bindings["cmd+="].action == "pane.balance")
 
+-- Reload stays behind the prefix; no direct alias may trigger it.
+for key, binding in pairs(bindings) do
+  if binding.action == "reload_config" then
+    assert(key == "ctrl+a>r", "Reload must be prefix-only, found: " .. key)
+  end
+end
+
 -- All Fish launchers use the resolved executable, including paths with spaces.
 for _, path in ipairs({ fish_path, "/usr/local/bin/fish", "/opt/homebrew/bin/fish", "/usr/bin/fish" }) do
   fish_path = path
