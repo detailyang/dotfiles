@@ -1,12 +1,16 @@
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
 import { Image, Markdown, setCapabilities } from "@earendil-works/pi-tui";
 import { transformMermaid } from "../extensions/pele/markdown.ts";
 import { imageMarkdown } from "../extensions/pele/preview.ts";
-import { PeleRenderer, resolveVariables } from "../extensions/pele/renderer.ts";
+import {
+	PeleRenderer,
+	outputDirectory,
+	resolveVariables,
+} from "../extensions/pele/renderer.ts";
 
 const isImageLine = (line: string) => line.includes("\x1b_G") || line.includes("\x1b]1337;File=");
 const source = "flowchart LR\n  A[Input] --> B[Pele]";
@@ -32,6 +36,14 @@ test("unmodified Markdown preserves CRLF and reference definitions", () => {
 
 test("render failures preserve source", () => {
 	assert.equal(transformMermaid(fenced, () => { throw new Error("invalid"); }), fenced);
+});
+
+test("artifacts are written to the system temp directory, not the working directory", () => {
+	const directory = outputDirectory();
+	assert.equal(directory, join(tmpdir(), "pi-pele"));
+	assert.ok(!directory.startsWith(process.cwd() + "/"), "must stay outside the checkout");
+	assert.ok(statSync(directory).isDirectory());
+	assert.ok((statSync(directory).mode & 0o077) === 0, "must not be readable by other users");
 });
 
 test("Pele renders SVG and bounded PNG artifacts, caches and rejects invalid input", () => {

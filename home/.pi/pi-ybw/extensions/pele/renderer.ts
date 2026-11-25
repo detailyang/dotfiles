@@ -1,10 +1,30 @@
 import { createHash } from "node:crypto";
-import { existsSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Resvg } from "@resvg/resvg-js";
 import { render } from "pele";
 
 export type Appearance = "light" | "dark";
+
+// Renders belong in the system temp directory, not in the session working
+// directory: they are scratch output, and a project checkout should not gain a
+// .pi/pele tree from a diagram preview. Artifacts are content-addressed, so one
+// shared directory is safe to reuse across sessions and a printed path stays
+// valid afterwards.
+//
+// tmpdir() is world-writable on Linux, so refuse a path that another user owns
+// or that is a symlink, instead of writing into it.
+export function outputDirectory(): string {
+	const directory = join(tmpdir(), "pi-pele");
+	mkdirSync(directory, { recursive: true, mode: 0o700 });
+	const stats = lstatSync(directory);
+	const owner = typeof process.getuid === "function" ? process.getuid() : stats.uid;
+	if (!stats.isDirectory() || stats.uid !== owner) {
+		throw new Error(`Pele output directory is not a directory owned by the current user: ${directory}`);
+	}
+	return directory;
+}
 
 export interface Diagram {
 	svg: string;

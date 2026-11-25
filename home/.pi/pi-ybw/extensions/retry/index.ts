@@ -13,6 +13,7 @@ export const DEFAULT_RETRY_ERROR_CODES = [
 export const DEFAULT_RETRY_ERROR_MESSAGE_PATTERNS: readonly RegExp[] = [
   /\bupstream http\/?2 stream failed\b/i,
   /\bconnection error\b/i,
+  /\bthe reply ended before it was complete\b/i,
 ];
 
 // pi-ai's native classifier already retries messages containing "overloaded",

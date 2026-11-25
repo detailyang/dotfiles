@@ -12,6 +12,7 @@ It also retries these plain-text transport failures, which carry no error code:
 
 - `Error: Upstream HTTP/2 stream failed`
 - `Error: Connection error.`
+- `ant-jameslee: the reply ended before it was complete`
 
 The extension only reclassifies assistant errors containing those exact error
 codes or messages, including the Excel/BPS forms:
