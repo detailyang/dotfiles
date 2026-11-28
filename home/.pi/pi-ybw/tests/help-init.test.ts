@@ -58,3 +58,23 @@ test("init command queues followUp when session is busy", async () => {
   assert.equal(sent[0].options, undefined);
   assert.deepEqual(sent[1].options, { deliverAs: "followUp" });
 });
+
+test("init command instructs the agent to create a missing AGENTS.md", async () => {
+  let command: any;
+  const sent: string[] = [];
+  initExtension({
+    registerCommand(name: string, registered: any) {
+      assert.equal(name, "init");
+      command = registered;
+    },
+    sendUserMessage(text: string) {
+      sent.push(text);
+    },
+  } as never);
+  assert.ok(command);
+
+  await command.handler("", { isIdle: () => true });
+
+  assert.equal(sent.length, 1);
+  assert.match(sent[0], /If no AGENTS\.md exists, create one/);
+});
